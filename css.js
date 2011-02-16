@@ -69,13 +69,13 @@ define(["has"], function(has){
 				var xhr = typeof XMLHttpRequest == "undefined" ?
 					new ActiveXObject("Microsoft.XMLHTTP") :
 					new XMLHttpRequest;
+				insertLink(url);
 				xhr.open("GET", url, true);
 				var self = this;
 				xhr.onreadystatechange = function(){
 					if(xhr.readyState == 4){
 						if(xhr.status < 400){
 							self.processCss(xhr.responseText, url.replace(/[^\/]+$/,''), function(){
-								insertLink(url);
 								loaded();
 							});
 						}else{
