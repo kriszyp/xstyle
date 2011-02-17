@@ -14,7 +14,7 @@ define([], function(){
 						selector.replace(/#([\w-]+)/, function(t, id){
 							target.id = id;
 						});
-						rule.renderInto(target);
+						rule.render(target);
 						domNode.appendChild(target);
 					}
 				}
