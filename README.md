@@ -1,10 +1,43 @@
+XStyle is a extensible CSS loader designed to support various plugins for additional 
+CSS functionality and backwards compatibility of newer features.
+
+A simple example of using xstyle to load CSS:
+<pre>
+<script src="/path/to/xstyle/xstyle.js"></script>
+<script>
+xStyle.load("./xstyle!./path/to/example.css").then(function(){
+	// all loaded
+});
+</script>
+</pre>
+Or you can use xstyle as a CSS loader plugin for AMD loaders like RequireJS:
+<pre>
 define(["xstyle!./path/to/example.css"], function(){
 	// module starts after css is loaded
 });
+</pre>
 
+XStyle is designed to allow for plugins to be registered to handle different CSS properties.
+For example, we could use the CSS3 plugin to enable the box-shadow property to
+work on browsers that use vendor prefixes:
+<pre>
+example.css:
+#table {
+	box-shadow: 2px 5px 5px black;
+}
+html:
+<script src="/path/to/xstyle/xstyle.js"></script>
+<script src="/path/to/xstyle/css3.js"></script>
+<script>
+xStyle.load("./xstyle!./path/to/example.css").extend(xStyle.CSS3);
+</script>
+Or with a module loader:
+define(["xstyle!./path/to/example.css", "xstyle/css3"], function(exampleStyle, CSS3){
+	exampleStyle.extend(CSS3);
+});
+</pre>
 
-We extend with widget support for auto-loading of widgets. We also extend with CSS3
-support for doing backwards compatibility for CSS3 properties:
+We can also extend with widget support for auto-loading of widgets:
 
 <pre>
 example.css:
