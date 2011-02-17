@@ -1,3 +1,4 @@
+/* Simple CSS Loader*/
 define(["has"], function(has){
 	if(typeof definedCss == "undefined"){
 		definedCss = {};
@@ -60,8 +61,10 @@ define(["has"], function(has){
 				processCss(definedCss[url], url.replace(/[^\/]+$/,''));
 				insertCss(definedCss[url]);
 			}
+			var cssHandle = this.createHandle();
 			if(has("event-link-onload") && !this.needsProcessing){
 				insertLink(url).onload = function(){
+					loaded(cssHandle);
 					console.log(url + "loaded");
 				};
 			}else{
@@ -75,8 +78,9 @@ define(["has"], function(has){
 				xhr.onreadystatechange = function(){
 					if(xhr.readyState == 4){
 						if(xhr.status < 400){
-							self.processCss(xhr.responseText, url.replace(/[^\/]+$/,''), function(){
-								loaded();
+							self.processCss(xhr.responseText, url.replace(/[^\/]+$/,''), function(cssText){
+								cssHandle.cssText = cssText;
+								loaded(cssHandle);
 							});
 						}else{
 							throw new Error("Unable to load css " + url);
@@ -86,12 +90,16 @@ define(["has"], function(has){
 				xhr.send();
 			}			
 		},
+		createHandle: function(){
+			// stub that can be overriden by xstyle
+			return {};
+		},
 		needsProcessing: false,
 		processCss: function (css, baseUrl, loaded){
-			var additionalCss;
-			css = css.replace(/(@import\s+[^\s]+\s+)(.+);/g, function(t, rule, query){
+			css = css.replace(/\/\*[\s\S]*?\*\//g,'') // remove comments
+						.replace(/(@import\s+[^\s]+\s+)(.+);/g, function(t, rule, query){
 				// TODO: import
-				return rule + parts.join(" and ") + ';';
+				return t; //return rule + parts.join(" and ") + ';';
 			});
 			loaded(css.replace(/url\("?([^\)"]+)"?\)/g, function(t, url){
 				if(url.charAt(0) != "/"){
@@ -102,4 +110,4 @@ define(["has"], function(has){
 		}
 		
 	};
-})
+});
