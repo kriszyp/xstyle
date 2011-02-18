@@ -23,9 +23,13 @@ define([], function(){
 				return function(domNode){
 					domNode.innerHTML = content;
 				}
-			}
+			},
+			role: "layout"
 		};
 	}
-	Layout.layout = new Layout({}).layout;
+	var def = new Layout({});
+	Layout.layout = def.layout;
+	Layout.content = def.content;
+	Layout.role = def.role;
 	return Layout; 
 })

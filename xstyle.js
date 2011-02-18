@@ -54,8 +54,7 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 	}
 	return {
 		load: function(id, parentRequire, loaded, config){
-			console.log("css loading " + id);
-			if(id.indexOf(".") == -1){
+			if(!id.match(/\.\w+$/)){
 				id = id + ".css";
 			}
 			var url = parentRequire ? parentRequire.toUrl(id) : id;
@@ -83,11 +82,11 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 					}
 				};
 			}
+			var self = this;
 			if(has("event-link-onload")){
 				insertLink(url).onload = function(){
-					cssHandle = this.createHandle();
+					cssHandle = self.createHandle();
 					loaded(cssHandle);
-					console.log(url + "loaded");
 				};
 			}else{
 				// need to request the CSS
@@ -96,12 +95,11 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 					new XMLHttpRequest;
 				insertLink(url);
 				xhr.open("GET", url, true);
-				var self = this;
 				xhr.onreadystatechange = function(){
 					if(xhr.readyState == 4){
 						if(xhr.status < 400){
 							self.processCss(xhr.responseText, url.replace(/[^\/]+$/,''), function(cssText){
-								cssHandle = this.createHandle();
+								cssHandle = self.createHandle();
 								cssHandle.cssText = cssText;
 								loaded(cssHandle);
 							});
@@ -115,7 +113,11 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 			return promise;		
 		},
 		createHandle: function(){
-			return {
+			function Rule(){}
+			Rule.prototype = {
+				eachProperty: function(onProperty){
+					return this.cssText.replace(/\s*([^;:]+)\s*:\s*([^;]+)?/g, onProperty);
+				},
 				extend: function(){
 					var css = this.cssText;
 					var propertyExtensions;
@@ -128,18 +130,16 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 						}else{
 							// add each set of property extensions
 							if(propertyExtensions){
-								for(var i in arg){
-									propertyExtensions[i] = arg[i];
+								for(var j in arg){
+									propertyExtensions[j] = arg[j];
 								}
 							}else{ // no need to copy for first one, just use it
 								propertyExtensions = arg;
 							}
 						}
 					}
-					var fullProperties;
 					var lastRule = this;
-					this.renderingRules = {};
-					var onProperty = function(t, name, value){
+					function onProperty(t, name, value){
 						// this is called for each CSS property
 						var propertyHandler = propertyExtensions[name];
 						if(typeof propertyHandler == "function"){
@@ -147,72 +147,76 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 							var result = propertyHandler(value, lastRule);
 							if(typeof result == "function"){
 								// if it returns a function, it is a renderer function
-								if(!lastRule.renderers){
-									lastRule.renderers = [];
-									this.renderingRules[lastRule.selector] = lastRule.renderers;
-								}
-								lastRule.renderers.push(renderer);
+								var renderers = (lastRule.renderers || (lastRule.renderers = []));
+								renderers[propertyHandler.role || propertyExtensions.role || renderers.length] = result;
 							}
 							else if(typeof result == "string"){
 								// otherwise it replacement CSS
 								return result;
 							}
 						}
-						return "";
+						return t;
 					};
 					// parse the CSS, finding each rule
-					css = css.replace(/\s*([^{;]+{)?\s*([^{}]+;)?\s*(})?/g, function(full, selector, properties, close){
+					css = css.replace(/\s*(?:([^{;]+)\s*{)?\s*([^{}]+;)?\s*(};?)?/g, function(full, selector, properties, close){
 						// called for each rule
 						if(selector){
 							// a selector as found, start a new rule (note this can be nested inside another selector)
-							lastRule = new Rule({parent: lastRule});						
-							fullProperties = "";
+							var newRule = new Rule();
+							(lastRule.layout || (lastRule.layout = [])).push(newRule); 
+							newRule._parent = lastRule;
+							newRule.selector = selector;
+							lastRule = newRule;
+							lastRule.cssText = "";
 						}
 						if(properties){
 							// some properties were found
-							fullProperties += properties;
+							lastRule.cssText += properties;
 						}
 						if(close){
 							// rule was closed with }
-							var selector = lastRule.layout ? onProperty(0, "layout", lastRule.layout) || lastRule.selector : lastRule.selector; // run layout property  
-							return selector + "{" + 
-								fullProperties.replace(/([^:]+):([^;]+);?/g, onProperty) + "}"; // process all the css properties
+							var result = (lastRule.layout ? onProperty(0, "layout", lastRule.layout) || lastRule.selector : lastRule.selector) + 
+								"{" + lastRule.eachProperty(onProperty) + "}"; // process all the css properties
+							lastRule = lastRule._parent;
+							return result; 
 						}
 						return "";
 					});
 					lastRule = this;
 					// might only need to do this if we have rendering rules
 					require.ready(function(){
-						for(var i in lastRule.renderingRules){
-							lastRule.render(i);
-						}
+						lastRule.render();
 					});
 					if(this.cssText != css){
+						this.cssText = css;
 						// it was modified, add the modified one
-						cssLoader.insertCss(css);
+						insertCss(css);
 					}
 				},
 				render: function(selector, node){
-					if(typeof selector == "string"){
-						// render the given selector
-						var renderers = this.renderingRules[selector];
-						var targets = querySelectorAll(i, node);
-					}else{
-						// render the root of the css
-						targets = [node];
-						var renders = this.renderers;
+					if(typeof selector == "string" || selector == undefined){
+						var layout = this.layout;
+						for(var i = 0; i < layout.length; i++){
+							// iterate through the layout and render each matching one
+							var rule = layout[i];
+							if(rule.selector == selector || selector == undefined){
+								var targets = querySelectorAll(rule.selector, node)
+								for(var j = 0; j < targets.length; j++){
+									rule.render(targets[j]);
+								}
+							}
+						}
+						return;
 					}
-					var renderersLength = renderers.length;
-					for(var i = 0; i < targets.length; i++){
-						// iterate through the target elements and render each oen
-						var target = targets[i];
-						for(var j = 0; j < renderersLength; j++){
-							renderers[j]({}, target);
+					var renderers = this.renderers;
+					if(renderers){
+						for(var j in renderers){
+							renderers[j](selector/*node*/);
 						}
 					}
-					
 				}
 			};
+			return new Rule();
 		},
 		setQueryEngine: function(engine){
 			querySelectorAll = engine;

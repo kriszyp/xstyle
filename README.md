@@ -75,7 +75,7 @@ define(["xstyle!./path/to/example.css", "style/layout"], function(style, layout)
 	style.extend(layout); 
 });
 </pre>
-This will find the #header element and #footer element and proactively generate the internal h1#headline (<h1 id="headline"></h1>) and .made-by (<div class="made-by"></div>) elements.
+This will find the #header element and #footer element and proactively generate the internal h1#headline (&lt;h1 id="headline">&lt;/h1>) and .made-by (&lt;div class="made-by">&lt;/div>) elements.
 We could even have it generate the top level #header and #footer for us:
 <pre>
 define(["xstyle!./path/to/example.css", "style/layout"], function(style, layout){
