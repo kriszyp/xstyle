@@ -12,12 +12,12 @@ define([], function(){
 						with(scope){
 							var __module = eval(value);
 							var prototype = __module.prototype;
-							var props = {layout: rule.layout};
+							var props = {};
 							if(prototype){
 								rule.eachProperty(function(t, name, value){
 									if(name in prototype){
 										var type = typeof prototype[name];
-										if(type == "string"){
+										if(type == "string" || typeof value != "string"){
 											props[name] = value;
 										}else if(type == "number"){
 											props[name] = +value;

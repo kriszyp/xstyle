@@ -100,7 +100,7 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 						if(xhr.status < 400){
 							self.processCss(xhr.responseText, url.replace(/[^\/]+$/,''), function(cssText){
 								cssHandle = self.createHandle();
-								cssHandle.cssText = cssText;
+								cssHandle.fullCssText = cssText;
 								loaded(cssHandle);
 							});
 						}else{
@@ -116,10 +116,12 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 			function Rule(){}
 			Rule.prototype = {
 				eachProperty: function(onProperty){
-					return this.cssText.replace(/\s*([^;:]+)\s*:\s*([^;]+)?/g, onProperty);
+					return (this.layout ? onProperty(0, "layout", this.layout) || this.selector : this.selector) + 
+						"{" + this.cssText.replace(/\s*([^;:]+)\s*:\s*([^;]+)?/g, onProperty) + "}"; // process all the css properties
 				},
+				cssText: "",
 				extend: function(){
-					var css = this.cssText;
+					var css = this.fullCssText;
 					var propertyExtensions;
 					// process each extension argument
 					for(var i = 0; i < arguments.length; i++){
@@ -158,16 +160,17 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 						return t;
 					};
 					// parse the CSS, finding each rule
-					css = css.replace(/\s*(?:([^{;]+)\s*{)?\s*([^{}]+;)?\s*(};?)?/g, function(full, selector, properties, close){
+					css = css.replace(/\s*(?:([^{;\s]+)\s*{)?\s*([^{}]+;)?\s*(};?)?/g, function(full, selector, properties, close){
 						// called for each rule
 						if(selector){
 							// a selector as found, start a new rule (note this can be nested inside another selector)
 							var newRule = new Rule();
-							(lastRule.layout || (lastRule.layout = [])).push(newRule); 
+							(lastRule.layout || (lastRule.layout = [])).push(newRule); // add to the parent layout 
 							newRule._parent = lastRule;
-							newRule.selector = selector;
+							var parentSelector = lastRule.selector;
+							newRule.selector = (parentSelector ? parentSelector + " " : "") + selector;
+							newRule.child = selector; // just this segment of selector
 							lastRule = newRule;
-							lastRule.cssText = "";
 						}
 						if(properties){
 							// some properties were found
@@ -175,23 +178,23 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 						}
 						if(close){
 							// rule was closed with }
-							var result = (lastRule.layout ? onProperty(0, "layout", lastRule.layout) || lastRule.selector : lastRule.selector) + 
-								"{" + lastRule.eachProperty(onProperty) + "}"; // process all the css properties
+							var result = lastRule.eachProperty(onProperty);
 							lastRule = lastRule._parent;
 							return result; 
 						}
 						return "";
 					});
-					lastRule = this;
+					(lastRule = this).eachProperty(onProperty);
 					// might only need to do this if we have rendering rules
 					require.ready(function(){
 						lastRule.render();
 					});
-					if(this.cssText != css){
-						this.cssText = css;
+					if(this.fullCssText != css){
+						this.fullCssText = css;
 						// it was modified, add the modified one
 						insertCss(css);
 					}
+					return this;
 				},
 				render: function(selector, node){
 					if(typeof selector == "string" || selector == undefined){
@@ -206,12 +209,13 @@ define(["has", "sizzle"], function(has, querySelectorAll){
 								}
 							}
 						}
-						return;
-					}
-					var renderers = this.renderers;
-					if(renderers){
-						for(var j in renderers){
-							renderers[j](selector/*node*/);
+					}else if(!selector.rendered){
+						selector.rendered = true;
+						var renderers = this.renderers;
+						if(renderers){
+							for(var j in renderers){
+								renderers[j](selector/*node*/);
+							}
 						}
 					}
 				}

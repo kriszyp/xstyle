@@ -1,5 +1,5 @@
 define([], function(){
-	function Layout(domNode){
+	function Generate(domNode){
 		return {
 			layout: function(layout, rule){
 				return function(domNode){
@@ -21,15 +21,15 @@ define([], function(){
 			},
 			content: function(content, rule){
 				return function(domNode){
-					domNode.innerHTML = content;
+					domNode.innerHTML = eval(content);
 				}
 			},
 			role: "layout"
 		};
 	}
-	var def = new Layout({});
-	Layout.layout = def.layout;
-	Layout.content = def.content;
-	Layout.role = def.role;
-	return Layout; 
+	var def = new Generate({});
+	Generate.layout = def.layout;
+	Generate.content = def.content;
+	Generate.role = def.role;
+	return Generate; 
 })
