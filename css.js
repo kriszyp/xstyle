@@ -85,10 +85,11 @@ define(["./scan"], function(scan){
 		// failed is true if RequireJS threw an exception
 		failed = false,
 		doc = document,
+		cache = typeof _css_cache == "undefined" ? {} : _css_cache,
 		undef,
 		features = {
-			// true if the onload event handler works
-			// "event-link-onload" : false
+			"event-link-onload": false, //); /*document.createElement("link").onload === null);*/
+			"dom-create-style-element": !document.createStyleSheet
 		},
 		// find the head element and set it to it's standard property if nec.
 		head = doc.head || (doc.head = doc.getElementsByTagName('head')[0]);
@@ -236,13 +237,26 @@ define(["./scan"], function(scan){
 		var link = params.link;
 		link[onreadystatechange] = link[onload] = null;
 	}
-
+	function insertCss(css){
+		if(has("dom-create-style-element")){
+			// we can use standard <style> element creation
+			styleSheet = document.createElement("style");
+			styleSheet.setAttribute("type", "text/css");
+			styleSheet.appendChild(document.createTextNode(css));
+			head.insertBefore(styleSheet, head.firstChild);
+		}
+		else{
+			var styleSheet = document.createStyleSheet();
+			styleSheet.cssText = css;
+		}
+		return styleSheet;
+	}
 	/***** finally! the actual plugin *****/
 	var plugin = {
 
 			//prefix: 'css',
 
-			'load': function (resourceDef, require, callback, config) {
+			load: function (resourceDef, require, callback, config) {
 				var resources = resourceDef.split(","),
 					loadingCount = resources.length,
 
@@ -265,6 +279,10 @@ define(["./scan"], function(scan){
 				// after will become truthy once the loop executes a second time
 				for(var i = 0, after; i < resources.length; i++, after = url){
 					resourceDef = resources[i];
+					var cached = cache[require.toAbsMid(resourceDef)]; 
+					if(cached){
+						return callback(insertCss(cached));
+					}
 					var
 						// TODO: this is a bit weird: find a better way to extract name?
 						opts = parseSuffixes(resourceDef),
@@ -277,12 +295,10 @@ define(["./scan"], function(scan){
 							url: url,
 							wait: config && config.cssWatchPeriod || 50
 						};
+					// hook up load detector(s)
+					loadDetector(params, loaded);
 					if (nowait) {
 						callback(link);
-					}
-					else {
-						// hook up load detector(s)
-						loadDetector(params, loaded);
 					}
 
 					// go!
@@ -294,11 +310,12 @@ define(["./scan"], function(scan){
 
 			/* the following methods are public in case they're useful to other plugins */
 
-			'nameWithExt': nameWithExt,
+			nameWithExt: nameWithExt,
 
-			'parseSuffixes': parseSuffixes,
+			parseSuffixes: parseSuffixes,
 
-			'createLink': createLink
+			createLink: createLink,
+			pluginBuilder: "xstyle/css-builder"
 
 		};
 
