@@ -97,37 +97,19 @@ define(["./scan"], function(scan){
 	function has (feature) {
 		return features[feature];
 	}
-	// failure detection
-	// we need to watch for onError when using RequireJS so we can shut off
-	// our setTimeouts when it encounters an error.
-	if (require.onError) {
-		require.onError = (function (orig) {
-			return function () {
-				failed = true;
-				orig.apply(this, arguments);
-			}
-		})(require.onError);
-	}
-
-	/***** load-detection functions *****/
-
-	function loadHandler (params, cb) {
-		// We're using 'readystatechange' because IE and Opera happily support both
-		var link = params.link;
-		link[onreadystatechange] = link[onload] = function () {
-			if (!link.readyState || link.readyState == 'complete') {
-				features["event-link-onload"] = true;
-				cleanup(params);
-				cb();
-			}
-		};
-	}
-
 	function nameWithExt (name, defaultExt) {
 		return name.lastIndexOf('.') <= name.lastIndexOf('/') ?
 			name + '.' + defaultExt : name;
 	}
-
+	function createLink (doc, optHref) {
+		var link = doc[createElement]('link');
+		link.rel = "stylesheet";
+		link.type = "text/css";
+		if (optHref) {
+			link.href = optHref;
+		}
+		return link;
+	}
 	function parseSuffixes (name) {
 		// creates a dual-structure: both an array and a hashmap
 		// suffixes[0] is the actual name
@@ -139,103 +121,123 @@ define(["./scan"], function(scan){
 		}
 		return parts;
 	}
+		
 
-	function createLink (doc, optHref) {
-		var link = doc[createElement]('link');
-		link.rel = "stylesheet";
-		link.type = "text/css";
-		if (optHref) {
-			link.href = optHref;
-		}
-		return link;
-	}
-
-	// Chrome 8 hax0rs!
-	// This is an ugly hack needed by Chrome 8+ which no longer waits for rules
-	// to be applied to the document before exposing them to javascript.
-	// Unfortunately, this routine will never fire for XD stylsheets since
-	// Chrome will also throw an exception if attempting to access the rules
-	// of an XD stylesheet.  Therefore, there's no way to detect the load
-	// event of XD stylesheets until Google fixes this, preferably with a
-	// functional load event!  As a work-around, use ready() before rendering
-	// widgets / components that need the css to be ready.
-	var testEl;
-	function styleIsApplied () {
-		if (!testEl) {
-			testEl = document[createElement]('div');
-			testEl.id = '_cssx_load_test';
-			testEl.style.cssText = 'position:absolute;top:-999px;left:-999px;';
-			doc.body.appendChild(testEl);
-		}
-		return doc.defaultView.getComputedStyle(testEl, null).marginTop == '-5px';
-	}
-
-	function isLinkReady (link) {
-		// This routine is a bit fragile: browser vendors seem oblivious to
-		// the need to know precisely when stylesheets load.  Therefore, we need
-		// to continually test beta browsers until they all support the LINK load
-		// event like IE and Opera.
-		var sheet, rules, ready = false;
-		try {
-			// webkit's and IE's sheet is null until the sheet is loaded
-			sheet = link.sheet || link.styleSheet;
-			if(sheet){
-				// mozilla's sheet throws an exception if trying to access xd rules
-				rules = sheet.cssRules || sheet.rules;
-				// webkit's xd sheet returns rules == null
-				// opera's sheet always returns rules, but length is zero until loaded
-				// friggin IE doesn't count @import rules as rules, but IE should
-				// never hit this routine anyways.
-				ready = rules ?
-					rules.length > 0 : // || (sheet.imports && sheet.imports.length > 0) :
-					rules !== undef;
-				// thanks, Chrome 8, for this lovely hack
-				if (ready && navigator.userAgent.indexOf('Chrome') >= 0) {
-					sheet.insertRule('#_cssx_load_test{margin-top:-5px;}', 0);
-					ready = styleIsApplied();
-					sheet.deleteRule(0);
+	if(!has("bundled-css")){ // if all the CSS is bundled, we don't need to the loader code
+		var loadDetector = function(params, cb){ 
+			// failure detection
+			// we need to watch for onError when using RequireJS so we can shut off
+			// our setTimeouts when it encounters an error.
+			if (require.onError) {
+				require.onError = (function (orig) {
+					return function () {
+						failed = true;
+						orig.apply(this, arguments);
+					}
+				})(require.onError);
+			}
+		
+			/***** load-detection functions *****/
+		
+			function loadHandler (params, cb) {
+				// We're using 'readystatechange' because IE and Opera happily support both
+				var link = params.link;
+				link[onreadystatechange] = link[onload] = function () {
+					if (!link.readyState || link.readyState == 'complete') {
+						features["event-link-onload"] = true;
+						cleanup(params);
+						cb();
+					}
+				};
+			}
+		
+		
+			// Chrome 8 hax0rs!
+			// This is an ugly hack needed by Chrome 8+ which no longer waits for rules
+			// to be applied to the document before exposing them to javascript.
+			// Unfortunately, this routine will never fire for XD stylsheets since
+			// Chrome will also throw an exception if attempting to access the rules
+			// of an XD stylesheet.  Therefore, there's no way to detect the load
+			// event of XD stylesheets until Google fixes this, preferably with a
+			// functional load event!  As a work-around, use ready() before rendering
+			// widgets / components that need the css to be ready.
+			var testEl;
+			function styleIsApplied () {
+				if (!testEl) {
+					testEl = document[createElement]('div');
+					testEl.id = '_cssx_load_test';
+					testEl.style.cssText = 'position:absolute;top:-999px;left:-999px;';
+					doc.body.appendChild(testEl);
+				}
+				return doc.defaultView.getComputedStyle(testEl, null).marginTop == '-5px';
+			}
+		
+			function isLinkReady (link) {
+				// This routine is a bit fragile: browser vendors seem oblivious to
+				// the need to know precisely when stylesheets load.  Therefore, we need
+				// to continually test beta browsers until they all support the LINK load
+				// event like IE and Opera.
+				var sheet, rules, ready = false;
+				try {
+					// webkit's and IE's sheet is null until the sheet is loaded
+					sheet = link.sheet || link.styleSheet;
+					if(sheet){
+						// mozilla's sheet throws an exception if trying to access xd rules
+						rules = sheet.cssRules || sheet.rules;
+						// webkit's xd sheet returns rules == null
+						// opera's sheet always returns rules, but length is zero until loaded
+						// friggin IE doesn't count @import rules as rules, but IE should
+						// never hit this routine anyways.
+						ready = rules ?
+							rules.length > 0 : // || (sheet.imports && sheet.imports.length > 0) :
+							rules !== undef;
+						// thanks, Chrome 8, for this lovely hack
+						if (ready && navigator.userAgent.indexOf('Chrome') >= 0) {
+							sheet.insertRule('#_cssx_load_test{margin-top:-5px;}', 0);
+							ready = styleIsApplied();
+							sheet.deleteRule(0);
+						}
+					}
+				}
+				catch (ex) {
+					// 1000 means FF loaded an xd stylesheet
+					// other browsers just throw a security error here (IE uses the phrase 'Access is denied')
+					ready = (ex.code == 1000) || (ex.message.match(/security|denied/i));
+				}
+				return ready;
+			}
+		
+			function ssWatcher (params, cb) {
+				// watches a stylesheet for loading signs.
+				if (isLinkReady(params.link)) {
+					cleanup(params);
+					cb();
+				}
+				else if (!failed) {
+					setTimeout(function () { ssWatcher(params, cb); }, params.wait);
 				}
 			}
-		}
-		catch (ex) {
-			// 1000 means FF loaded an xd stylesheet
-			// other browsers just throw a security error here (IE uses the phrase 'Access is denied')
-			ready = (ex.code == 1000) || (ex.message.match(/security|denied/i));
-		}
-		return ready;
-	}
-
-	function ssWatcher (params, cb) {
-		// watches a stylesheet for loading signs.
-		if (isLinkReady(params.link)) {
-			cleanup(params);
-			cb();
-		}
-		else if (!failed) {
-			setTimeout(function () { ssWatcher(params, cb); }, params.wait);
-		}
-	}
-
-	function loadDetector (params, cb) {
-		// It would be nice to use onload everywhere, but the onload handler
-		// only works in IE and Opera.
-		// Detecting it cross-browser is completely impossible, too, since
-		// THE BROWSERS ARE LIARS! DON'T TELL ME YOU HAVE AN ONLOAD PROPERTY
-		// IF IT DOESN'T DO ANYTHING!
-		var loaded;
-		function cbOnce () {
-			if (!loaded) {
-				loaded = true;
-				cb();
+		
+			function cleanup (params) {
+				var link = params.link;
+				link[onreadystatechange] = link[onload] = null;
 			}
-		}
-		loadHandler(params, cbOnce);
-		if (!has("event-link-onload")) ssWatcher(params, cbOnce);
-	}
-
-	function cleanup (params) {
-		var link = params.link;
-		link[onreadystatechange] = link[onload] = null;
+			// It would be nice to use onload everywhere, but the onload handler
+			// only works in IE and Opera.
+			// Detecting it cross-browser is completely impossible, too, since
+			// THE BROWSERS ARE LIARS! DON'T TELL ME YOU HAVE AN ONLOAD PROPERTY
+			// IF IT DOESN'T DO ANYTHING!
+			var loaded;
+			function cbOnce () {
+				if (!loaded) {
+					loaded = true;
+					cb();
+				}
+			}
+			loadHandler(params, cbOnce);
+			if (!has("event-link-onload")) ssWatcher(params, cbOnce);
+		
+		};
 	}
 	function insertCss(css){
 		if(has("dom-create-style-element")){
@@ -244,12 +246,13 @@ define(["./scan"], function(scan){
 			styleSheet.setAttribute("type", "text/css");
 			styleSheet.appendChild(document.createTextNode(css));
 			head.insertBefore(styleSheet, head.firstChild);
+			return styleSheet;
 		}
 		else{
 			var styleSheet = document.createStyleSheet();
 			styleSheet.cssText = css;
+			return styleSheet.owningElement;
 		}
-		return styleSheet;
 	}
 	/***** finally! the actual plugin *****/
 	var plugin = {
@@ -281,7 +284,8 @@ define(["./scan"], function(scan){
 					resourceDef = resources[i];
 					var cached = cache[require.toAbsMid(resourceDef)]; 
 					if(cached){
-						return callback(insertCss(cached));
+						link = insertCss(cached);
+						return loaded();
 					}
 					var
 						// TODO: this is a bit weird: find a better way to extract name?
@@ -311,9 +315,7 @@ define(["./scan"], function(scan){
 			/* the following methods are public in case they're useful to other plugins */
 
 			nameWithExt: nameWithExt,
-
-			parseSuffixes: parseSuffixes,
-
+			insertCss: insertCss,
 			createLink: createLink,
 			pluginBuilder: "xstyle/css-builder"
 
