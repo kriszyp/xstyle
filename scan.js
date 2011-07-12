@@ -85,7 +85,11 @@ define([], function(){
 							link.onload = flattenImports;
 							var childHref = childHrefs[j] || importedSheet.href;
 							sheet.computedUrls.splice(i, 0, childHref);
-							sheet.addImport(childHref, i++);
+							try{
+								sheet.addImport(childHref, i++);
+							}catch(e){
+								// this will fail if there are too many imports
+							}
 							subImport.correctHref = childHref; 
 						}
 					}
