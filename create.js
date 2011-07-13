@@ -27,7 +27,7 @@ define([], function(){
 		className = "className", undefined;
 	try{
 		var ieCreateElement = 1;
-		create("d[type=r]");
+		create('i', {name:'a'});
 	}catch(e){
 		ieCreateElement = 0;
 	} 
@@ -85,9 +85,9 @@ define([], function(){
 			if(tag || (!current && (prefix || attrName))){
 				// Need to create an element
 				tag = tag || create.defaultTag;
-				if(ieCreateElement && attrName == "type"){
-					// in IE, we have to use the crazy non-standard createElement to create input's with a type=radio 
-					tag = '<' + tag + ' type="' + attrValue + '">';
+				if(ieCreateElement && properties && properties.name){
+					// in IE, we have to use the crazy non-standard createElement to create input's that have a name 
+					tag = '<' + tag + ' name="' + properties.name + '">';
 				}
 				current = document.createElement(tag);
 			}
