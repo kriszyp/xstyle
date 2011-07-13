@@ -65,7 +65,7 @@ define([], function(){
 				insertLastElement();
 				if(siblingCombinator){
 					// + or - combinator, 
-					referenceElement = (nextSibling = (current || referenceElement)).parentNode;
+					current = (nextSibling = (current || referenceElement)).parentNode;
 					if(siblingCombinator == "+"){
 						nextSibling = nextSibling.nextSibling;
 					}// else a - operator, again not in CSS, but obvious in it's meaning (create next element before the current/referenceElement)
@@ -76,11 +76,12 @@ define([], function(){
 					}else if(combinator == ","){
 						// comma combinator, start a new selector
 						current = topReferenceElement;
-					}
-					// else descendent or child selector (doesn't matter, but treated the same),
-					referenceElement = current;
-					current = null;
+					}// else descendent or child selector (doesn't matter, but treated the same),
 					nextSibling = null;
+				}
+				referenceElement = current;
+				if(combinator == " "){
+					current = null;
 				}
 			}
 			var tag = !prefix && value;
@@ -117,7 +118,7 @@ define([], function(){
 					// handle the special case of setAttribute not working in old IE
 					current.style.cssText = attrValue;
 				}else{
-					current[attrName.charAt(0) == "!" ? attrName = attrName.substring(1) && 'removeAttribute' : 'setAttribute'](attrName, attrValue || attrName);
+					current[attrName.charAt(0) == "!" ? (attrName = attrName.substring(1)) && 'removeAttribute' : 'setAttribute'](attrName, attrValue || attrName);
 				}
 			}
 			return '';
