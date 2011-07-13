@@ -23,8 +23,14 @@ define([], function(){
 	//		|	create("div.foo");
 					
 	var selectorParse = /(([-+])|[,<> ])?\s*(\.|#)?([-\w]+)?(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g,
-		fragmentFasterHeuristic = /[-+,> ]/; // if it has any of these combinators, it is probably going to be faster with a document fragment 	
+		fragmentFasterHeuristic = /[-+,> ]/, // if it has any of these combinators, it is probably going to be faster with a document fragment 	
 		className = "className", undefined;
+	try{
+		var ieCreateElement = 1;
+		create("d[type=r]");
+	}catch(e){
+		ieCreateElement = 0;
+	} 
 	function create(referenceElement, selector, properties){
 		if(typeof referenceElement == "string"){
 			// first parameter is optional,
@@ -78,7 +84,12 @@ define([], function(){
 			var tag = !prefix && value;
 			if(tag || (!current && (prefix || attrName))){
 				// Need to create an element
-				current = document.createElement(tag || create.defaultTag);
+				tag = tag || create.defaultTag;
+				if(ieCreateElement && attrName == "type"){
+					// in IE, we have to use the crazy non-standard createElement to create input's with a type=radio 
+					tag = '<' + tag + ' type="' + attrValue + '">';
+				}
+				current = document.createElement(tag);
 			}
 			if(prefix){
 				if(prefix == "."){
