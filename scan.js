@@ -117,7 +117,9 @@ define([], function(){
 					return this.insertRule(selector + "{" + style + "}", index >= 0 ? index : this.cssRules.length);
 				}
 			}
-			
+			if(!sheet.deleteRule){
+				sheet.deleteRule = sheet.removeRule;
+			}
 			var existingSheet = href && insertedSheets[href]; 
 			if(existingSheet){
 				var sheetToDelete;
