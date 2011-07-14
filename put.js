@@ -27,7 +27,7 @@ define([], function(){
 		className = "className", undefined;
 	try{
 		var ieCreateElement = 1;
-		set('i', {name:'a'});
+		put('i', {name:'a'});
 	}catch(e){
 		ieCreateElement = 0;
 	}
