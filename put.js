@@ -66,19 +66,23 @@ define([], function(){
 				if(siblingCombinator){
 					// + or - combinator, 
 					// TODO: add support for >- as a means of indicating before the first child?
-					current = (nextSibling = (current || referenceElement)).parentNode;
+					referenceElement = (nextSibling = (current || referenceElement)).parentNode;
+					current = null;
 					if(siblingCombinator == "+"){
 						nextSibling = nextSibling.nextSibling;
 					}// else a - operator, again not in CSS, but obvious in it's meaning (create next element before the current/referenceElement)
 				}else{
 					if(combinator == "<"){
 						// parent combinator (not really in CSS, but theorized, and obvious in it's meaning)
-						current = (current || referenceElement).parentNode;
-					}else if(combinator == ","){
-						// comma combinator, start a new selector
-						current = topReferenceElement;
+						referenceElement = current = (current || referenceElement).parentNode;
 					}else{
-						// else descendent or child selector (doesn't matter, treated the same),
+						if(combinator == ","){
+							// comma combinator, start a new selector
+							referenceElement = topReferenceElement;
+						}else{
+							// else descendent or child selector (doesn't matter, treated the same),
+							referenceElement = current;
+						}
 						current = null;
 					}
 					nextSibling = null;
