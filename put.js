@@ -65,6 +65,7 @@ define([], function(){
 				insertLastElement();
 				if(siblingCombinator){
 					// + or - combinator, 
+					// TODO: add support for >- as a means of indicating before the first child?
 					current = (nextSibling = (current || referenceElement)).parentNode;
 					if(siblingCombinator == "+"){
 						nextSibling = nextSibling.nextSibling;
@@ -76,12 +77,14 @@ define([], function(){
 					}else if(combinator == ","){
 						// comma combinator, start a new selector
 						current = topReferenceElement;
-					}// else descendent or child selector (doesn't matter, but treated the same),
+					}else{
+						// else descendent or child selector (doesn't matter, treated the same),
+						current = null;
+					}
 					nextSibling = null;
 				}
-				referenceElement = current;
-				if(combinator == " "){
-					current = null;
+				if(current){
+					referenceElement = current;
 				}
 			}
 			var tag = !prefix && value;
