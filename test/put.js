@@ -2,7 +2,7 @@ var div = put("div");
 console.assert(div.tagName.toLowerCase() == "div");
 
 var body = document.body;
-put(body, "h1", "Running put() tests");
+put(body, "h1 $", "Running put() tests");
 
 var parent = div;
 
@@ -21,6 +21,15 @@ var span2, span3 = put(span1, "+span[name=span2] + span[name=span3]");
 console.assert(span3.getAttribute("name") == "span3");
 console.assert((span2 = span3.previousSibling).getAttribute("name") == "span2");
 console.assert(span3.previousSibling.previousSibling.getAttribute("name") == "span1");
+var span4 = put(span2, ">", span3, "span.$[name=$]", "span3-child", "span4");
+console.assert(span3.parentNode == span2);
+console.assert(span4.parentNode == span3);
+console.assert(span4.className == "span3-child");
+console.assert(span4.getAttribute('name') == "span4");
+put(span2, "+", span3, "+", span4);
+console.assert(span2.nextSibling == span3);
+console.assert(span3.nextSibling == span4);
+
 put(span3, "!"); // destroy span3
 console.assert(span2.nextSibling != span3); // make sure span3 is gone
 

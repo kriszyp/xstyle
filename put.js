@@ -22,7 +22,7 @@ define([], function(){
 	//		To create a simple div with a class name of "foo":
 	//		|	put("div.foo");
 					
-	var selectorParse = /(([-+])|[,<> ])?\s*(\.|!|#)?([-\w]+)?(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g,
+	var selectorParse = /(([-+])|[,<> ])?\s*(\.|!|#)?([-\w$]+)?(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g,
 		fragmentFasterHeuristic = /[-+,> ]/, // if it has any of these combinators, it is probably going to be faster with a document fragment 	
 		className = "className", undefined;
 	try{
@@ -31,17 +31,9 @@ define([], function(){
 	}catch(e){
 		ieCreateElement = 0;
 	}
-	function put(referenceElement, selector, properties){
-		if(typeof referenceElement == "string"){
-			// first parameter is optional,
-			properties = selector;
-			selector = referenceElement;
-			referenceElement = null;
-		}
-		var fragment, nextSibling = null, 
-			topReferenceElement = referenceElement, 
-			current = referenceElement;
-		function insertLastElement(){
+	function put(){
+		var fragment, nextSibling, topReferenceElement, referenceElement, current, args = arguments;
+		function insertLastElement(finishFragment){
 			// we perform insertBefore actions after the element is fully created to work properly with 
 			// <input> tags in older versions of IE that require type attributes
 			//	to be set before it is attached to a parent.
@@ -53,105 +45,120 @@ define([], function(){
 					// top level, may use fragment for faster access 
 					(fragment || 
 						// fragment doesn't exist yet, check to see if we really want to create it 
-						(fragment = fragmentFasterHeuristic.test(selector) && document.createDocumentFragment()))
+						(fragment = fragmentFasterHeuristic.test(argument) && document.createDocumentFragment()))
 							// any of the above fails just use the referenceElement  
 							|| referenceElement).
 								insertBefore(current, nextSibling); // do the actual insertion
 			}
+			if(finishFragment && topReferenceElement && fragment){
+				// we now insert the top level elements for the fragment if it exists
+				topReferenceElement.appendChild(fragment);
+			}
 		}
-		var leftoverCharacters = selector.replace(selectorParse, function(t, combinator, siblingCombinator, prefix, value, attrName, attrValue){
-			if(combinator){
-				// insert the last current object
-				insertLastElement();
-				if(siblingCombinator){
-					// + or - combinator, 
-					// TODO: add support for >- as a means of indicating before the first child?
-					referenceElement = (nextSibling = (current || referenceElement)).parentNode;
-					current = null;
-					if(siblingCombinator == "+"){
-						nextSibling = nextSibling.nextSibling;
-					}// else a - operator, again not in CSS, but obvious in it's meaning (create next element before the current/referenceElement)
+		for(var i = 0; i < args.length; i++){
+			var argument = args[i];
+			if(typeof argument == "object"){
+				if(argument.nodeType){
+					current = argument;
+					insertLastElement(true);
+					topReferenceElement = referenceElement = argument;
+					nextSibling = fragment = null;
 				}else{
-					if(combinator == "<"){
-						// parent combinator (not really in CSS, but theorized, and obvious in it's meaning)
-						referenceElement = current = (current || referenceElement).parentNode;
-					}else{
-						if(combinator == ","){
-							// comma combinator, start a new selector
-							referenceElement = topReferenceElement;
-						}else{
-							// else descendent or child selector (doesn't matter, treated the same),
-							referenceElement = current;
-						}
-						current = null;
-					}
-					nextSibling = null;
-				}
-				if(current){
-					referenceElement = current;
-				}
-			}
-			var tag = !prefix && value;
-			if(tag || (!current && (prefix || attrName))){
-				// Need to create an element
-				tag = tag || put.defaultTag;
-				if(ieCreateElement && properties && properties.name){
-					// in IE, we have to use the crazy non-standard createElement to create input's that have a name 
-					tag = '<' + tag + ' name="' + properties.name + '">';
-				}
-				current = document.createElement(tag);
-			}
-			if(prefix){
-				if(prefix == "."){
-					// .class-name was specified
-					current[className] = current[className] ? current[className] + ' ' + value : value;
-				}else if(prefix == "!"){
-					if(selector == "!"){
-						// special signal to delete this element
-						// use the ol' innerHTML trick to get IE to do some cleanup
-						put("div").appendChild(current).innerHTML = "";
-					}					
-					// CSS class removal
-					var untrimmed = (" " + current[className] + " ").replace(" " + value + " ", " ");
-					current[className] = untrimmed.substring(1, untrimmed.length - 1); 
-				}else{
-					// #id was specified
-					current.id = value;
-				}
-			}
-			if(attrName){
-				// [name=value]
-				if(attrName == "style"){
-					// handle the special case of setAttribute not working in old IE
-					current.style.cssText = attrValue;
-				}else{
-					current[attrName.charAt(0) == "!" ? (attrName = attrName.substring(1)) && 'removeAttribute' : 'setAttribute'](attrName, attrValue || attrName);
-				}
-			}
-			return '';
-		});
-		if(leftoverCharacters){
-			throw new SyntaxError("Unexpected char " + leftoverCharacters);
-		}
-		var returnElement = current || referenceElement;
-		if(properties !== undefined){
-			if(typeof properties == "object"){
-				// an object hash
-				for(var i in properties){
-					returnElement[i] = properties[i];
+					// an object hash
+					for(var i in argument){
+						current[i] = argument[i];
+					}				
 				}
 			}else{
-				// a scalar value, use createTextNode so it is properly escaped
-				returnElement.appendChild(document.createTextNode(properties));
+				var leftoverCharacters = argument.replace(selectorParse, function(t, combinator, siblingCombinator, prefix, value, attrName, attrValue){
+					if(combinator){
+						// insert the last current object
+						insertLastElement();
+						if(siblingCombinator){
+							// + or - combinator, 
+							// TODO: add support for >- as a means of indicating before the first child?
+							referenceElement = (nextSibling = (current || referenceElement)).parentNode;
+							current = null;
+							if(siblingCombinator == "+"){
+								nextSibling = nextSibling.nextSibling;
+							}// else a - operator, again not in CSS, but obvious in it's meaning (create next element before the current/referenceElement)
+						}else{
+							if(combinator == "<"){
+								// parent combinator (not really in CSS, but theorized, and obvious in it's meaning)
+								referenceElement = current = (current || referenceElement).parentNode;
+							}else{
+								if(combinator == ","){
+									// comma combinator, start a new selector
+									referenceElement = topReferenceElement;
+								}else{
+									// else descendent or child selector (doesn't matter, treated the same),
+									referenceElement = current;
+								}
+								current = null;
+							}
+							nextSibling = null;
+						}
+						if(current){
+							referenceElement = current;
+						}
+					}
+					var tag = !prefix && value;
+					if(tag || (!current && (prefix || attrName))){
+						// Need to create an element
+						tag = tag || put.defaultTag;
+						if(tag == "$"){
+							// a scalar value, use createTextNode so it is properly escaped
+							current = document.createTextNode(args[++i]);
+						}else{
+							if(ieCreateElement && args[i +1] && args[i +1].name){
+								// in IE, we have to use the crazy non-standard createElement to create input's that have a name 
+								tag = '<' + tag + ' name="' + properties.name + '">';
+							}
+							current = document.createElement(tag);
+						}
+					}
+					if(prefix){
+						if(value == "$"){
+							value = args[++i];
+						}
+						if(prefix == "."){
+							// .class-name was specified
+							current[className] = current[className] ? current[className] + ' ' + value : value;
+						}else if(prefix == "!"){
+							if(argument == "!"){
+								// special signal to delete this element
+								// use the ol' innerHTML trick to get IE to do some cleanup
+								put("div").appendChild(current).innerHTML = "";
+							}					
+							// CSS class removal
+							var untrimmed = (" " + current[className] + " ").replace(" " + value + " ", " ");
+							current[className] = untrimmed.substring(1, untrimmed.length - 1); 
+						}else{
+							// #id was specified
+							current.id = value;
+						}
+					}
+					if(attrName){
+						if(attrValue == "$"){
+							attrValue = args[++i];
+						}
+						// [name=value]
+						if(attrName == "style"){
+							// handle the special case of setAttribute not working in old IE
+							current.style.cssText = attrValue;
+						}else{
+							current[attrName.charAt(0) == "!" ? (attrName = attrName.substring(1)) && 'removeAttribute' : 'setAttribute'](attrName, attrValue || attrName);
+						}
+					}
+					return '';
+				});
+				if(leftoverCharacters){
+					throw new SyntaxError("Unexpected char " + leftoverCharacters + " in " + argument);
+				}
+				insertLastElement(true);
 			}
 		}
-		// insert the last element (if it didn't end with a combinator)
-		insertLastElement();
-		if(topReferenceElement && fragment){
-			// we now insert the top level elements for the fragment if it exists
-			topReferenceElement.appendChild(fragment);
-		}
-		return returnElement;
+		return current;
 	}
 	put.defaultTag = "div";
 	return put;
