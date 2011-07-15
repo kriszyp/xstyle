@@ -32,8 +32,10 @@ define([], function(){
 		ieCreateElement = 0;
 	}
 	function put(){
-		var fragment, nextSibling, topReferenceElement, referenceElement, current, args = arguments;
-		function insertLastElement(finishFragment){
+		var fragment, nextSibling, referenceElement, current,
+			args = arguments,
+			topReferenceElement = args[0].nodeType && args[0];
+		function insertLastElement(){
 			// we perform insertBefore actions after the element is fully created to work properly with 
 			// <input> tags in older versions of IE that require type attributes
 			//	to be set before it is attached to a parent.
@@ -50,19 +52,15 @@ define([], function(){
 							|| referenceElement).
 								insertBefore(current, nextSibling); // do the actual insertion
 			}
-			if(finishFragment && topReferenceElement && fragment){
-				// we now insert the top level elements for the fragment if it exists
-				topReferenceElement.appendChild(fragment);
-			}
 		}
 		for(var i = 0; i < args.length; i++){
 			var argument = args[i];
 			if(typeof argument == "object"){
 				if(argument.nodeType){
 					current = argument;
-					insertLastElement(true);
-					topReferenceElement = referenceElement = argument;
-					nextSibling = fragment = null;
+					insertLastElement();
+					referenceElement = argument;
+					nextSibling = null;
 				}else{
 					// an object hash
 					for(var i in argument){
@@ -104,12 +102,13 @@ define([], function(){
 					}
 					var tag = !prefix && value;
 					if(tag || (!current && (prefix || attrName))){
-						// Need to create an element
-						tag = tag || put.defaultTag;
 						if(tag == "$"){
-							// a scalar value, use createTextNode so it is properly escaped
-							current = document.createTextNode(args[++i]);
+							// a text node should be created
+							// take a scalar value, use createTextNode so it is properly escaped
+							referenceElement.appendChild(document.createTextNode(args[++i]));
 						}else{
+							// Need to create an element
+							tag = tag || put.defaultTag;
 							if(ieCreateElement && args[i +1] && args[i +1].name){
 								// in IE, we have to use the crazy non-standard createElement to create input's that have a name 
 								tag = '<' + tag + ' name="' + properties.name + '">';
@@ -121,21 +120,55 @@ define([], function(){
 						if(value == "$"){
 							value = args[++i];
 						}
-						if(prefix == "."){
-							// .class-name was specified
-							current[className] = current[className] ? current[className] + ' ' + value : value;
-						}else if(prefix == "!"){
-							if(argument == "!"){
-								// special signal to delete this element
-								// use the ol' innerHTML trick to get IE to do some cleanup
-								put("div").appendChild(current).innerHTML = "";
-							}					
-							// CSS class removal
-							var untrimmed = (" " + current[className] + " ").replace(" " + value + " ", " ");
-							current[className] = untrimmed.substring(1, untrimmed.length - 1); 
-						}else{
+						if(prefix == "#"){
 							// #id was specified
 							current.id = value;
+						}else{
+							// we are in the className addition and removal branch
+							var currentClassName = current[className];
+							// remove the className (needed for addition or removal)
+							// see http://jsperf.com/remove-class-name-algorithm/2 for some tests on this
+							var removed = currentClassName && (" " + currentClassName + " ").replace(" " + value + " ", " ");
+							if(prefix == "."){
+								// addition, add the className
+								current[className] = currentClassName ? (removed + value).substring(1) : value;
+							}else{
+								// else a '!' class removal
+								if(argument == "!"){
+									// special signal to delete this element
+									// use the ol' innerHTML trick to get IE to do some cleanup
+									put("div").appendChild(current).innerHTML = "";
+								}else{
+									// we already have removed the class, just need to trim
+									removed = removed.substring(1, removed.length - 1);
+									// only assign if it changed, this can save a lot of time
+									if(removed != currentClassName){
+										current[className] = removed;
+									}
+								}
+							}
+							// CSS class removal
+	/*				various algorithms are possible (see http://jsperf.com/remove-class-name-algorithm/2)
+	 * 				difficult to tell which one is best
+	 * 				these all work with duplicate class names 
+							current[className] = current[className].replace(RegExp(" *" + value + " *| *([^ ]+ ?) *", "g"), "$1")
+	  * 
+	  * 	  
+	 						var untrimmed = " " + current[className] + " ";
+							value = " " + value + " ";
+							do{
+								var untrimmedLength = untrimmed.length;
+								untrimmed = untrimmed.replace(value, " ");
+							}while(untrimmed.length != untrimmedLength);
+							current[className] = untrimmed.substring(1, untrimmedLength - 1);
+
+							var untrimmed = " " + current[className] + " ";
+							value = " " + value + " ";
+							var index;
+							while((index = untrimmed.indexOf(value, index)) > -1){
+								untrimmed = untrimmed.substring(0, index) + untrimmed.substring(index + value.length - 1); // include the space on this side
+							}
+							current[className] = untrimmed.substring(1, untrimmed.length - 1);*/
 						}
 					}
 					if(attrName){
@@ -155,10 +188,14 @@ define([], function(){
 				if(leftoverCharacters){
 					throw new SyntaxError("Unexpected char " + leftoverCharacters + " in " + argument);
 				}
-				insertLastElement(true);
+				insertLastElement();
 			}
 		}
-		return current;
+		if(topReferenceElement && fragment){
+			// we now insert the top level elements for the fragment if it exists
+			topReferenceElement.appendChild(fragment);
+		}
+		return current || referenceElement;
 	}
 	put.defaultTag = "div";
 	return put;
