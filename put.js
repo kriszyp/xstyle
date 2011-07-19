@@ -109,9 +109,10 @@ define([], function(){
 						}else{
 							// Need to create an element
 							tag = tag || put.defaultTag;
-							if(ieCreateElement && args[i +1] && args[i +1].name){
+							var ieInputName = ieCreateElement && args[i +1] && args[i +1].name;
+							if(ieInputName){
 								// in IE, we have to use the crazy non-standard createElement to create input's that have a name 
-								tag = '<' + tag + ' name="' + properties.name + '">';
+								tag = '<' + tag + ' name="' + ieInputName + '">';
 							}
 							current = document.createElement(tag);
 						}
