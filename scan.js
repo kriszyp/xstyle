@@ -136,6 +136,15 @@ define([], function(){
 						sheetToDelete = existingSheet;
 						existingSheet = insertedSheets[href] = sheet;
 					}
+					// need to delegate to sheet that we are going to preserve
+					// TODO: might need to use a queue to store changes and delegate changes that
+					// have already taken place on the sheetToDelete
+					sheetToDelete.addRule = function(s,c,i){
+						existingSheet.addRule(s,c,i);
+					};
+					sheetToDelete.deleteRule = function(i){
+						existingSheet.deleteRule(i);
+					}
 					var owner = sheetToDelete.ownerNode || !parentStyleSheet && sheetToDelete.owningElement;
 					if(owner){
 						// it is top level <link>, remove the node (disabling doesn't work properly in IE, but node removal works everywhere)
@@ -195,6 +204,7 @@ define([], function(){
 					}
 				}
 			}
+			// sheetToDelete = null; // Don't entrap IE memory
 		}
 	}
 	function absoluteUrl(base, url) {
