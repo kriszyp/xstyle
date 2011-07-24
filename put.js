@@ -24,30 +24,32 @@ define([], function(){
 					
 	var selectorParse = /(([-+])|[,<> ])?\s*(\.|!|#)?([-\w$]+)?(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g,
 		fragmentFasterHeuristic = /[-+,> ]/, // if it has any of these combinators, it is probably going to be faster with a document fragment 	
-		className = "className", undefined;
+		className = "className", doc = document, undefined;
 	try{
 		var ieCreateElement = 1;
 		put('i', {name:'a'});
 	}catch(e){
 		ieCreateElement = 0;
 	}
-	function put(){
-		var fragment, nextSibling, referenceElement, current,
-			args = arguments,
-			topReferenceElement = args[0].nodeType && args[0];
+	function insertTextNode(element, text){
+		element.appendChild(doc.createTextNode(text));
+	}
+	function put(topReferenceElement){
+		var fragment, returnValue, lastArgWasSelector, nextSibling, referenceElement, current,
+			args = arguments;
 		function insertLastElement(){
 			// we perform insertBefore actions after the element is fully created to work properly with 
 			// <input> tags in older versions of IE that require type attributes
 			//	to be set before it is attached to a parent.
 			// We also handle top level as a document fragment actions in a complex creation 
 			// are done on a detached DOM which is much faster
-			// Also if there is a parse error, we generally error out before doing any DOM operations (more atomic) 
+			// Alackinglso if there is a parse error, we generally error out before doing any DOM operations (more atomic) 
 			if(current && referenceElement && current != referenceElement){
 				(referenceElement == topReferenceElement &&
 					// top level, may use fragment for faster access 
 					(fragment || 
 						// fragment doesn't exist yet, check to see if we really want to create it 
-						(fragment = fragmentFasterHeuristic.test(argument) && document.createDocumentFragment()))
+						(fragment = fragmentFasterHeuristic.test(argument) && doc.createDocumentFragment()))
 							// any of the above fails just use the referenceElement  
 							|| referenceElement).
 								insertBefore(current, nextSibling); // do the actual insertion
@@ -57,6 +59,7 @@ define([], function(){
 			var argument = args[i];
 			if(typeof argument == "object"){
 				if(argument.nodeType){
+					lastArgWasSelector = false;
 					current = argument;
 					insertLastElement();
 					referenceElement = argument;
@@ -67,7 +70,17 @@ define([], function(){
 						current[i] = argument[i];
 					}				
 				}
+			}else if(lastArgWasSelector){
+				// a text node should be created
+				// take a scalar value, use createTextNode so it is properly escaped
+				// createTextNode is generally several times faster than doing an escaped innerHTML insertion: http://jsperf.com/createtextnode-vs-innerhtml/2
+				insertTextNode(current, argument);
 			}else{
+				if(i < 1){
+					// if we are starting with a selector, there is no top element
+					topReferenceElement = null;
+				}
+				lastArgWasSelector = true;
 				var leftoverCharacters = argument.replace(selectorParse, function(t, combinator, siblingCombinator, prefix, value, attrName, attrValue){
 					if(combinator){
 						// insert the last current object
@@ -103,9 +116,8 @@ define([], function(){
 					var tag = !prefix && value;
 					if(tag || (!current && (prefix || attrName))){
 						if(tag == "$"){
-							// a text node should be created
-							// take a scalar value, use createTextNode so it is properly escaped
-							referenceElement.appendChild(document.createTextNode(args[++i]));
+							// this is a variable to be replaced with a text node
+							insertTextNode(referenceElement, args[++i]);
 						}else{
 							// Need to create an element
 							tag = tag || put.defaultTag;
@@ -114,7 +126,7 @@ define([], function(){
 								// in IE, we have to use the crazy non-standard createElement to create input's that have a name 
 								tag = '<' + tag + ' name="' + ieInputName + '">';
 							}
-							current = document.createElement(tag);
+							current = doc.createElement(tag);
 						}
 					}
 					if(prefix){
@@ -189,6 +201,7 @@ define([], function(){
 				if(leftoverCharacters){
 					throw new SyntaxError("Unexpected char " + leftoverCharacters + " in " + argument);
 				}
+				returnValue = current || referenceElement;
 				insertLastElement();
 			}
 		}
@@ -196,7 +209,7 @@ define([], function(){
 			// we now insert the top level elements for the fragment if it exists
 			topReferenceElement.appendChild(fragment);
 		}
-		return current || referenceElement;
+		return returnValue;
 	}
 	put.defaultTag = "div";
 	return put;
