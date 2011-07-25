@@ -1,7 +1,7 @@
 {
   "name": "xstyle",
   "author": "Kris Zyp",
-  "description": "CSS framework providing polyfills, extensions, and dynamic loading",
+  "description": "CSS framework providing polyfills, extensions, dynamic loading, and selector based DOM manipulation",
   "licenses": [
      {
          "type": "AFLv2.1",
