@@ -139,8 +139,8 @@ define([], function(){
 					// need to delegate to sheet that we are going to preserve
 					// TODO: might need to use a queue to store changes and delegate changes that
 					// have already taken place on the sheetToDelete
-					sheetToDelete.addRule = function(){
-						existingSheet.addRule.apply(existingSheet, arguments);
+					sheetToDelete.addRule = function(c,s,i){
+						existingSheet.addRule(c,s,i > -1 ? i : -1);
 					};
 					sheetToDelete.deleteRule = function(i){
 						existingSheet.deleteRule(i);
