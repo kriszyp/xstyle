@@ -24,7 +24,7 @@ define([], function(){
 					
 	var selectorParse = /(([-+])|[,<> ])?\s*(\.|!|#)?([-\w$]+)?(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g,
 		fragmentFasterHeuristic = /[-+,> ]/, // if it has any of these combinators, it is probably going to be faster with a document fragment 	
-		className = "className", doc = document, undefined;
+		doc = document, undefined;
 	try{
 		var ieCreateElement = 1;
 		put('i', {name:'a'});
@@ -138,13 +138,13 @@ define([], function(){
 							current.id = value;
 						}else{
 							// we are in the className addition and removal branch
-							var currentClassName = current[className];
+							var currentClassName = current.className;
 							// remove the className (needed for addition or removal)
 							// see http://jsperf.com/remove-class-name-algorithm/2 for some tests on this
 							var removed = currentClassName && (" " + currentClassName + " ").replace(" " + value + " ", " ");
 							if(prefix == "."){
 								// addition, add the className
-								current[className] = currentClassName ? (removed + value).substring(1) : value;
+								current.className = currentClassName ? (removed + value).substring(1) : value;
 							}else{
 								// else a '!' class removal
 								if(argument == "!"){
@@ -156,7 +156,7 @@ define([], function(){
 									removed = removed.substring(1, removed.length - 1);
 									// only assign if it changed, this can save a lot of time
 									if(removed != currentClassName){
-										current[className] = removed;
+										current.className = removed;
 									}
 								}
 							}
