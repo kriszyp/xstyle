@@ -1,246 +1,244 @@
-/* Extensible CSS Loader */
-(function(define){
-define(["has", "sizzle"], function(has, querySelectorAll){
-	if(typeof definedCss == "undefined"){
-		definedCss = {};
-	}
-	has.add("event-link-onload", false); /*document.createElement("link").onload === null);*/
-	has.add("dom-create-style-element", !document.createStyleSheet);
-	function insertLink(href){
-		if(has("dom-create-style-element")){
-			// we can use standard <link> element creation
-			styleSheet = document.createElement("link");
-			styleSheet.setAttribute("type", "text/css");
-			styleSheet.setAttribute("rel", "stylesheet");
-			styleSheet.setAttribute("href", href);
-			document.getElementsByTagName("head")[0].appendChild(styleSheet);
+if(typeof define == "undefined"){
+	(function(){
+		// pseudo passive loader
+		var modules = {};
+		define = function(id, deps, factory){
+			for(var i = 0;i < deps.length; i++){
+				deps[i] = modules[deps[i]];
+			}
+			modules[id] = factory.apply(this, deps);
+		};
+		require = function(){
+			
 		}
-		return styleSheet;
-	}
-	
-	function insertCss(css){
-		if(has("dom-create-style-element")){
-			// we can use standard <style> element creation
-			styleSheet = document.createElement("style");
-			styleSheet.setAttribute("type", "text/css");
-			styleSheet.appendChild(document.createTextNode(css));
-			document.getElementsByTagName("head")[0].appendChild(styleSheet);
+	})();
+}
+define("xstyle/xstyle", ["require"], function (require) {
+	"use strict";
+	var undef;
+	function search(tag){
+		var elements = document.getElementsByTagName(tag);
+		for(var i = 0; i < elements.length; i++){
+			checkImports(elements[i]);
 		}
-		else{
-			try{
-				var styleSheet = document.ceateStyleSheet();
-			}catch(e){
-				// if we went past the 31 stylesheet limit in IE, we will combine all existing stylesheets into one. 
-				var styleSheets = dojox.html.getStyleSheets(); // we would only need the IE branch in this method if it was inlined for other uses
-				var cssText = "";
-				for(var i in styleSheets){
-					var styleSheet = styleSheets[i];
-					if(styleSheet.href){
-						aggregate =+ "@import(" + styleSheet.href + ");";
-					}else{
-						aggregate =+ styleSheet.cssText;
-					}
-					dojo.destroy(styleSheets.owningElement);
-				}
-				var aggregate = dojox.html.getDynamicStyleSheet("_aggregate");
-				aggregate.cssText = cssText;
-				return dojox.html.getDynamicStyleSheet(styleSheetName); 
-			}
-			styleSheet.cssText = css;
-		}
-		return css;
 	}
-	function load(url, loaded){
-	}
-	return {
-		load: function(id, parentRequire, loaded, config){
-			if(!id.match(/\.\w+$/)){
-				id = id + ".css";
-			}
-			var url = parentRequire ? parentRequire.toUrl(id) : id;
-			if(definedCss[url]){
-				// it was defined in the build layer, so we don't need to make any request 
-				// for the CSS, but we need inline it
-				processCss(definedCss[url], url.replace(/[^\/]+$/,''));
-				insertCss(definedCss[url]);
-			}
-			var cssHandle;
-			var callbacks = [];
-			var promise = {
-				then: function(callback){
-					if(cssHandle){
-						callback(cssHandle);
-					}else{
-						callbacks.push(callback);
-					}
-				}
-			};
-			if(!loaded){
-				loaded = function(handle){
-					for(var i = 0;i < callbacks.length; i++){
-						callbacks[i](handle);
-					}
-				};
-			}
-			var self = this;
-			if(has("event-link-onload")){
-				insertLink(url).onload = function(){
-					cssHandle = self.createHandle();
-					loaded(cssHandle);
-				};
-			}else{
-				// need to request the CSS
-				var xhr = typeof XMLHttpRequest == "undefined" ?
-					new ActiveXObject("Microsoft.XMLHTTP") :
-					new XMLHttpRequest;
-				insertLink(url);
-				xhr.open("GET", url, true);
-				xhr.onreadystatechange = function(){
-					if(xhr.readyState == 4){
-						if(xhr.status < 400){
-							self.processCss(xhr.responseText, url.replace(/[^\/]+$/,''), function(cssText){
-								cssHandle = self.createHandle();
-								cssHandle.fullCssText = cssText;
-								loaded(cssHandle);
-							});
-						}else{
-							throw new Error("Unable to load css " + url);
-						}
-					}
-				};
-				xhr.send();
-			}
-			return promise;		
-		},
-		createHandle: function(){
-			function Rule(){}
-			Rule.prototype = {
-				eachProperty: function(onProperty){
-					return (this.layout ? onProperty(0, "layout", this.layout) || this.selector : this.selector) + 
-						"{" + this.cssText.replace(/\s*([^;:]+)\s*:\s*([^;]+)?/g, onProperty) + "}"; // process all the css properties
-				},
-				cssText: "",
-				extend: function(){
-					var css = this.fullCssText;
-					var propertyExtensions;
-					// process each extension argument
-					for(var i = 0; i < arguments.length; i++){
-						var arg = arguments[i];
-						// special property for preprocessing CSS
-						if(arg.processCss == "function"){
-							css = arg.processCss(css);
-						}else{
-							// add each set of property extensions
-							if(propertyExtensions){
-								for(var j in arg){
-									propertyExtensions[j] = arg[j];
-								}
-							}else{ // no need to copy for first one, just use it
-								propertyExtensions = arg;
-							}
-						}
-					}
-					var lastRule = this;
-					function onProperty(t, name, value){
-						// this is called for each CSS property
-						var propertyHandler = propertyExtensions[name];
-						if(typeof propertyHandler == "function"){
-							// we have a CSS property handler for this property
-							var result = propertyHandler(value, lastRule);
-							if(typeof result == "function"){
-								// if it returns a function, it is a renderer function
-								var renderers = (lastRule.renderers || (lastRule.renderers = []));
-								renderers[propertyHandler.role || propertyExtensions.role || renderers.length] = result;
-							}
-							else if(typeof result == "string"){
-								// otherwise it replacement CSS
-								return result;
-							}
-						}
-						return t;
-					};
-					// parse the CSS, finding each rule
-					css = css.replace(/\s*(?:([^{;\s]+)\s*{)?\s*([^{}]+;)?\s*(};?)?/g, function(full, selector, properties, close){
-						// called for each rule
-						if(selector){
-							// a selector as found, start a new rule (note this can be nested inside another selector)
-							var newRule = new Rule();
-							(lastRule.layout || (lastRule.layout = [])).push(newRule); // add to the parent layout 
-							newRule._parent = lastRule;
-							var parentSelector = lastRule.selector;
-							newRule.selector = (parentSelector ? parentSelector + " " : "") + selector;
-							newRule.child = selector; // just this segment of selector
-							lastRule = newRule;
-						}
-						if(properties){
-							// some properties were found
-							lastRule.cssText += properties;
-						}
-						if(close){
-							// rule was closed with }
-							var result = lastRule.eachProperty(onProperty);
-							lastRule = lastRule._parent;
-							return result; 
-						}
-						return "";
-					});
-					(lastRule = this).eachProperty(onProperty);
-					// might only need to do this if we have rendering rules
-					require.ready(function(){
-						lastRule.render();
-					});
-					if(this.fullCssText != css){
-						this.fullCssText = css;
-						// it was modified, add the modified one
-						insertCss(css);
-					}
-					return this;
-				},
-				render: function(selector, node){
-					if(typeof selector == "string" || selector == undefined){
-						var layout = this.layout;
-						for(var i = 0; i < layout.length; i++){
-							// iterate through the layout and render each matching one
-							var rule = layout[i];
-							if(rule.selector == selector || selector == undefined){
-								var targets = querySelectorAll(rule.selector, node)
-								for(var j = 0; j < targets.length; j++){
-									rule.render(targets[j]);
-								}
-							}
-						}
-					}else if(!selector.rendered){
-						selector.rendered = true;
-						var renderers = this.renderers;
-						if(renderers){
-							for(var j in renderers){
-								renderers[j](selector/*node*/);
-							}
-						}
-					}
-				}
-			};
-			return new Rule();
-		},
-		setQueryEngine: function(engine){
-			querySelectorAll = engine;
-		},
-		processCss: function (css, baseUrl, loaded){
-			css = css.replace(/\/\*[\s\S]*?\*\//g,'') // remove comments
-						.replace(/(@import\s+[^\s]+\s+)(.+);/g, function(t, rule, query){
-				// TODO: import
-				return t; //return rule + parts.join(" and ") + ';';
+	function checkImports(element, callback, fixedImports){
+		var sheet = element.sheet || element.styleSheet;
+		var needsParsing, cssRules = sheet.rules || sheet.cssRules;
+		function fixImports(){
+			// need to fix imports, applying load-once semantics for all browsers, and flattening for IE to fix nested @import bugs
+			require(["./load-imports"], function(load){
+				load(element, function(){
+					checkImports(element, callback, true);
+				});
 			});
-			loaded(css.replace(/url\("?([^\)"]+)"?\)/g, function(t, url){
-				if(url.charAt(0) != "/"){
-					url = baseUrl + url; 
-				}
-				return "url(" + url + ")";
-			})); 
 		}
+		if(!fixedImports && sheet.imports && sheet.imports.length){
+			// this is how we check for imports in IE
+			return fixImports();
+		}
+		for(var i = 0; i < cssRules.length; i++){								
+			var rule = importRules[i];
+			if(rule.href && !fixedImports){
+				// it's an import (for non-IE browsers)
+				return fixImports();
+			}
+			if(rule.selectorText.substring(0,2) == "x-"){
+				// an extension is used, needs to be parsed
+				needsParsing = true;
+			}
+		}
+		if(needsParsing){
+			parse(sheet.source || sheet.ownerElement.innerHTML, sheet, callback);
+		}
+	}
+	function parse(css, styleSheet, callback) {
+		// normalize the stylesheet.
+		if(!styleSheet.addRule){
+			// only FF doesn't have this
+			styleSheet.addRule = function(selector, style, index){
+				return this.insertRule(selector + "{" + style + "}", index >= 0 ? index : this.cssRules.length);
+			}
+		}
+		if(!styleSheet.deleteRule){
+			styleSheet.deleteRule = sheet.removeRule;
+		}
+		var handlers = {property:{}}, handlerModules = {};
+		function addHandler(type, name, module){
+			var handlersForType = handlers[type] || (handlers[type] = {});
+			var handlersForName = handlersForType[name] || (handlersForType[name] = []);  
+			handlersForName.push(module);
+		}
+		function addExtensionHandler(type){
+			addHandler("selector", 'x-' + type, {
+				onRule: function(rule){
+					rule.eachProperty(function(name, value){
+						var ifUnsupported = value.charAt(value.length - 1) == "?";
+						value = value.replace(/module\s*\(|\)\??/g, '');
+						addHandler(type, name, value);
+					});
+				}
+			});
+		}
+		addExtensionHandler("property");
+		addExtensionHandler("value");
+		addExtensionHandler("pseudo");
+		var waiting = 1;
+		var baseUrl = styleSheet.href.replace(/[^\/]+$/,'');
+		var properties = [], values = [];
+		var valueModules = {};
 		
+		var convertedRules = [];
+		var valueRegex = new RegExp("(?:^|\\W)(" + values.join("|") + ")(?:$|\\W)");
+		function Rule () {}
+		Rule.prototype = {
+			eachProperty: function (onproperty, propertyRegex) {
+				var selector, css;
+				selector = this.selector; //(this.children ? onproperty(0, "layout", this.children) || this.selector : this.selector);
+				this.cssText.replace(/\s*([^;:]+)\s*:\s*([^;]+)?/g, function (full, name, value) {
+					onproperty(name, value);
+				});
+				if(this.children){
+					for(var i = 0; i < this.children.length; i++){
+						var child = this.children[i];
+						if(!child.selector){ // it won't have a selector if it is property with nested properties
+							onproperty(child.property, child);
+						}
+					}
+				}
+			},
+			fullSelector: function(){
+				return (this.parent ? this.parent.fullSelector() : "") + (this.selector || "") + " ";  
+			},
+			cssText: ""
+		};
+		
+		var lastRule = new Rule;
+		lastRule.css = css;
+		
+		function onProperty(name, value) {
+			// this is called for each CSS property
+			var handlersForName = handlers.property[name];
+			if(handlersForName){
+				for(var i = 0; i < handlersForName.length; i++){
+					handler(handlersForName[i], "onProperty", name, value);
+				}
+			}
+		}
+		function onIdentifier(identifier, name, value){
+			var handlersForName = handlers.value[identifier];
+			for(var i = 0; i < handlersForName.length; i++){
+				handler(handlersForName[i], "onIdentifier", name, value);
+			}
+		}
+		function onRule(selector, rule){
+			var handlersForName = handlers.selector[selector];
+			if(handlersForName){
+				for(var i = 0; i < handlersForName.length; i++){
+					handler(handlersForName[i], "onRule", rule);
+				}
+			}
+		}
+		function handler(module, type, name, value){
+			if(module){
+				var rule = lastRule;
+				var ruleHandled = function(text){
+					console.log("loaded ", module, text);
+					if(text){
+						/* TODO: is the a way to determine the index deterministically?
+						var cssRules = styleSheet.rules || styleSheet.cssRules;
+						for(var index = rule.index || 0; index < cssRules.length; index++){
+							if(cssRules[index].selectorText == rule.fullSelector(){
+								break;
+							}
+						}*/
+						/* TODO: merge IE filters
+						if(isIE){
+							var filters = [];
+							convertedText = convertedText.replace(/filter: ([^;]+);/g, function(t, filter){
+								filters.push(filter);
+								return "";
+							});
+							if(filters.length){
+								console.log("filters", filters);
+								convertedText = "zoom: 1;filter: " + filters.join("") + ";" + convertedText;
+							}
+						}
+						*/
+						styleSheet.addRule(rule.fullSelector(), text);
+					}
+					finishedLoad();
+				};
+				
+				waiting++;
+				console.log("loading ", module, name, value);
+				var onLoad = function(module){
+					var result = module[type](name, value, rule, styleSheet);
+					if(result && result.then){
+							// a promise, return immediately defer handling
+						result.then(ruleHandled);
+					}else{
+						ruleHandled(result);
+					}
+				}
+				typeof module == "string" ? require([module], onLoad) : onLoad(module);					
+			}
+		}
+		// parse the CSS, finding each rule
+		css.replace(/\s*(?:([^{;\s]+)\s*{)?\s*([^{}]+;)?\s*(};?)?/g, function (full, selector, properties, close) {
+			// called for each rule
+			if (selector) {
+				// a selector was found, start a new rule (note this can be nested inside another selector)
+				var newRule = new Rule();
+				(lastRule.children || (lastRule.children = [])).push(newRule); // add to the parent layout 
+				newRule.parent = lastRule;
+				if(selector.charAt(selector.length - 1) == ":"){
+					// it is property style nesting
+					newRule.property= selector.substring(0, selector.length - 1);
+				}else{
+					// just this segment of selector
+					newRule.selector = selector; 
+				}
+				lastRule = newRule;
+			}
+			if (properties) {
+				// some properties were found
+				lastRule.cssText += properties;
+			}
+			if (close) {
+				// rule was closed with }
+				// TODO: use a specialized regex that only looks for registered properties
+				lastRule.cssText.replace(/\s*([^;:]+)\s*:\s*([^;]+)?/g, function (full, name, value) {
+					onProperty(name, value);
+					value.replace(valueRegex, function(t, identifier){
+						//onIdentifier(identifier, name, value);
+					});
+				});
+				if(lastRule.children){
+					for(var i = 0; i < lastRule.children.length; i++){
+						var child = lastRule.children[i];
+						if(!child.selector){ // it won't have a selector if it is property with nested properties
+							onProperty(child.property, child);
+						}
+					}
+				}
+				onRule(lastRule.selector, lastRule);
+				lastRule = lastRule.parent;
+			}
+		});
+		function finishedLoad(){
+			if(--waiting == 0){
+				if(callback){
+					callback(styleSheet);
+				}
+			}
+		}		
+		finishedLoad();
+	}
+	search('link');
+	search('style');
+	return {
+		process: checkImports
 	};
-})
-})(typeof define!="undefined"?define:function(factory){
-	xStyle = factory(has); // create a global if standalone
+
 });

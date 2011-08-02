@@ -1,18 +1,9 @@
 // summary:
 //		This script scans for stylesheets and flattens imports in IE (to fix the deep import bug),
-//		and loads any extension modules that are referenced by imports 
-if(typeof define == "undefined"){
-	define = function(deps, factory){
-		factory();
-	};
-}
+//		and provides loading of the text of any sheets. This is intended to only be loaded as needed
+// 		for development, ideally stylesheets should be flattened and inlined for finished/production
+// 		applications, and this module won't be loaded.  
 define([], function(){
-	function search(tag){
-		var elements = document.getElementsByTagName(tag);
-		for(var i = 0; i < elements.length; i++){
-			process(elements[i]);
-		}
-	}
 	var insertedSheets = {},
 		features = {
 			"dom-deep-import": !document.createStyleSheet // essentially test to see if it is IE, inaccurate marker, maybe should use dom-addeventlistener? 
@@ -20,26 +11,29 @@ define([], function(){
 	function has (feature) {
 		return features[feature];
 	}
-	var modules = [];
 	// load any plugin modules when done parsing
-	function process(link, callback){
+	function load(link, callback){
 		var sheet = link.sheet || link.styleSheet;
 		
-		function processAfterFix(sheet){
-			loadOnce(sheet);
-			loadingCount = modules.length + 1;
-			require(modules, function(){
-				for(var i = 0; i < arguments.length; i++){
-					var module = arguments[i];
-					module.process(sheet, finishedModule);	
-				}
-			});
-			function finishedModule(){
-				if(!--loadingCount){
-					callback && callback(sheet);
+		loadingCount = 1;
+		
+		function finishedModule(){
+			if(!--loadingCount){
+				aggregateSource(sheet);
+				callback && callback(sheet);
+			}
+		}
+		function aggregateSource(sheet){
+			var source = "";
+			var importRules = sheet.imports || sheet.rules || sheet.cssRules;
+			
+			for(var i = 0; i < importRules.length; i++){										
+				var rule = importRules[i];
+				if(rule.href){
+					source += aggregateSource(rule.styleSheet || rule);
 				}
 			}
-			finishedModule();
+			return sheet.source = source + sheet.localSource;
 		}
 		if(!has("dom-deep-import")){
 			// in IE, so we flatten the imports due to IE's lack of support for deeply nested @imports
@@ -98,19 +92,22 @@ define([], function(){
 					setTimeout(flattenImports, 50);
 				}else{
 					sheet.processed = true;
-					processAfterFix(sheet);
+					loadOnce(sheet);
 				}
 			}
 			return flattenImports();
 		}
-		processAfterFix(sheet);
+		
+		loadOnce(sheet);
+		finishedModule();
 		function loadOnce(sheet, baseUrl){
 			// This function is responsible for implementing the @import once
 			// semantics, such extra @imports that resolve to the same
 			// CSS file are eliminated, and only the first one is kept
 			
 			var href = absoluteUrl(baseUrl, sheet.correctHref || sheet.href);
-			// do normalization 
+			// do normalization
+			// TODO: remove this normalization, it is done in xstyle 
 			if(!sheet.addRule){
 				// only FF doesn't have this
 				sheet.addRule = function(selector, style, index){
@@ -183,6 +180,12 @@ define([], function(){
 					// record the stylesheet in our hash
 					insertedSheets[href] = sheet;
 					sheet.ownerElement = link;
+					var sourceSheet = sheet;
+					loadingCount++;
+					fetchText(href, function(text){
+						sourceSheet.localSource = text;
+						finishedModule();
+					});
 				}
 				// now recurse into @import's to check to make sure each of those is only loaded once 
 				var importRules = sheet.imports || sheet.rules || sheet.cssRules;
@@ -195,9 +198,7 @@ define([], function(){
 						sheet = rule.styleSheet || rule;
 						if(rule.href.substring(0,7) == "module:"){
 							// handle @import "module:<module-id>"; as an extension module that
-							//	can perform extra processing. cssx.js can be loaded as 
-							//	dependency of a stylesheet this way
-							modules.push(absoluteUrl(href, rule.href.substring(7)));
+							//	can perform extra processing.
 						}else if(loadOnce(sheet, href)){
 							i--; // deleted, so go back in index
 						}
@@ -220,10 +221,47 @@ define([], function(){
 		}
 		return url;
 	}
-	search('link');
-	search('style');
-	return {
-		process: process
-	};
+	return load;
+	/***** xhr *****/
+
+	var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'];
+
+	function xhr () {
+		if (typeof XMLHttpRequest !== "undefined") {
+			// rewrite the getXhr method to always return the native implementation
+			xhr = function () { return new XMLHttpRequest(); };
+		}
+		else {
+			// keep trying progIds until we find the correct one, then rewrite the getXhr method
+			// to always return that one.
+			var noXhr = xhr = function () {
+					throw new Error("getXhr(): XMLHttpRequest not available");
+				};
+			while (progIds.length > 0 && xhr === noXhr) (function (id) {
+				try {
+					new ActiveXObject(id);
+					xhr = function () { return new ActiveXObject(id); };
+				}
+				catch (ex) {}
+			}(progIds.shift()));
+		}
+		return xhr();
+	}
+
+	function fetchText (url, callback, errback) {
+		var x = xhr();
+		x.open('GET', url, true);
+		x.onreadystatechange = function (e) {
+			if (x.readyState === 4) {
+				if (x.status < 400) {
+					callback(x.responseText);
+				}
+				else {
+					errback(new Error('fetchText() failed. status: ' + x.statusText));
+				}
+			}
+		};
+		x.send(null);
+	}
 	
 });
