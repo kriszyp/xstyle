@@ -5,7 +5,7 @@
 
 /*jslint browser:true, on:true, sub:true */
 
-define(["./scan"], function(scan){
+define([], function(){
 "use strict";
 
 /*
@@ -273,7 +273,7 @@ define(["./scan"], function(scan){
 					// (so 0 msec is enough time).
 					if(--loadingCount == 0){
 						// TODO: move this setTimeout to loadHandler
-						scan.process(link, callback);
+						callback(link.sheet || link.styleSheet)
 						// TODO: Is this need for Opera?
 						//setTimeout(onCssLoaded,0);
 					}
