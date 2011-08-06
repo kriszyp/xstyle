@@ -8,14 +8,14 @@ if(typeof define == "undefined"){
 			}
 			modules[id] = factory.apply(this, deps);
 		};
-		require = function(){
-			
-		}
+		require = function(deps){
+			define("", deps, factory);
+		};
 	})();
 }
 define("xstyle/xstyle", ["require"], function (require) {
 	"use strict";
-	var undef;
+	var undef, testDiv = document.createElement("div");
 	function search(tag){
 		var elements = document.getElementsByTagName(tag);
 		for(var i = 0; i < elements.length; i++){
@@ -24,7 +24,8 @@ define("xstyle/xstyle", ["require"], function (require) {
 	}
 	function checkImports(element, callback, fixedImports){
 		var sheet = element.sheet || element.styleSheet;
-		var needsParsing, cssRules = sheet.rules || sheet.cssRules;
+		var needsParsing = sheet.needsParsing, // load-imports can check for the need to parse when it does it's recursive look at imports 
+			cssRules = sheet.rules || sheet.cssRules;
 		function fixImports(){
 			// need to fix imports, applying load-once semantics for all browsers, and flattening for IE to fix nested @import bugs
 			require(["./load-imports"], function(load){
@@ -33,22 +34,25 @@ define("xstyle/xstyle", ["require"], function (require) {
 				});
 			});
 		}
-		if(!fixedImports && sheet.imports && sheet.imports.length){
+		if(sheet.imports && !fixedImports && sheet.imports.length){
 			// this is how we check for imports in IE
 			return fixImports();
 		}
-		for(var i = 0; i < cssRules.length; i++){								
-			var rule = importRules[i];
-			if(rule.href && !fixedImports){
-				// it's an import (for non-IE browsers)
-				return fixImports();
-			}
-			if(rule.selectorText.substring(0,2) == "x-"){
-				// an extension is used, needs to be parsed
-				needsParsing = true;
+		if(!needsParsing){
+			for(var i = 0; i < cssRules.length; i++){								
+				var rule = cssRules[i];
+				if(rule.href && !fixedImports){
+					// it's an import (for non-IE browsers)
+					return fixImports();
+				}
+				if(rule.selectorText && rule.selectorText.substring(0,2) == "x-"){
+					// an extension is used, needs to be parsed
+					needsParsing = true;
+				}
 			}
 		}
 		if(needsParsing){
+			// ok, determined that CSS extensions are in the CSS, need to get the source and really parse it
 			parse(sheet.source || sheet.ownerElement.innerHTML, sheet, callback);
 		}
 	}
@@ -63,19 +67,20 @@ define("xstyle/xstyle", ["require"], function (require) {
 		if(!styleSheet.deleteRule){
 			styleSheet.deleteRule = sheet.removeRule;
 		}
-		var handlers = {property:{}}, handlerModules = {};
+		var handlers = {property:{}};
 		function addHandler(type, name, module){
 			var handlersForType = handlers[type] || (handlers[type] = {});
-			var handlersForName = handlersForType[name] || (handlersForType[name] = []);  
-			handlersForName.push(module);
+			handlersForType[name] = module;
 		}
 		function addExtensionHandler(type){
 			addHandler("selector", 'x-' + type, {
 				onRule: function(rule){
 					rule.eachProperty(function(name, value){
 						var ifUnsupported = value.charAt(value.length - 1) == "?";
-						value = value.replace(/module\s*\(|\)\??/g, '');
-						addHandler(type, name, value);
+						value = value.replace(/require\s*\(|\)\??/g, '');
+						if(!ifUnsupported || typeof testDiv.style[name] != "string"){ // if conditioned on support, test to see browser has that style
+							addHandler(type, name, value);
+						}
 					});
 				}
 			});
@@ -84,7 +89,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 		addExtensionHandler("value");
 		addExtensionHandler("pseudo");
 		var waiting = 1;
-		var baseUrl = styleSheet.href.replace(/[^\/]+$/,'');
+		var baseUrl = (styleSheet.href || location.href).replace(/[^\/]+$/,'');
 		var properties = [], values = [];
 		var valueModules = {};
 		
@@ -118,25 +123,26 @@ define("xstyle/xstyle", ["require"], function (require) {
 		
 		function onProperty(name, value) {
 			// this is called for each CSS property
-			var handlersForName = handlers.property[name];
-			if(handlersForName){
-				for(var i = 0; i < handlersForName.length; i++){
-					handler(handlersForName[i], "onProperty", name, value);
+			var propertyName = name;
+			do{
+				var handlerForName = handlers.property[name];
+				if(handlerForName){
+					return handler(handlerForName, "onProperty", propertyName, value);
 				}
-			}
+				// if we didn't match, we try to match property groups, for example "background-image" should match the "background" listener 
+				name = name.substring(0, name.lastIndexOf("-"));
+			}while(name);
 		}
 		function onIdentifier(identifier, name, value){
-			var handlersForName = handlers.value[identifier];
-			for(var i = 0; i < handlersForName.length; i++){
-				handler(handlersForName[i], "onIdentifier", name, value);
+			var handlerForName = handlers.value[identifier];
+			if(handlerForName){
+				handler(handlerForName, "onIdentifier", name, value);
 			}
 		}
 		function onRule(selector, rule){
-			var handlersForName = handlers.selector[selector];
-			if(handlersForName){
-				for(var i = 0; i < handlersForName.length; i++){
-					handler(handlersForName[i], "onRule", rule);
-				}
+			var handlerForName = handlers.selector[selector];
+			if(handlerForName){
+				handler(handlerForName, "onRule", rule);
 			}
 		}
 		function handler(module, type, name, value){
@@ -237,8 +243,21 @@ define("xstyle/xstyle", ["require"], function (require) {
 	}
 	search('link');
 	search('style');
-	return {
-		process: checkImports
+	var ua = navigator.userAgent;
+	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
+		ua.indexOf("Firefox") > -1 ? "-moz-" :
+		ua.indexOf("Trident") > -1 ? "-ms-" :
+		ua.indexOf("Opera") > -1 ? "-o-" : "";
+	var xstyle =  {
+		process: checkImports,
+		vendorPrefix: vendorPrefix,
+		onProperty: function(name, value){
+			if(name == "opacity" && vendorPrefix == "-ms-"){
+				return 'filter: alpha(opacity=' + (value * 100) + '); zoom: 1;';
+			}
+			return vendorPrefix + name + ":" + value + ";";
+		}
 	};
+	return xstyle;
 
 });
