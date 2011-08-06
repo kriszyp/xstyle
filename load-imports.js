@@ -187,20 +187,28 @@ define([], function(){
 						finishedModule();
 					});
 				}
+				var cssRules = sheet.rules || sheet.cssRules;
+				for(var i = 0; i < cssRules.length; i++){
+					var rule = cssRules[i];
+					if(rule.selectorText && rule.selectorText.substring(0,2) == "x-"){
+						sheet.needsParsing = true;
+					}
+				}
+				
 				// now recurse into @import's to check to make sure each of those is only loaded once 
-				var importRules = sheet.imports || sheet.rules || sheet.cssRules;
+				var importRules = sheet.imports || cssRules;
 				
 				for(var i = 0; i < importRules.length; i++){										
 					var rule = importRules[i];
 					if(rule.href){
 						// it's an import (for non-IE browsers we are looking at all rules, and need to exclude non-import rules
 						var parentStyleSheet = sheet; 
-						sheet = rule.styleSheet || rule;
-						if(rule.href.substring(0,7) == "module:"){
-							// handle @import "module:<module-id>"; as an extension module that
-							//	can perform extra processing.
-						}else if(loadOnce(sheet, href)){
+						var childSheet = rule.styleSheet || rule;
+						if(loadOnce(childSheet, href)){
 							i--; // deleted, so go back in index
+						}
+						if(childSheet.needsParsing){
+							sheet.needsParsing = true;
 						}
 					}
 				}
