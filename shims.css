@@ -1,0 +1,20 @@
+x-value { 
+	linear-gradient: require(xstyle/gradient)?;
+}
+x-property { 
+	opacity: require(xstyle/xstyle)?;
+	bottom: require(xstyle/shim/boxOffsets)?;
+	right: require(xstyle/shim/boxOffsets)?;
+	transition: require(xstyle/shim/transition)?;
+	border-radius: require(xstyle/xstyle)?;
+	box-shadow: require(xstyle/shim/vendorize)?;
+	box-sizing: require(xstyle/xstyle)?;
+	border-image: require(xstyle/xstyle)?;
+	transform: require(xstyle/shim/vendorize)?;
+}
+x-pseudo { 
+	hover: require(xstyle/shim/pseudos)?;
+	focus: require(xstyle/shim/pseudos)?;
+	disabled: require(xstyle/shim/pseudos)?;
+	checked: require(xstyle/shim/pseudos)?;
+}

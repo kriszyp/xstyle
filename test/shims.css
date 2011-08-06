@@ -1,0 +1,50 @@
+@import "../shims.css";
+
+.opacity[test=value] {
+	opacity: 0.7;
+}
+.opacity {
+	opacity: 0.4;
+}
+.transition {
+	transition-duration: 2s;
+	transition-timing-function: ease-in;
+	background-color: red;
+	border: 1px solid green;
+	width: 10em;
+}
+.transition:hover {
+	background-color: #00ffff00;
+	width: 20em;
+}
+.transform {
+	transform: rotate(30deg);
+}
+.rounded-box {
+	position: absolute;
+	padding: 10px;
+	left: 50px;
+	top: 50px;
+	bottom: 50px;
+	right: 50px;
+	border: 1px solid black;
+	border-radius: 15px;
+	box-shadow: 10px 10px 5px #888888;
+	background-color: #ddd;
+}
+.gradient-box {
+	background-image: linear-gradient(top,  #cccccc,  #000000);
+	transform: rotate(-20deg);
+	position: absolute;
+	left: 300px;
+	top: 100px;
+	width: 560px;
+	height: 170px;
+}
+.sized-box {
+	position: relative;
+	width: 100px;
+	padding: 10px;
+	border: 10px solid transparent;
+	box-sizing: border-box;
+}
