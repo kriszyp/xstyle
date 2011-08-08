@@ -1,20 +1,20 @@
 x-value { 
-	linear-gradient: require(xstyle/gradient)?;
+	linear-gradient: default, require(xstyle/gradient);
 }
 x-property { 
-	opacity: require(xstyle/xstyle)?;
-	bottom: require(xstyle/shim/boxOffsets)?;
-	right: require(xstyle/shim/boxOffsets)?;
-	transition: require(xstyle/shim/transition)?;
-	border-radius: require(xstyle/xstyle)?;
-	box-shadow: require(xstyle/shim/vendorize)?;
-	box-sizing: require(xstyle/xstyle)?;
-	border-image: require(xstyle/xstyle)?;
-	transform: require(xstyle/shim/vendorize)?;
+	opacity: default, require(xstyle/xstyle);
+	bottom: default, require(xstyle/shim/boxOffsets);
+	right: default, require(xstyle/shim/boxOffsets);
+	transition: default, prefix, require(xstyle/shim/transition);
+	border-radius: default, prefix;
+	box-shadow: default, prefix, require(xstyle/shim/vendorize);
+	box-sizing: default, prefix;
+	border-image: default, prefix;
+	transform: default, prefix, require(xstyle/shim/vendorize);
 }
 x-pseudo { 
-	hover: require(xstyle/shim/pseudos)?;
-	focus: require(xstyle/shim/pseudos)?;
-	disabled: require(xstyle/shim/pseudos)?;
-	checked: require(xstyle/shim/pseudos)?;
+	hover: default, require(xstyle/shim/pseudo);
+	focus: default, require(xstyle/shim/pseudo);
+	disabled: default, require(xstyle/shim/pseudo);
+	checked: default, require(xstyle/shim/pseudo);
 }
