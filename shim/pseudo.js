@@ -18,13 +18,13 @@ define("xstyle/shim/pseudo",[], function(){
 	return {
 		onPseudo: function(name, rule){
 			if(name == "hover"){
-				handleEvent("mouseover", true);
-				handleEvent("mouseout", false);
+				handleEvent("onmouseover", true);
+				handleEvent("onmouseout", false);
 				rule.add(rule.selector.replace(/:hover/, ''), 'xstyle-hover: true');
 				rule.add(rule.selector.replace(/:hover/, '.xstyle-hover'), rule.cssText);
 			}else if(name == "focus"){
-				handleEvent("activate", true);
-				handleEvent("deactivate", false);
+				handleEvent("onactivate", true);
+				handleEvent("ondeactivate", false);
 				rule.add(rule.selector.replace(/:hover/, ''), 'xstyle-focus: true');
 				rule.add(rule.selector.replace(/:hover/, '.xstyle-focus'), rule.cssText);
 			}
