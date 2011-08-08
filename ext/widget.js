@@ -1,4 +1,4 @@
-define(['./elemental'], function(elemental){
+define(['../elemental'], function(elemental){
 	function parse(value, callback){
 		var Class, prototype;
 		if(value.eachProperty){
