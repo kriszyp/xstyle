@@ -95,7 +95,8 @@ define([], function(){
 					loadOnce(sheet);
 				}
 			}
-			return flattenImports();
+			flattenImports();
+			return finishedModule();
 		}
 		
 		loadOnce(sheet);
