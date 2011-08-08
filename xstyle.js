@@ -22,6 +22,11 @@ define("xstyle/xstyle", ["require"], function (require) {
 			checkImports(elements[i]);
 		}
 	}
+	var ua = navigator.userAgent;
+	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
+		ua.indexOf("Firefox") > -1 ? "-moz-" :
+		ua.indexOf("Trident") > -1 ? "-ms-" :
+		ua.indexOf("Opera") > -1 ? "-o-" : "";
 	function checkImports(element, callback, fixedImports){
 		var sheet = element.sheet || element.styleSheet;
 		var needsParsing = sheet.needsParsing, // load-imports can check for the need to parse when it does it's recursive look at imports 
@@ -76,11 +81,42 @@ define("xstyle/xstyle", ["require"], function (require) {
 			addHandler("selector", 'x-' + type, {
 				onRule: function(rule){
 					rule.eachProperty(function(name, value){
-						var ifUnsupported = value.charAt(value.length - 1) == "?";
+						do{
+							var parts = value.match(/require\s*\((.+)\)|([^, ]+)([, ]+(.+))?/);
+							if(parts[1]){
+								return addHandler(type, name, parts[1]);
+							}
+							var first = parts[2];
+							if(first == "default"){
+								if((type == "property" && typeof testDiv.style[name] == "string")){
+									return;
+								}
+								if(type == "pseudo"){
+									try{
+										document.querySelectorAll("x:" + name);
+										return;
+									}catch(e){}
+								}
+							}else if(first == "prefix"){
+								if(typeof testDiv.style[vendorPrefix + name] == "string"){
+									return addHandler(type, name, 'xstyle/xstyle');
+								}
+							}else{
+								return addHandler(type, name, function(){
+									return value;
+								});
+							}
+						}while(value = parts[4]);
+/*						var ifUnsupported = value.charAt(value.length - 1) == "?";
 						value = value.replace(/require\s*\(|\)\??/g, '');
 						if(!ifUnsupported || typeof testDiv.style[name] != "string"){ // if conditioned on support, test to see browser has that style
+							// not supported as a standard property, now let's check to see if we can support it with vendor prefixing
+							if(ifUnsupported && typeof testDiv.style[vendorPrefix + name] == "string"){
+								// it does support vendor prefixing, fix it with that
+								value = 'xstyle/xstyle';
+							}
 							addHandler(type, name, value);
-						}
+						}*/
 					});
 				}
 			});
@@ -115,6 +151,11 @@ define("xstyle/xstyle", ["require"], function (require) {
 			fullSelector: function(){
 				return (this.parent ? this.parent.fullSelector() : "") + (this.selector || "") + " ";  
 			},
+			add: function(selector, cssText){
+				styleSheet.addRule ?
+					styleSheet.addRule(selector, cssText) :
+					styleSheet.insertRule(selector + '{' + cssText + '}', styleSheet.cssRules.length);
+			},
 			cssText: ""
 		};
 		
@@ -143,6 +184,12 @@ define("xstyle/xstyle", ["require"], function (require) {
 			var handlerForName = handlers.selector[selector];
 			if(handlerForName){
 				handler(handlerForName, "onRule", rule);
+			}
+		}
+		function onPseudo(pseudo, rule){
+			var handlerForName = handlers.pseudo[pseudo];
+			if(handlerForName){
+				handler(handlerForName, "onPseudo", pseudo, rule);
 			}
 		}
 		function handler(module, type, name, value){
@@ -229,6 +276,9 @@ define("xstyle/xstyle", ["require"], function (require) {
 					}
 				}
 				onRule(lastRule.selector, lastRule);
+				lastRule.selector.replace(/:([-\w]+)/, function(t, pseudo){
+					return onPseudo(pseudo, lastRule);
+				});
 				lastRule = lastRule.parent;
 			}
 		});
@@ -243,19 +293,15 @@ define("xstyle/xstyle", ["require"], function (require) {
 	}
 	search('link');
 	search('style');
-	var ua = navigator.userAgent;
-	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
-		ua.indexOf("Firefox") > -1 ? "-moz-" :
-		ua.indexOf("Trident") > -1 ? "-ms-" :
-		ua.indexOf("Opera") > -1 ? "-o-" : "";
 	var xstyle =  {
 		process: checkImports,
 		vendorPrefix: vendorPrefix,
 		onProperty: function(name, value){
+			// basically a noop for most operations, we rely on the vendor prefixing in the main property parser 
 			if(name == "opacity" && vendorPrefix == "-ms-"){
 				return 'filter: alpha(opacity=' + (value * 100) + '); zoom: 1;';
 			}
-			return vendorPrefix + name + ":" + value + ";";
+			return vendorPrefix + name + ':' + value + ';';
 		}
 	};
 	return xstyle;
