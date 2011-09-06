@@ -1,9 +1,12 @@
 /*
     Handles transitions and animations
 */
-define(["./vendorize", "../elemental"],function(vendor, elemental){
+define(["../xstyle", "../elemental"],function(xstyle, elemental){
 	var transitions = [];
 	function propertyChange(event){
+		if(event.propertyName != "className"){
+			return;
+		}
 		var element = event.srcElement;
 		var elementTransitions = element._transitions;
 		var previousStyle = element._previousStyle;
@@ -11,32 +14,44 @@ define(["./vendorize", "../elemental"],function(vendor, elemental){
 		var currentStyle = element.currentStyle;
 		for(var i in previousStyle){
 			var runtime = runtimeStyle[i];
-			delete runtimeStyle[i];
+//			runtimeStyle[i] = '';
+			if(!elementTransitions){
+				element._transitions = elementTransitions = {};
+			}
 			var previous = previousStyle[i];
 			var current = currentStyle[i];
-			if(previous != current){
-				previous = parseUnits(previous);
-				runtime = parseUnits(runtime);
-				current = parseUnits(current);
-				var toGo = distance(current, runtime);
-				var total = distance(current, previous);
-				var transition = elementTransitions[i];
-				if(transition){
-					transition.at = 1;
-				}
-				transition = elementTransitions[i] = {
-					from: runtime,
-					element: element,
-					to: current,
-					duration: element._transitionDuration * toGo / total,
-					timing: timing[element._transitionTiming || "ease"], 
-					property: i,
-					t: 0 
-				};
-				transitions.push(transition);
-				previousStyle[i] = current;
-			}
 			runtimeStyle[i] = runtime;
+			if(previous != current && (previous || runtime)){
+				var currentNum = parseUnits(current);
+				if(currentNum.units){
+					var runtimeParsed = parseUnits(runtime);
+					var toGo = distance(currentNum, runtimeParsed);
+					var previousParsed = parseUnits(previous);
+					var total = distance(currentNum, previousParsed);
+					if(total && toGo && previousParsed.units == currentNum.units){
+						var transition = elementTransitions[i];
+						if(transition){
+							transition.at = 1;
+						}
+						var time = time || (currentTime = new Date().getTime());
+						transition = elementTransitions[i] = {
+							from: (previous || runtime),
+							element: element,
+							to: current,
+							startTime: time,
+							duration: element._transitionDuration * toGo / total,
+							timing: timing[element._transitionTiming || "ease"], 
+							property: i,
+							t: 0 
+						};
+						if(!updateTransition(transition)){
+							// if it doesn't return done, add it to the list of currently executing animations
+							transitions.push(transition);
+						}
+						previousStyle[i] = current;
+					}
+				}
+			}
 		}
 		
 	}
@@ -73,14 +88,14 @@ define(["./vendorize", "../elemental"],function(vendor, elemental){
 	function distance(start, end){
 		var sum = 0;
 		for(var i = 0; i < start.length; i++){
-			sum += Math.abs(end[i] - start[i]);
+			sum += Math.abs((end[i] || 0) - (start[i] || 0));
 		}
 		return sum;
 	}
 	function ratio(start, end, completed){
 		var mid = [];
 		for(var i = 0; i < start.length; i++){
-			mid[i] = end[i] * completed - start[i] * (1 - completed);
+			mid[i] = end[i] * completed - start[i] * (completed - 1);
 		}
 		if(start.units == "rgb"){
 			return "#" + mid[0].toString(16)+mid[1].toString(16)+mid[2].toString(16)+mid[3].toString(16);
@@ -95,12 +110,23 @@ define(["./vendorize", "../elemental"],function(vendor, elemental){
 		var lastTime = currentTime;
 		currentTime = new Date().getTime();
 		for(var i = 0, l = transitions.length; i < l; i++){
-			var transition = transitions[i];
-			runtimeStyle = element.runtimeStyle;
-			var t = transition.t += period / 1000 / transition.duration;
-			//runtimeStyle[transition.property] = ratio(transition.timing(transition.from, transition.end, transition.t));
+			if(updateTransition(transitions[i])){
+				transitions.splice(i--, 1);
+				l--;
+			}
 		}
 	}, period);
+	function updateTransition(transition){
+		var element = transition.element;
+		runtimeStyle = element.runtimeStyle;
+		var t = transition.t = (currentTime - transition.startTime) / 1000 / transition.duration;
+		if(t >= 1){
+			// this means the transition is done, remove the runtime styling
+			runtimeStyle[transition.property] = '';
+			return true;
+		}
+		runtimeStyle[transition.property] = ratio(parseUnits(transition.from), parseUnits(transition.to), transition.timing(transition.t));
+	}
 	// these are based on the cubic-bezier functions described by https://developer.mozilla.org/en/CSS/transition-timing-function
 	var timing = {
 		ease: cubic(0.25, 0.1, 0.25, 1),
@@ -126,20 +152,17 @@ define(["./vendorize", "../elemental"],function(vendor, elemental){
 	}
 	return {
 		onProperty: function(name, value, rule){
-			if(vendor.prefix == "-ms-"){
-				return elemental.addRenderer(rule.selector, function(element){
-					var currentStyle = element.currentStyle;
-					var previousStyle = element._previousStyle = {};
-					if(name == "transition-duration"){
-						element._transitionDuration = parseFloat(value);
-					}
-					for(var i in currentStyle){
-						previousStyle[i] = currentStyle[i];
-					}
-					element.attachEvent("onpropertychange", propertyChange);
-				});
-			}
-			return vendor.onProperty(name, value);
+			return elemental.addRenderer(name, value, rule, function(element){
+				var currentStyle = element.currentStyle;
+				var previousStyle = element._previousStyle = {};
+				if(name == "transition-duration"){
+					element._transitionDuration = parseFloat(value);
+				}
+				for(var i in currentStyle){
+					previousStyle[i] = currentStyle[i];
+				}
+				element.attachEvent("onpropertychange", propertyChange);
+			});
 		}
 	};
 });

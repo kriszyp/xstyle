@@ -25,7 +25,7 @@ define([], function(){
 		}
 		function aggregateSource(sheet){
 			var source = "";
-			var importRules = sheet.imports || sheet.rules || sheet.cssRules;
+			var importRules = !sheet.disabled && (sheet.imports || sheet.rules || sheet.cssRules);
 			
 			for(var i = 0; i < importRules.length; i++){										
 				var rule = importRules[i];

@@ -1,11 +1,12 @@
 <!DOCTYPE HTML>
 <html lang="en-US">
-<head>
-<meta charset="UTF-8">
-<title>Run shim Unit Tests</title>
-
-<link href="./shims.css" rel="stylesheet" type="text/css" />
-<script src="/dojo/dojo.js" data-dojo-config="async:true"></script>
+  <head>
+    <meta charset="UTF-8">
+     <title>Run shim Unit Tests</title>
+   <style>
+   @import "./shims.css";
+   </style>
+   <script src="/dojo/dojo.js" data-dojo-config="async:true"></script>
 
 <script>
 var now = new Date();
@@ -15,9 +16,9 @@ require(['xstyle/xstyle'], function (xstyle) {
 	console.log(new Date() - now);
 });
 
-</script>
+  </script>
 
-</head>
+  </head>
 <body>
 
 <div class="rounded-box">
@@ -38,7 +39,7 @@ require(['xstyle/xstyle'], function (xstyle) {
 	opacity: 0.7;
 }</pre></div>
 	<div class="sized-box">sized box</div>
-	<div class="transition">transition</div>
+	<div class="transition" id="trans">transition</div>
 	<div class="gradient-box"><pre>{
 	background-image: linear-gradient(top,  #cccccc,  #000000);
 	transform: rotate(-20deg);

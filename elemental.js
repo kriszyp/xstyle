@@ -21,7 +21,7 @@ define([], function(){
 			renderWaiting();
 		}else{
 			var all = document.all;
-			for(var i = 0; l < all.length; i++){
+			for(var i = 0, l = all.length; i < l; i++){
 				update(all[i]);
 			}
 		}
