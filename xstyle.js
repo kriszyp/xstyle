@@ -25,7 +25,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 	var ua = navigator.userAgent;
 	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
 		ua.indexOf("Firefox") > -1 ? "-moz-" :
-		ua.indexOf("Trident") > -1 ? "-ms-" :
+		ua.indexOf("MSIE") > -1 ? "-ms-" :
 		ua.indexOf("Opera") > -1 ? "-o-" : "";
 	function checkImports(element, callback, fixedImports){
 		var sheet = element.sheet || element.styleSheet;
@@ -78,6 +78,9 @@ define("xstyle/xstyle", ["require"], function (require) {
 			handlersForType[name] = module;
 		}
 		function addExtensionHandler(type){
+			if(!handlers[type]){
+				handlers[type] = {};
+			}
 			addHandler("selector", 'x-' + type, {
 				onRule: function(rule){
 					rule.eachProperty(function(name, value){
@@ -276,7 +279,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 					}
 				}
 				onRule(lastRule.selector, lastRule);
-				lastRule.selector.replace(/:([-\w]+)/, function(t, pseudo){
+				lastRule.selector && lastRule.selector.replace(/:([-\w]+)/, function(t, pseudo){
 					return onPseudo(pseudo, lastRule);
 				});
 				lastRule = lastRule.parent;
