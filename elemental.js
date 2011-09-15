@@ -144,6 +144,7 @@ define([], function(){
 			if(documentQueried){
 				findMatches(renderer);
 			}
+			renderWaiting();
 			/*if(!matchesSelector){
 				// create a custom property to identify this rule in created elements
 				return (renderers.triggerProperty = 'selector_' + encodeURIComponent(selector).replace(/%/g, '/')) + ': 1;' +
