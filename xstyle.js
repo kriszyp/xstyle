@@ -155,9 +155,11 @@ define("xstyle/xstyle", ["require"], function (require) {
 				return (this.parent ? this.parent.fullSelector() : "") + (this.selector || "") + " ";  
 			},
 			add: function(selector, cssText){
-				styleSheet.addRule ?
-					styleSheet.addRule(selector, cssText) :
-					styleSheet.insertRule(selector + '{' + cssText + '}', styleSheet.cssRules.length);
+				if(cssText){
+					styleSheet.addRule ?
+						styleSheet.addRule(selector, cssText) :
+						styleSheet.insertRule(selector + '{' + cssText + '}', styleSheet.cssRules.length);
+				}
 			},
 			cssText: ""
 		};
