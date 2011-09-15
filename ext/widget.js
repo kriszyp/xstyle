@@ -4,6 +4,9 @@ define(['../elemental'], function(elemental){
 		if(value.eachProperty){
 			var type, props = {/*cssText: value.cssText*/};
 			value.eachProperty(function(name, value){
+				name = name.replace(/-\w/g, function(dashed){
+					return dashed.charAt(1).toUpperCase();
+				});
 				value = parse(value);
 				if(name == "type" && callback){
 					type = value;
