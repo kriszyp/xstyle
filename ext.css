@@ -1,4 +1,3 @@
-@import "./shims.css";
 x-function { 
 	scrollbar: require(xstyle/ext/scrollbar);
 }
@@ -8,4 +7,4 @@ x-pseudo {
 }
 x-property {
 	-x-widget: require(xstyle/ext/widget);
-}
+}			
