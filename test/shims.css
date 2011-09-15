@@ -20,24 +20,30 @@
 .transform {
 	transform: rotate(30deg);
 }
-.rounded-box {
+.container{
 	position: absolute;
-	padding: 10px;
 	left: 50px;
 	top: 50px;
 	bottom: 50px;
 	right: 50px;
 	border: 1px solid black;
+	background-color: #ddd;
+}
+.drop-shadow-box {
+	position: absolute;
+	left: 300px;
+	top: 50px;
+	border: 1px solid black;
 	border-radius: 15px;
 	box-shadow: 10px 10px 5px #888888;
-	background-color: #ddd;
+	background-color: #bbb;
 }
 .gradient-box {
 	background-image: linear-gradient(top,  #cccccc,  #000000);
 	transform: rotate(-20deg);
 	position: absolute;
 	left: 300px;
-	top: 100px;
+	top: 250px;
 	width: 560px;
 	height: 170px;
 }
