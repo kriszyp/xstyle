@@ -4,8 +4,8 @@ define([], function(){
 		load: function(resource, parentRequire, callback, config){
 //			resource = parentRequire.toAbsMid(resource); // TODO: Should we be able to normalize the resource? doesn't seem to work in RequireJS, but RequireJS gives us an absolute id here
 			cache[resource] = typeof readFile != "undefined" ?
-				readFile(resource, "utf-8") :
-				require.nodeRequire('fs').readFileSync(resource, "utf-8"); // how are we supposed to require the 'fs' module in a reliable way? 
+				readFile(parentRequire.toUrl(resource), "utf-8") :
+				require.nodeRequire('fs').readFileSync(parentRequire.toUrl(resource), "utf-8"); // how are we supposed to require the 'fs' module in a reliable way? 
 			callback({});
 		},
 		write: function(pluginId, resource, write){
