@@ -53,7 +53,7 @@ var cssCache = window.cssCache || (window.cssCache = {});
 				// not present, we need to use the dynamic CSS loader.
 				var docElement = document.documentElement;
 				var testDiv = docElement.insertBefore(document.createElement('div'), docElement.firstChild);
-				testDiv.id = resourceDef.replace(/\./,'-') + "-loaded";  //cssIdTest[2];
+				testDiv.id = require.toAbsMid(resourceDef).replace(/\//g,'-').replace(/\..*/,'') + "-loaded";  //cssIdTest[2];
 				var displayStyle = (testDiv.currentStyle || getComputedStyle(testDiv)).display;
 				docElement.removeChild(testDiv);
 				if(displayStyle == "none"){
