@@ -101,13 +101,15 @@ bottom and right CSS properties.
 
 <h1>Available Extensions</h1>
 The following shim modules come with XStyle:
-* pseudo - This modules provides emulation of hover, focus and other pseudos that
+* ext/pseudo - This modules provides emulation of hover, focus and other pseudos that
 are not present in older versions of IE.
-* scrollbar - This module provides scrollbar measurement so that elements can be sized
+* ext/scrollbar - This module provides scrollbar measurement so that elements can be sized
 based on the size of the scrollbar.
-* widget - This module can instantiate widgets to be applied to elements that match
+* ext/supported - 
+* ext/widget - This module can instantiate widgets to be applied to elements that match
 a rule's selector. This is designed to instantiate widgets with the form of Widget(params, targetNode),
 and can be used to instantiate Dojo's Dijit widgets.
+
 
 <h1>Creating Extension Modules</h1>
 XStyle is a plugin-based and you are encouraged to create your own CSS extension modules/plugins.
