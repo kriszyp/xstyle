@@ -54,7 +54,7 @@ var cssCache = window.cssCache || (window.cssCache = {});
 				var docElement = document.documentElement;
 				var testDiv = docElement.insertBefore(document.createElement('div'), docElement.firstChild);
 				testDiv.id = require.toAbsMid(resourceDef).replace(/\//g,'-').replace(/\..*/,'') + "-loaded";  //cssIdTest[2];
-				var displayStyle = (testDiv.currentStyle || getComputedStyle(testDiv)).display;
+				var displayStyle = (testDiv.currentStyle || getComputedStyle(testDiv, null)).display;
 				docElement.removeChild(testDiv);
 				if(displayStyle == "none"){
 					return callback();
