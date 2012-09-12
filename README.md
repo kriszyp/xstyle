@@ -30,7 +30,8 @@ applied can be explicilty controlled for each stylesheet.
 
 The shims.css stylesheet (referenced in the example above) includes a number of out
 of the box shims to upgrade older browsers for modern CSS properties including: opacity, 
-bottom, right, transition, border-radius, box-shadow, box-sizing, border-image, transform.
+bottom, right, transition, box-shadow, box-radius, box-sizing, border-image, transform
+(for some of these, browsers must at least support vender-prefixed versions of the properties).
 The shims.css stylesheet also defines shims for pseudo selectors including hover and focus.
 By @import'ing shims.css into a stylesheet, these shims will be defined and we can using.
 The rule definitions are transitive, so if stylesheet A @import's stylesheet B, which @import's
@@ -92,7 +93,8 @@ another stylesheet that expected to come after the target sheet due to it's @imp
 <h1>Available Shims (and limitations)</h1>
 The following shim modules come with XStyle:
 * xstyle - XStyle itself provide vendor prefix shimming with the prefix property. This is
-used to shim border-radius, box-shadow, box-sizing, and border-image.
+used to shim border-radius, box-shadow, box-sizing, and border-image (for browsers 
+that use support these properties with vendor prefixes).
 * shim/ie-filter - This creates MS filters to emulate standard CSS properties. This is used to shim
 box-shadow and transform.
 * shim/transition - This provides animated CSS property changes to emulates the CSS transition property.
