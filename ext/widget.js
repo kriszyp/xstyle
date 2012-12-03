@@ -1,8 +1,8 @@
 define(['../elemental'], function(elemental){
-	function parse(value, callback){
+	function parse(value, callback, type){
 		var Class, prototype;
 		if(value.eachProperty){
-			var type, props = {/*cssText: value.cssText*/};
+			var props = {/*cssText: value.cssText*/};
 			value.eachProperty(function(name, value){
 				name = name.replace(/-\w/g, function(dashed){
 					return dashed.charAt(1).toUpperCase();
@@ -17,7 +17,11 @@ define(['../elemental'], function(elemental){
 			value = props;
 			// load the class, and adjust the property types based on the class prototype  
 			if(type){
-				require(type.split(/[, ]+/), function(Class, Mixin){
+				if(window[type]){
+					classLoaded(window[type]);
+				}
+				require(type.split(/\s*,\s*/), classLoaded); 
+				function classLoaded(Class, Mixin){
 					if(Mixin){
 						// more than one, mix them together
 						// TODO: This should be Class.extend(arguments.slice(1)), but dojo.declare has a bug in extend that causes it modify the original
@@ -39,8 +43,10 @@ define(['../elemental'], function(elemental){
 					callback(function(element){
 						new Class(props, element);
 					});
-				});
+				}
 			}
+		}else if(value.splice){
+			// an array
 		}else if(value.charAt(0) == "'" || value.charAt(0) == '"'){
 			value = eval(value);
 		}else if(!isNaN(value)){
@@ -97,10 +103,10 @@ define(['../elemental'], function(elemental){
 			//	}
 			return {
 				then: function(callback){
-					parse(value, function(renderer){
+					parse(value.eachProperty ? value : rule, function(renderer){
 						elemental.addRenderer(name, value, rule, renderer);
 						callback();
-					}); 
+					}, typeof value == "string" && value); 
 				}
 			}
 		}/*,

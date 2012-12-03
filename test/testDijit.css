@@ -1,0 +1,27 @@
+@import '../ext.css';
+button {
+	-x-widget: dijit/form/Button;
+	label: Test;
+	onclick: toggle(.highlighted);
+}
+dijit-text {
+	-x-widget: dijit/form/TextBox;
+	width: 100px;
+	height: 30px;
+	display: block;
+	background-color: red;
+}
+red-dijit-text {
+	extends(dijit-text);
+}
+form.edit-object { =>
+	label,
+	input {
+		background-color: green;
+	},
+	red-dijit-text;
+	
+	background-color: blue;
+
+}
+

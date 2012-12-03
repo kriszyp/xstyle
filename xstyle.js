@@ -15,12 +15,25 @@ if(typeof define == "undefined"){
 }
 define("xstyle/xstyle", ["require"], function (require) {
 	"use strict";
+	var cssScan = /\s*([^{\}\(\)\/'":;]*)(?::\s*([^{\}\(\)\/'";]*))?([{\}\(\)\/'";]|$)/g;
+									// name: value 	operator
+	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
+	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
+	var commentScan = /\*\//g;
+	
 	var undef, testDiv = document.createElement("div");
 	function search(tag){
 		var elements = document.getElementsByTagName(tag);
 		for(var i = 0; i < elements.length; i++){
 			checkImports(elements[i]);
 		}
+	}
+	function toStringWithoutCommas(){
+		return this.join('');
+	}
+	function arrayWithoutCommas(array){
+		array.toString = toStringWithoutCommas;
+		return array;
 	}
 	var ua = navigator.userAgent;
 	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
@@ -61,7 +74,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 			parse(sheet.source || sheet.ownerElement.innerHTML, sheet, callback);
 		}
 	}
-	function parse(css, styleSheet, callback) {
+	function parse(textToParse, styleSheet, callback) {
 		// normalize the stylesheet.
 		if(!styleSheet.addRule){
 			// only FF doesn't have this
@@ -84,13 +97,16 @@ define("xstyle/xstyle", ["require"], function (require) {
 			addHandler("selector", 'x-' + type, {
 				onRule: function(rule){
 					rule.eachProperty(function(name, value){
+						var asString = value.toString();
 						do{
-							var parts = value.match(/require\s*\((.+)\)|([^, ]+)([, ]+(.+))?/);
-							if(parts[1]){
-								return addHandler(type, name, parts[1]);
+							var parts = asString.match(/([^, ]+)(?:[, ]+(.+))?/);
+							if(!parts){
+								return;
 							}
-							var first = parts[2];
-							if(first == "default"){
+							var first = parts[1];
+							if(first == 'require'){
+								return addHandler(type, name, value[1].args[0]);
+							}if(first == "default"){
 								if((type == "property" && typeof testDiv.style[name] == "string")){
 									return;
 								}
@@ -109,7 +125,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 									return value;
 								});
 							}
-						}while(value = parts[4]);
+						}while(asString = parts[2]);
 /*						var ifUnsupported = value.charAt(value.length - 1) == "?";
 						value = value.replace(/require\s*\(|\)\??/g, '');
 						if(!ifUnsupported || typeof testDiv.style[name] != "string"){ // if conditioned on support, test to see browser has that style
@@ -125,7 +141,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 			});
 		}
 		addExtensionHandler("property");
-		addExtensionHandler("value");
+		addExtensionHandler("function");
 		addExtensionHandler("pseudo");
 		var waiting = 1;
 		var baseUrl = (styleSheet.href || location.href).replace(/[^\/]+$/,'');
@@ -134,25 +150,35 @@ define("xstyle/xstyle", ["require"], function (require) {
 		
 		var convertedRules = [];
 		var valueRegex = new RegExp("(?:^|\\W)(" + values.join("|") + ")(?:$|\\W)");
-		function Rule () {}
+		function Call(value){
+			this.caller = value;
+			this.args = [];
+		}
+		Call.prototype = {
+			addProperty: function(name, value){
+				this.args.push(value);
+			},
+			toString: function(){
+				return '(' + this.args + ')'; 
+			}
+		};
+		function Rule(){}
 		Rule.prototype = {
-			eachProperty: function (onproperty, propertyRegex) {
-				var selector, css;
-				selector = this.selector; //(this.children ? onproperty(0, "layout", this.children) || this.selector : this.selector);
-				this.cssText.replace(/\s*([^;:]+)\s*:\s*([^;]+)?/g, function (full, name, value) {
-					onproperty(name, value);
-				});
-				if(this.children){
-					for(var i = 0; i < this.children.length; i++){
-						var child = this.children[i];
-						if(!child.selector){ // it won't have a selector if it is property with nested properties
-							onproperty(child.property, child);
-						}
-					}
+			eachProperty: function(onProperty){
+				var properties = this.properties || 0;
+				for(var i = 0; i < properties.length; i++){
+					var name = properties[i];
+					onProperty(name, properties[name]);
 				}
 			},
 			fullSelector: function(){
 				return (this.parent ? this.parent.fullSelector() : "") + (this.selector || "") + " ";  
+			},
+			newRule: function(name){
+				return (this.rules || (this.rules = {}))[name] = new Rule();
+			},
+			newCall: function(name){
+				return new Call(name);
 			},
 			add: function(selector, cssText){
 				if(cssText){
@@ -161,28 +187,38 @@ define("xstyle/xstyle", ["require"], function (require) {
 						styleSheet.insertRule(selector + '{' + cssText + '}', styleSheet.cssRules.length);
 				}
 			},
+			addProperty: function(name, property){
+				if(!name && property[0].charAt(0) == '='){
+					name = "-x-content";
+					property[0] = property[0].slice(1);
+				}
+				var properties = (this.properties || (this.properties = []));
+				properties.push(name);
+				properties[name] = property;
+			},
 			cssText: ""
 		};
 		
-		var lastRule = new Rule;
-		lastRule.css = css;
+		var target = new Rule;
+		target.css = textToParse;
 		
 		function onProperty(name, value) {
 			// this is called for each CSS property
-			var propertyName = name;
-			do{
-				var handlerForName = handlers.property[name];
-				if(handlerForName){
-					return handler(handlerForName, "onProperty", propertyName, value);
-				}
-				// if we didn't match, we try to match property groups, for example "background-image" should match the "background" listener 
-				name = name.substring(0, name.lastIndexOf("-"));
-			}while(name);
+			if(value){
+				var propertyName = name;
+				do{
+					var handlerForName = handlers.property[name];
+					if(handlerForName){
+						return handler(handlerForName, "onProperty", propertyName, value);
+					}
+					name = name.substring(0, name.lastIndexOf("-"));
+				}while(name);
+			}
 		}
-		function onIdentifier(identifier, name, value){
-			var handlerForName = handlers.value[identifier];
+		function onCall(identifier, name, value){
+			var handlerForName = handlers['function'][identifier];
 			if(handlerForName){
-				handler(handlerForName, "onIdentifier", name, value);
+				handler(handlerForName, "onCall", name, value);
 			}
 		}
 		function onRule(selector, rule){
@@ -197,9 +233,10 @@ define("xstyle/xstyle", ["require"], function (require) {
 				handler(handlerForName, "onPseudo", pseudo, rule);
 			}
 		}
+		
 		function handler(module, type, name, value){
 			if(module){
-				var rule = lastRule;
+				var rule = target;
 				var ruleHandled = function(text){
 					console.log("loaded ", module, text);
 					if(text){
@@ -242,51 +279,119 @@ define("xstyle/xstyle", ["require"], function (require) {
 				typeof module == "string" ? require([module], onLoad) : onLoad(module);					
 			}
 		}
+		function addInSequence(operand){
+			if(sequence){
+				// we had a string so we are accumulated sequences now
+				sequence.push ? operand && sequence.push(operand) : typeof sequence == 'string' && typeof operand == 'string' ? sequence += operand : sequence = arrayWithoutCommas([sequence, operand]);				
+			}else{
+				sequence = operand;
+			}
+		}
+		var stack = [target];
 		// parse the CSS, finding each rule
-		css.replace(/\s*(?:([^{;\s]+)\s*{)?\s*([^{}]+;)?\s*(};?)?/g, function (full, selector, properties, close) {
-			// called for each rule
-			if (selector) {
-				// a selector was found, start a new rule (note this can be nested inside another selector)
-				var newRule = new Rule();
-				(lastRule.children || (lastRule.children = [])).push(newRule); // add to the parent layout 
-				newRule.parent = lastRule;
-				if(selector.charAt(selector.length - 1) == ":"){
-					// it is property style nesting
-					newRule.property= selector.substring(0, selector.length - 1);
-				}else{
-					// just this segment of selector
-					newRule.selector = selector; 
-				}
-				lastRule = newRule;
+		cssScan.lastIndex = 0; // start at zero
+		while(true){
+			var match = cssScan.exec(textToParse);
+			var operator = match[3],
+				first = match[1].trim(),
+				value = match[2],
+				name, sequence, assignNextName;
+				value = value && value.trim();
+			if(assignNextName){
+				// first part of a property
+				name = value && first;
+				sequence = value = value || first;
+				assignNextName = false;
+			}else{
+				// subsequent part of a property
+				value = value ? first + ':' + value : first;
+				addInSequence(value);	
 			}
-			if (properties) {
-				// some properties were found
-				lastRule.cssText += properties;
-			}
-			if (close) {
-				// rule was closed with }
-				// TODO: use a specialized regex that only looks for registered properties
-				lastRule.cssText.replace(/\s*([^;:]+)\s*:\s*([^;]+)?/g, function (full, name, value) {
-					onProperty(name, value);
-					value.replace(valueRegex, function(t, identifier){
-						//onIdentifier(identifier, name, value);
-					});
-				});
-				if(lastRule.children){
-					for(var i = 0; i < lastRule.children.length; i++){
-						var child = lastRule.children[i];
-						if(!child.selector){ // it won't have a selector if it is property with nested properties
-							onProperty(child.property, child);
-						}
+			switch(operator){
+				case "'": case '"':
+					var quoteScan = operator == "'" ? singleQuoteScan : doubleQuoteScan;
+					quoteScan.lastIndex = cssScan.lastIndex;
+					var str = quoteScan.exec(textToParse)[1];
+					cssScan.lastIndex = quoteScan.lastIndex;
+					// push the string on the current value and keep parsing
+					addInSequence(String(str));
+					continue;
+				case '/':
+					if(textToParse[cssScan.lastIndex + 1] == '*'){
+						// it's a comment, scan to the end of the comment
+						commentScan.lastIndex = cssScan.lastIndex + 1;
+						commentScan.exec(textToParse);
+						cssScan.lastIndex = commentScan.lastIndex; 
+					}else{
+						// not a comment, keep the operator in the accumulating string
+						addInSequence('/');
 					}
-				}
-				onRule(lastRule.selector, lastRule);
-				lastRule.selector && lastRule.selector.replace(/:([-\w]+)/, function(t, pseudo){
-					return onPseudo(pseudo, lastRule);
-				});
-				lastRule = lastRule.parent;
+					continue;
+				case '(': case '{':
+					var newTarget;
+					assignNextName = true;
+					if(operator == '{'){
+						addInSequence(newTarget = target.newRule(value));
+					}else{
+						addInSequence(newTarget = target.newCall(value));
+					}
+					newTarget.parent = target;
+					target.currentName = name;
+					target.currentSequence = sequence;
+					stack.push(target = newTarget);
+					target.operator = operator;
+					target.start = cssScan.lastIndex,
+					target.selector = value;
+					target.selector && target.selector.replace(/:([-\w]+)/, function(t, pseudo){
+						onPseudo(pseudo, target);
+					});
+					name = null;
+					sequence = null;
+					continue;
 			}
-		});
+			/*if(assignmentOperator == "@"){
+				// directive
+				if(sequence[0].slice(0,6) == "import"){
+console.log("found import", value[1]);
+					/*return sheet.request(value[1], function(importedSheet){
+						importedSheet.sheet = sheet.sheet;
+						parse(importedSheet, target, function(){
+							continueParsing(text.slice(cssScan.lastIndex), callback)
+						});
+					});
+				}
+			}else{*/
+			if(sequence){
+				target.addProperty(name, sequence);
+			}
+			name = null;
+//			}
+			switch(operator){
+				case '}': case ')':
+					var ruleText = textToParse.slice(target.start, cssScan.lastIndex - 1);
+					target.cssText = ruleText;
+					if(operator == '}'){
+						onRule(target.selector, target);
+						if(target.selector.slice(0,2) != "x-"){
+							target.eachProperty(onProperty);
+						}
+					}else{
+						onCall(target.selector, target);
+					}
+					stack.pop();
+					target = stack[stack.length - 1];				
+					sequence = target.currentSequence;
+					name = target.currentName;
+					break;
+				case "":
+					// no operator means we have reached the end
+					callback && callback();
+					return finishedLoad();
+				case ';':
+					sequence = null;
+					assignNextName = true;
+			}
+		}
 		function finishedLoad(){
 			if(--waiting == 0){
 				if(callback){
@@ -307,7 +412,18 @@ define("xstyle/xstyle", ["require"], function (require) {
 				return 'filter: alpha(opacity=' + (value * 100) + '); zoom: 1;';
 			}
 			return vendorPrefix + name + ':' + value + ';';
+		},
+		onCall: function(value, second, rule){
+			// handle extends(selector)
+console.log("extends", value);
+			var extendingRule = rule.parent;
+			var baseRule = extendingRule.parent.rules[value.args[0]];
+			var newText = baseRule.cssText;
+			extendingRule.cssText += newText;
+			extendingRule.properties = baseRule.properties.concat(rule.properties);
+			extendingRule.add(extendingRule.fullSelector(), newText);
 		}
+		
 	};
 	return xstyle;
 
