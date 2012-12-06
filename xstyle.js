@@ -15,12 +15,12 @@ if(typeof define == "undefined"){
 }
 define("xstyle/xstyle", ["require"], function (require) {
 	"use strict";
-	var cssScan = /\s*([^{\}\(\)\/'":;]*)(?::\s*([^{\}\(\)\/'";]*))?([{\}\(\)\/'";]|$)/g;
+	var cssScan = /\s*([^{\}\(\)\/\\'":;]*)(?::\s*([^{\}\(\)\/\\'";]*))?([{\}\(\)\/\\'";]|$)/g;
 									// name: value 	operator
 	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
 	var commentScan = /\*\//g;
-	
+	var nextId = 0;
 	var undef, testDiv = document.createElement("div");
 	function search(tag){
 		var elements = document.getElementsByTagName(tag);
@@ -99,7 +99,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 					rule.eachProperty(function(name, value){
 						var asString = value.toString();
 						do{
-							var parts = asString.match(/([^, ]+)(?:[, ]+(.+))?/);
+							var parts = asString.match(/([^, \(]+)(?:[, ]+(.+))?/);
 							if(!parts){
 								return;
 							}
@@ -168,7 +168,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 				var properties = this.properties || 0;
 				for(var i = 0; i < properties.length; i++){
 					var name = properties[i];
-					onProperty(name, properties[name]);
+					onProperty(name || 'unnamed', properties[name]);
 				}
 			},
 			fullSelector: function(){
@@ -181,10 +181,16 @@ define("xstyle/xstyle", ["require"], function (require) {
 				return new Call(name);
 			},
 			add: function(selector, cssText){
+console.log("add", selector, cssText);				
 				if(cssText){
 					styleSheet.addRule ?
 						styleSheet.addRule(selector, cssText) :
 						styleSheet.insertRule(selector + '{' + cssText + '}', styleSheet.cssRules.length);
+				}
+			},
+			onRule: function(){
+				if(!this.parent.root){
+					this.add(this.selector, this.cssText);
 				}
 			},
 			addProperty: function(name, property){
@@ -200,11 +206,13 @@ define("xstyle/xstyle", ["require"], function (require) {
 		};
 		
 		var target = new Rule;
+		target.root = true;
 		target.css = textToParse;
 		
 		function onProperty(name, value) {
+console.log("onProperty", name, value);			
 			// this is called for each CSS property
-			if(value){
+			if(name){
 				var propertyName = name;
 				do{
 					var handlerForName = handlers.property[name];
@@ -222,6 +230,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 			}
 		}
 		function onRule(selector, rule){
+			rule.onRule();
 			var handlerForName = handlers.selector[selector];
 			if(handlerForName){
 				handler(handlerForName, "onRule", rule);
@@ -314,9 +323,10 @@ define("xstyle/xstyle", ["require"], function (require) {
 					var str = quoteScan.exec(textToParse)[1];
 					cssScan.lastIndex = quoteScan.lastIndex;
 					// push the string on the current value and keep parsing
-					addInSequence(String(str));
+					addInSequence(new String(str));
 					continue;
 				case '/':
+					// we parse these in case it is a comment
 					if(textToParse[cssScan.lastIndex + 1] == '*'){
 						// it's a comment, scan to the end of the comment
 						commentScan.lastIndex = cssScan.lastIndex + 1;
@@ -327,6 +337,11 @@ define("xstyle/xstyle", ["require"], function (require) {
 						addInSequence('/');
 					}
 					continue;
+				case '\\':
+					// escaping sequence
+					var lastIndex = quoteScan.lastIndex++;
+					addInSequence(textToParse.charAt(lastIndex));
+					continue;
 				case '(': case '{':
 					var newTarget;
 					assignNextName = true;
@@ -336,12 +351,19 @@ define("xstyle/xstyle", ["require"], function (require) {
 						addInSequence(newTarget = target.newCall(value));
 					}
 					newTarget.parent = target;
+					if(sequence[0].charAt(0) == '='){
+						sequence.creating = true;
+					}
+					if(sequence.creating){
+						newTarget.selector = '.x-generated-' + nextId++;
+					}else{
+						newTarget.selector = target.root ? value : target.selector + ' ' + value;
+					}
 					target.currentName = name;
 					target.currentSequence = sequence;
 					stack.push(target = newTarget);
 					target.operator = operator;
 					target.start = cssScan.lastIndex,
-					target.selector = value;
 					target.selector && target.selector.replace(/:([-\w]+)/, function(t, pseudo){
 						onPseudo(pseudo, target);
 					});
@@ -386,7 +408,7 @@ console.log("found import", value[1]);
 				case "":
 					// no operator means we have reached the end
 					callback && callback();
-					return finishedLoad();
+					return finishedLoad(target);
 				case ';':
 					sequence = null;
 					assignNextName = true;
@@ -399,7 +421,7 @@ console.log("found import", value[1]);
 				}
 			}
 		}		
-		finishedLoad();
+		finishedLoad(target);
 	}
 	search('link');
 	search('style');
@@ -413,17 +435,18 @@ console.log("found import", value[1]);
 			}
 			return vendorPrefix + name + ':' + value + ';';
 		},
-		onCall: function(value, second, rule){
+		onCall: function(name, args, rule){
 			// handle extends(selector)
+				
 console.log("extends", value);
 			var extendingRule = rule.parent;
-			var baseRule = extendingRule.parent.rules[value.args[0]];
+			var baseRule = extendingRule.parent.rules[args[0]];
 			var newText = baseRule.cssText;
 			extendingRule.cssText += newText;
-			extendingRule.properties = baseRule.properties.concat(rule.properties);
+			extendingRule.properties = Object.create(baseRule.properties);
 			extendingRule.add(extendingRule.fullSelector(), newText);
-		}
-		
+		},
+		parse: parse
 	};
 	return xstyle;
 

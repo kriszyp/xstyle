@@ -122,7 +122,7 @@ define([], function(){
 			var renderer = selectorRenderers[i];
 			if(matchesSelector ?
 					// use matchesSelector if available
-					matchesSelector.apply(element, renderer.selector) : // TODO: determine if it is higher specificity that other  same name properties
+					matchesSelector.call(element, renderer.selector) : // TODO: determine if it is higher specificity that other  same name properties
 					// else use IE's custom css property inheritance mechanism
 					element.currentStyle[renderer.name] == renderer.propertyValue){
 				renderer.render(element);

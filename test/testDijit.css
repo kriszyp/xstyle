@@ -1,27 +1,52 @@
 @import '../ext.css';
+
+body {
+	button {
+		font-weight: bold;
+	}
+}
+content {
+	bind: require(xstyle/test/test-data);
+}
+validated-content {
+	require(dbind/Validator) => content;
+	name: String;
+	age: {
+		minimum: 0;
+		type: number;
+	}
+}
 button {
-	-x-widget: dijit/form/Button;
-	label: Test;
+	-x-widget: {
+		type: dijit/form/Button;
+		label: Test;
+	};
 	onclick: toggle(.highlighted);
 }
 dijit-text {
-	-x-widget: dijit/form/TextBox;
 	width: 100px;
+	-x-widget: dijit/form/TextBox;
 	height: 30px;
 	display: block;
 	background-color: red;
 }
-red-dijit-text {
-	extends(dijit-text);
+red-dijit-text  {
+	=dijit-text(200px);
+	height: 50px;
 }
 form.edit-object { =>
-	label,
-	input {
+	label 'Some label',
+	input[type=number] {
+		to: content.price;
 		background-color: green;
 	},
+	input[type=number] {
+		to: content.quantity;
+	},
+	div {
+		to: content.price*content.quantity;
+	},
 	red-dijit-text;
-	
 	background-color: blue;
-
 }
 

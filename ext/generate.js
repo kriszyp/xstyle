@@ -8,23 +8,23 @@ define(['../elemental', 'put-selector/put'], function(elemental, put){
 				for(var i = 0, l = value.length;i < l; i++){
 					var part = value[i];
 					if(part.eachProperty){
-						var selector = part.newSelector;
-						if(!selector){
-							selector = part.newSelector = part.selector = '.x-generated-' + nextId++;
-							part.add(selector, part.cssText);
-						}
-						put(lastElement, selector);
+						put(lastElement, part.selector);
+						elemental.update(lastElement);
 					}else if(typeof part == 'string'){
 						if(part.charAt(0) == '='){
 							part = part.slice(1); // remove the '=' at the beginning					
 						}
 						var children = part.split(',');
 						for(var j = 0, cl = children.length;j < cl; j++){
-							lastElement = put(j == 0 ? lastElement : element, children[j]);
+							var child = children[j].trim();
+							if(child){
+								lastElement = put(j == 0 ? lastElement : element, child);
+								elemental.update(lastElement);
+							}
 						}
 					}else{
-						put(lastElement, '>', part);
-					}					
+						lastElement.appendChild(document.createTextNode(part));
+					}			
 				}
 			});
 		}
