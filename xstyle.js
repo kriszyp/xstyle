@@ -66,12 +66,16 @@ define("xstyle/xstyle", ["require"], function (require) {
 				if(rule.selectorText && rule.selectorText.substring(0,2) == "x-"){
 					// an extension is used, needs to be parsed
 					needsParsing = true;
+					if(/^'/.test(rule.style.content)){
+						// this means we are in a built sheet, and can directly parse it
+						// TODO: parse here
+					}
 				}
 			}
 		}
 		if(needsParsing){
 			// ok, determined that CSS extensions are in the CSS, need to get the source and really parse it
-			parse(sheet.source || sheet.ownerElement.innerHTML, sheet, callback);
+			parse(sheet.localSource || sheet.ownerElement.innerHTML, sheet, callback);
 		}
 	}
 	function parse(textToParse, styleSheet, callback) {
@@ -85,6 +89,8 @@ define("xstyle/xstyle", ["require"], function (require) {
 		if(!styleSheet.deleteRule){
 			styleSheet.deleteRule = sheet.removeRule;
 		}
+	
+	
 		var handlers = {property:{}};
 		function addHandler(type, name, module){
 			var handlersForType = handlers[type] || (handlers[type] = {});
@@ -126,16 +132,16 @@ define("xstyle/xstyle", ["require"], function (require) {
 								});
 							}
 						}while(asString = parts[2]);
-/*						var ifUnsupported = value.charAt(value.length - 1) == "?";
-						value = value.replace(/require\s*\(|\)\??/g, '');
-						if(!ifUnsupported || typeof testDiv.style[name] != "string"){ // if conditioned on support, test to see browser has that style
-							// not supported as a standard property, now let's check to see if we can support it with vendor prefixing
-							if(ifUnsupported && typeof testDiv.style[vendorPrefix + name] == "string"){
-								// it does support vendor prefixing, fix it with that
-								value = 'xstyle/xstyle';
-							}
-							addHandler(type, name, value);
-						}*/
+	/*						var ifUnsupported = value.charAt(value.length - 1) == "?";
+							value = value.replace(/require\s*\(|\)\??/g, '');
+							if(!ifUnsupported || typeof testDiv.style[name] != "string"){ // if conditioned on support, test to see browser has that style
+								// not supported as a standard property, now let's check to see if we can support it with vendor prefixing
+								if(ifUnsupported && typeof testDiv.style[vendorPrefix + name] == "string"){
+									// it does support vendor prefixing, fix it with that
+									value = 'xstyle/xstyle';
+								}
+								addHandler(type, name, value);
+							}*/
 					});
 				}
 			});
@@ -180,17 +186,17 @@ define("xstyle/xstyle", ["require"], function (require) {
 			newCall: function(name){
 				return new Call(name);
 			},
-			add: function(selector, cssText){
-console.log("add", selector, cssText);				
+			add: function(cssText){
+console.log("add", this.selector, cssText);
 				if(cssText){
 					styleSheet.addRule ?
-						styleSheet.addRule(selector, cssText) :
-						styleSheet.insertRule(selector + '{' + cssText + '}', styleSheet.cssRules.length);
+						styleSheet.addRule(this.selector, cssText) :
+						styleSheet.insertRule(this.selector + '{' + cssText + '}', styleSheet.cssRules.length);
 				}
 			},
 			onRule: function(){
 				if(!this.parent.root){
-					this.add(this.selector, this.cssText);
+					this.add(this.cssText);
 				}
 			},
 			addProperty: function(name, property){
@@ -223,10 +229,10 @@ console.log("onProperty", name, value);
 				}while(name);
 			}
 		}
-		function onCall(identifier, name, value){
+		function onCall(identifier, value){
 			var handlerForName = handlers['function'][identifier];
 			if(handlerForName){
-				handler(handlerForName, "onCall", name, value);
+				handler(handlerForName, "onCall", identifier, value, value.args);
 			}
 		}
 		function onRule(selector, rule){
@@ -288,132 +294,143 @@ console.log("onProperty", name, value);
 				typeof module == "string" ? require([module], onLoad) : onLoad(module);					
 			}
 		}
-		function addInSequence(operand){
-			if(sequence){
-				// we had a string so we are accumulated sequences now
-				sequence.push ? operand && sequence.push(operand) : typeof sequence == 'string' && typeof operand == 'string' ? sequence += operand : sequence = arrayWithoutCommas([sequence, operand]);				
-			}else{
-				sequence = operand;
-			}
-		}
 		var stack = [target];
-		// parse the CSS, finding each rule
-		cssScan.lastIndex = 0; // start at zero
-		while(true){
-			var match = cssScan.exec(textToParse);
-			var operator = match[3],
-				first = match[1].trim(),
-				value = match[2],
-				name, sequence, assignNextName;
-				value = value && value.trim();
-			if(assignNextName){
-				// first part of a property
-				name = value && first;
-				sequence = value = value || first;
-				assignNextName = false;
-			}else{
-				// subsequent part of a property
-				value = value ? first + ':' + value : first;
-				addInSequence(value);	
-			}
-			switch(operator){
-				case "'": case '"':
-					var quoteScan = operator == "'" ? singleQuoteScan : doubleQuoteScan;
-					quoteScan.lastIndex = cssScan.lastIndex;
-					var str = quoteScan.exec(textToParse)[1];
-					cssScan.lastIndex = quoteScan.lastIndex;
-					// push the string on the current value and keep parsing
-					addInSequence(new String(str));
-					continue;
-				case '/':
-					// we parse these in case it is a comment
-					if(textToParse[cssScan.lastIndex + 1] == '*'){
-						// it's a comment, scan to the end of the comment
-						commentScan.lastIndex = cssScan.lastIndex + 1;
-						commentScan.exec(textToParse);
-						cssScan.lastIndex = commentScan.lastIndex; 
-					}else{
-						// not a comment, keep the operator in the accumulating string
-						addInSequence('/');
-					}
-					continue;
-				case '\\':
-					// escaping sequence
-					var lastIndex = quoteScan.lastIndex++;
-					addInSequence(textToParse.charAt(lastIndex));
-					continue;
-				case '(': case '{':
-					var newTarget;
-					assignNextName = true;
-					if(operator == '{'){
-						addInSequence(newTarget = target.newRule(value));
-					}else{
-						addInSequence(newTarget = target.newCall(value));
-					}
-					newTarget.parent = target;
-					if(sequence[0].charAt(0) == '='){
-						sequence.creating = true;
-					}
-					if(sequence.creating){
-						newTarget.selector = '.x-generated-' + nextId++;
-					}else{
-						newTarget.selector = target.root ? value : target.selector + ' ' + value;
-					}
-					target.currentName = name;
-					target.currentSequence = sequence;
-					stack.push(target = newTarget);
-					target.operator = operator;
-					target.start = cssScan.lastIndex,
-					target.selector && target.selector.replace(/:([-\w]+)/, function(t, pseudo){
-						onPseudo(pseudo, target);
-					});
-					name = null;
-					sequence = null;
-					continue;
-			}
-			/*if(assignmentOperator == "@"){
-				// directive
-				if(sequence[0].slice(0,6) == "import"){
-console.log("found import", value[1]);
-					/*return sheet.request(value[1], function(importedSheet){
-						importedSheet.sheet = sheet.sheet;
-						parse(importedSheet, target, function(){
-							continueParsing(text.slice(cssScan.lastIndex), callback)
-						});
-					});
+		function parseSheet(textToParse, styleSheet){
+			// parse the CSS, finding each rule
+			function addInSequence(operand){
+				if(sequence){
+					// we had a string so we are accumulated sequences now
+					sequence.push ? operand && sequence.push(operand) : typeof sequence == 'string' && typeof operand == 'string' ? sequence += operand : sequence = arrayWithoutCommas([sequence, operand]);				
+				}else{
+					sequence = operand;
 				}
-			}else{*/
-			if(sequence){
-				target.addProperty(name, sequence);
 			}
-			name = null;
-//			}
-			switch(operator){
-				case '}': case ')':
-					var ruleText = textToParse.slice(target.start, cssScan.lastIndex - 1);
-					target.cssText = ruleText;
-					if(operator == '}'){
-						onRule(target.selector, target);
-						if(target.selector.slice(0,2) != "x-"){
-							target.eachProperty(onProperty);
-						}
-					}else{
-						onCall(target.selector, target);
+			cssScan.lastIndex = 0; // start at zero
+			var ruleIndex = 0;
+			while(true){
+				var match = cssScan.exec(textToParse);
+				var operator = match[3],
+					first = match[1].trim(),
+					value = match[2],
+					name, sequence, assignNextName;
+					value = value && value.trim();
+				if(assignNextName){
+					// first part of a property
+					name = typeof value == 'string' && first;
+					sequence = value = value || first;
+					if(name || operator != '/'){
+						// as long we haven't hit an initial comment, we have the assigned property name now, and don't need to assign again
+						assignNextName = false;
 					}
-					stack.pop();
-					target = stack[stack.length - 1];				
-					sequence = target.currentSequence;
-					name = target.currentName;
-					break;
-				case "":
-					// no operator means we have reached the end
-					callback && callback();
-					return finishedLoad(target);
-				case ';':
-					sequence = null;
-					assignNextName = true;
+				}else{
+					// subsequent part of a property
+					value = value ? first + ':' + value : first;
+					addInSequence(value);	
+				}
+				switch(operator){
+					case "'": case '"':
+						var quoteScan = operator == "'" ? singleQuoteScan : doubleQuoteScan;
+						quoteScan.lastIndex = cssScan.lastIndex;
+						var str = quoteScan.exec(textToParse)[1];
+						cssScan.lastIndex = quoteScan.lastIndex;
+						// push the string on the current value and keep parsing
+						addInSequence(new String(str));
+						continue;
+					case '/':
+						// we parse these in case it is a comment
+						if(textToParse[cssScan.lastIndex] == '*'){
+							// it's a comment, scan to the end of the comment
+							commentScan.lastIndex = cssScan.lastIndex + 1;
+							commentScan.exec(textToParse);
+							cssScan.lastIndex = commentScan.lastIndex; 
+						}else{
+							// not a comment, keep the operator in the accumulating string
+							addInSequence('/');
+						}
+						continue;
+					case '\\':
+						// escaping sequence
+						var lastIndex = quoteScan.lastIndex++;
+						addInSequence(textToParse.charAt(lastIndex));
+						continue;
+					case '(': case '{':
+						var newTarget;
+						if(operator == '{'){
+							assignNextName = true;					
+							addInSequence(newTarget = target.newRule(value));
+						}else{
+							addInSequence(newTarget = target.newCall(value));
+						}
+						newTarget.parent = target;
+						if(target.root){
+							newTarget.cssRule = styleSheet.cssRules[ruleIndex++];
+						}
+						if(sequence[0].charAt(0) == '='){
+							sequence.creating = true;
+						}
+						if(sequence.creating){
+							newTarget.selector = '.x-generated-' + nextId++;
+						}else{
+							newTarget.selector = target.root ? value : target.selector + ' ' + value;
+						}
+						target.currentName = name;
+						target.currentSequence = sequence;
+						stack.push(target = newTarget);
+						target.operator = operator;
+						target.start = cssScan.lastIndex,
+						target.selector && target.selector.replace(/:([-\w]+)/, function(t, pseudo){
+							onPseudo(pseudo, target);
+						});
+						name = null;
+						sequence = null;
+						continue;
+				}
+				if(sequence){
+					if(sequence[0].charAt(0) == "@"){
+						// directive
+						if(sequence[0].slice(1,7) == "import"){
+		console.log("found import", sequence);
+							var importedSheet = styleSheet.cssRules[ruleIndex++].styleSheet;
+							waiting++;
+							// preserve the current index, as we are using a single regex to be shared by all parsing executions
+							var currentIndex = cssScan.lastIndex;
+							parseSheet(importedSheet.localSource, importedSheet);
+							cssScan.lastIndex = currentIndex;
+						}
+					}else{ 
+						target.addProperty(name, sequence);
+					}
+				}
+				name = null;
+	//			}
+				switch(operator){
+					case '}': case ')':
+						var ruleText = textToParse.slice(target.start, cssScan.lastIndex - 1);
+						target.cssText = ruleText;
+						if(operator == '}'){
+							onRule(target.selector, target);
+							if(target.selector.slice(0,2) != "x-"){
+								target.eachProperty(onProperty);
+							}
+						}else{
+							onCall(target.caller, target);
+						}
+						stack.pop();
+						target = stack[stack.length - 1];				
+						sequence = target.currentSequence;
+						name = target.currentName;
+						break;
+					case "":
+						// no operator means we have reached the end
+						callback && callback();
+						return;
+					case ';':
+						sequence = null;
+						assignNextName = true;
+				}
 			}
 		}
+		parseSheet(textToParse,styleSheet);
 		function finishedLoad(){
 			if(--waiting == 0){
 				if(callback){
@@ -435,16 +452,27 @@ console.log("found import", value[1]);
 			}
 			return vendorPrefix + name + ':' + value + ';';
 		},
-		onCall: function(name, args, rule){
+		onCall: function(name, rule){
 			// handle extends(selector)
-				
-console.log("extends", value);
+			var args = rule.args;
+console.log("extends", args);
 			var extendingRule = rule.parent;
-			var baseRule = extendingRule.parent.rules[args[0]];
+			var parentRule = extendingRule;
+			do{
+				var baseRule = parentRule.rules && parentRule.rules[args[0]];
+				parentRule = parentRule.parent;
+			}while(!baseRule);
 			var newText = baseRule.cssText;
 			extendingRule.cssText += newText;
 			extendingRule.properties = Object.create(baseRule.properties);
-			extendingRule.add(extendingRule.fullSelector(), newText);
+			baseRule.eachProperty(function(name, value){
+				if(name){
+					var ruleStyle = extendingRule.cssRule.style;
+					if(!ruleStyle[name]){
+						ruleStyle[name] = value;
+					}
+				}
+			});
 		},
 		parse: parse
 	};

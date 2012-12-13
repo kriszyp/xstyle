@@ -25,28 +25,29 @@ button {
 }
 dijit-text {
 	width: 100px;
-	-x-widget: dijit/form/TextBox;
+	widget: dijit/form/TextBox;
 	height: 30px;
 	display: block;
 	background-color: red;
 }
 red-dijit-text  {
-	=dijit-text(200px);
+	extends(dijit-text);/*dijit-text(200px)*/
 	height: 50px;
 }
-form.edit-object { =>
-	label 'Some label',
-	input[type=number] {
-		to: content.price;
-		background-color: green;
-	},
-	input[type=number] {
-		to: content.quantity;
-	},
-	div {
-		to: content.price*content.quantity;
-	},
-	red-dijit-text;
+form.edit-object { 
+	=>
+		label 'Some label',
+		input[type=number] {
+			from: content.price;
+			background-color: green;
+		},
+		input[type=number] {
+			from: content.quantity;
+		},
+		div {
+			from: content.price*content.quantity;
+		},
+		red-dijit-text 'red-dijit-text';
 	background-color: blue;
 }
 

@@ -63,6 +63,7 @@ define([], function(){
 		for(var i = 0; i < renderQueue.length; i++){
 			var element = renderQueue[i];
 			var renderings = element.renderings, currentStyle = element.elementalStyle;
+			delete element.renderings;
 			for(var j = 0; j < renderings.length; j++){
 				var rendering = renderings[j];
 				var renderer = rendering.renderer;

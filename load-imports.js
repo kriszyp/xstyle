@@ -187,6 +187,8 @@ define([], function(){
 						sourceSheet.localSource = text;
 						finishedModule();
 					});
+				}else{
+					sheet.localSource = link.innerHTML;
 				}
 				var cssRules = sheet.rules || sheet.cssRules;
 				for(var i = 0; i < cssRules.length; i++){

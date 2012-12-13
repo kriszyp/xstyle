@@ -44,6 +44,8 @@ define(['../elemental'], function(elemental){
 						new Class(props, element);
 					});
 				}
+			}else{
+				console.error("No type defined for widget");
 			}
 		}else if(value.splice){
 			// an array
@@ -103,7 +105,7 @@ define(['../elemental'], function(elemental){
 			//	}
 			return {
 				then: function(callback){
-					parse(value.eachProperty ? value : rule, function(renderer){
+					parse(value[1].eachProperty ? value[1] : rule, function(renderer){
 						elemental.addRenderer(name, value, rule, renderer);
 						callback();
 					}, typeof value == "string" && value); 

@@ -1,4 +1,4 @@
-// TODO: eventually can probably get rid of put-selector dependency
+// TODO: eventually maybe we can probably get rid of put-selector dependency
 define(['../elemental', 'put-selector/put'], function(elemental, put){
 	var nextId = 0;
 	return {
