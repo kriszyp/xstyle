@@ -9,7 +9,7 @@ define([], function(){
 "use strict";
 
 /*
- * RequireJS css! plugin
+ * AMD css! plugin
  * This plugin will load and wait for css files.  This could be handy when
  * loading css files as part of a layer or as a way to apply a run-time theme.
  * Most browsers do not support the load event handler of the link element.

@@ -87,7 +87,7 @@ define("xstyle/xstyle", ["require"], function (require) {
 			}
 		}
 		if(!styleSheet.deleteRule){
-			styleSheet.deleteRule = sheet.removeRule;
+			styleSheet.deleteRule = styleSheet.removeRule;
 		}
 	
 	
@@ -156,18 +156,6 @@ define("xstyle/xstyle", ["require"], function (require) {
 		
 		var convertedRules = [];
 		var valueRegex = new RegExp("(?:^|\\W)(" + values.join("|") + ")(?:$|\\W)");
-		function Call(value){
-			this.caller = value;
-			this.args = [];
-		}
-		Call.prototype = {
-			addProperty: function(name, value){
-				this.args.push(value);
-			},
-			toString: function(){
-				return '(' + this.args + ')'; 
-			}
-		};
 		function Rule(){}
 		Rule.prototype = {
 			eachProperty: function(onProperty){
@@ -186,17 +174,17 @@ define("xstyle/xstyle", ["require"], function (require) {
 			newCall: function(name){
 				return new Call(name);
 			},
-			add: function(cssText){
-console.log("add", this.selector, cssText);
+			addSheetRule: function(selector, cssText){
+console.log("add", selector, cssText);
 				if(cssText){
 					styleSheet.addRule ?
-						styleSheet.addRule(this.selector, cssText) :
-						styleSheet.insertRule(this.selector + '{' + cssText + '}', styleSheet.cssRules.length);
+						styleSheet.addRule(selector, cssText) :
+						styleSheet.insertRule(selector + '{' + cssText + '}', styleSheet.cssRules.length);
 				}
 			},
 			onRule: function(){
 				if(!this.parent.root){
-					this.add(this.cssText);
+					this.addSheetRule(this.selector, this.cssText);
 				}
 			},
 			addProperty: function(name, property){
@@ -210,13 +198,25 @@ console.log("add", this.selector, cssText);
 			},
 			cssText: ""
 		};
+		function Call(value){
+			this.caller = value;
+			this.args = [];
+		}
+		var CallPrototype = Call.prototype = new Rule;
+		CallPrototype.addProperty = function(name, value){
+			this.args.push(value);
+		};
+		CallPrototype.toString = function(){
+			return '(' + this.args + ')'; 
+		};
 		
 		var target = new Rule;
 		target.root = true;
 		target.css = textToParse;
+		target.parse = parseSheet;
 		
 		function onProperty(name, value) {
-console.log("onProperty", name, value);			
+			//TODO: delete the property if it one that the browser actually uses
 			// this is called for each CSS property
 			if(name){
 				var propertyName = name;
@@ -253,7 +253,6 @@ console.log("onProperty", name, value);
 			if(module){
 				var rule = target;
 				var ruleHandled = function(text){
-					console.log("loaded ", module, text);
 					if(text){
 						/* TODO: is the a way to determine the index deterministically?
 						var cssRules = styleSheet.rules || styleSheet.cssRules;
@@ -281,7 +280,6 @@ console.log("onProperty", name, value);
 				};
 				
 				waiting++;
-				console.log("loading ", module, name, value);
 				var onLoad = function(module){
 					var result = module[type](name, value, rule, styleSheet);
 					if(result && result.then){
@@ -358,16 +356,17 @@ console.log("onProperty", name, value);
 						if(operator == '{'){
 							assignNextName = true;					
 							addInSequence(newTarget = target.newRule(value));
+							if(target.root){
+								newTarget.cssRule = styleSheet.cssRules[ruleIndex++];
+							}
+							// todo: check the type
+							if(sequence[0].charAt(0) == '='){
+								sequence.creating = true;
+							}
 						}else{
 							addInSequence(newTarget = target.newCall(value));
 						}
 						newTarget.parent = target;
-						if(target.root){
-							newTarget.cssRule = styleSheet.cssRules[ruleIndex++];
-						}
-						if(sequence[0].charAt(0) == '='){
-							sequence.creating = true;
-						}
 						if(sequence.creating){
 							newTarget.selector = '.x-generated-' + nextId++;
 						}else{
@@ -386,10 +385,10 @@ console.log("onProperty", name, value);
 						continue;
 				}
 				if(sequence){
-					if(sequence[0].charAt(0) == "@"){
+					var first = sequence[0];
+					if(first.charAt && first.charAt(0) == "@"){
 						// directive
 						if(sequence[0].slice(1,7) == "import"){
-		console.log("found import", sequence);
 							var importedSheet = styleSheet.cssRules[ruleIndex++].styleSheet;
 							waiting++;
 							// preserve the current index, as we are using a single regex to be shared by all parsing executions
@@ -455,7 +454,6 @@ console.log("onProperty", name, value);
 		onCall: function(name, rule){
 			// handle extends(selector)
 			var args = rule.args;
-console.log("extends", args);
 			var extendingRule = rule.parent;
 			var parentRule = extendingRule;
 			do{

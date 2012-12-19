@@ -154,6 +154,10 @@ define([], function(){
 						 'zoom: expression(cssxRegister(this,"' + selector +'"));');
 			}*/
 		},
-		update: update // this should be called for newly created dynamic elements to ensure the proper rules are applied
+		update: update, // this should be called for newly created dynamic elements to ensure the proper rules are applied
+		clearRenderers: function(){
+			// clears all the renderers in use
+			selectorRenderers = [];
+		}
 	};
 }); 

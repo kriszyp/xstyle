@@ -2,7 +2,7 @@ define(["require"], function(moduleRequire){
 "use strict";
 var cssCache = window.cssCache || (window.cssCache = {});
 /*
- * RequireJS css! plugin
+ * AMD css! plugin
  * This plugin will load and wait for css files.  This could be handy when
  * loading css files as part of a layer or as a way to apply a run-time theme. This
  * module checks to see if the CSS is already loaded before incurring the cost

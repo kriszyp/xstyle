@@ -7,7 +7,7 @@ x-pseudo {
 	unsupported: require(xstyle/ext/supported);
 }
 x-property {
-	-x-widget: require(xstyle/ext/widget);
+	widget: require(xstyle/ext/widget);
 	-x-content: require(xstyle/ext/generate);
 	bind: require(xstyle/ext/bind);
 	from: require(xstyle/ext/bind);

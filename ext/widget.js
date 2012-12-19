@@ -1,6 +1,13 @@
 define(['../elemental'], function(elemental){
-	function parse(value, callback, type){
+	var nextId = 0;
+	function parse(value, callback, type, rule){
 		var Class, prototype;
+		if(rule){
+			var widgetCssClass = 'x-widget-' + nextId++; 
+			// create new rule for the generated elements
+			rule.addSheetRule('.' + widgetCssClass, rule.cssText);
+			widgetCssClass = ' ' + widgetCssClass; // make it suitable for direct addition to className
+		}
 		if(value.eachProperty){
 			var props = {/*cssText: value.cssText*/};
 			value.eachProperty(function(name, value){
@@ -41,7 +48,8 @@ define(['../elemental'], function(elemental){
 						}
 					}
 					callback(function(element){
-						new Class(props, element);
+						var widget = new Class(props, element);
+						widget.domNode.className += widgetCssClass;
 					});
 				}
 			}else{
@@ -108,7 +116,7 @@ define(['../elemental'], function(elemental){
 					parse(value[1].eachProperty ? value[1] : rule, function(renderer){
 						elemental.addRenderer(name, value, rule, renderer);
 						callback();
-					}, typeof value == "string" && value); 
+					}, typeof value == "string" && value, rule); 
 				}
 			}
 		}/*,

@@ -9,7 +9,8 @@ content {
 	bind: require(xstyle/test/test-data);
 }
 validated-content {
-	require(dbind/Validator) => content;
+	require(dbind/Validator)
+	from: content;
 	name: String;
 	age: {
 		minimum: 0;
@@ -17,10 +18,11 @@ validated-content {
 	}
 }
 button {
-	-x-widget: {
+	widget: {
 		type: dijit/form/Button;
 		label: Test;
 	};
+	font-weight: bold;
 	onclick: toggle(.highlighted);
 }
 dijit-text {
@@ -37,7 +39,7 @@ red-dijit-text  {
 form.edit-object { 
 	=>
 		label 'Some label',
-		input[type=number] {
+		textarea {
 			from: content.price;
 			background-color: green;
 		},
