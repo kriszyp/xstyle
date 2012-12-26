@@ -210,10 +210,10 @@ console.log("add", selector, cssText);
 			return '(' + this.args + ')'; 
 		};
 		
-		var target = new Rule;
-		target.root = true;
-		target.css = textToParse;
-		target.parse = parseSheet;
+		var target, root = new Rule;
+		root.root = true;
+		root.css = textToParse;
+		root.parse = parseSheet;
 		
 		function onProperty(name, value) {
 			//TODO: delete the property if it one that the browser actually uses
@@ -281,18 +281,33 @@ console.log("add", selector, cssText);
 				
 				waiting++;
 				var onLoad = function(module){
-					var result = module[type](name, value, rule, styleSheet);
-					if(result && result.then){
-							// a promise, return immediately defer handling
-						result.then(ruleHandled);
-					}else{
-						ruleHandled(result);
+					try{
+						var result = module[type](name, value, rule, styleSheet);
+						if(result && result.then){
+								// a promise, return immediately defer handling
+							result.then(ruleHandled, handleError);
+						}else{
+							ruleHandled(result);
+						}
+						var noError = true;
+					}finally{
+						if(!noError){
+							handleError();
+						}
+					}
+					function handleError(error){
+						// Add some error handling to give developers a better idea of where error occurs.
+						// TODO: Add line number, and file name
+						console.error("Error occurred processing " + type.slice(2) + ' ' + name + ' in rule ' + rule.selector + ' {' + rule.cssText);
+						if(error){
+							console.error(error);
+						}
 					}
 				}
 				typeof module == "string" ? require([module], onLoad) : onLoad(module);					
 			}
 		}
-		var stack = [target];
+		var stack = [root];
 		function parseSheet(textToParse, styleSheet){
 			// parse the CSS, finding each rule
 			function addInSequence(operand){
@@ -303,6 +318,7 @@ console.log("add", selector, cssText);
 					sequence = operand;
 				}
 			}
+			target = root;
 			cssScan.lastIndex = 0; // start at zero
 			var ruleIndex = 0;
 			while(true){
@@ -329,7 +345,11 @@ console.log("add", selector, cssText);
 					case "'": case '"':
 						var quoteScan = operator == "'" ? singleQuoteScan : doubleQuoteScan;
 						quoteScan.lastIndex = cssScan.lastIndex;
-						var str = quoteScan.exec(textToParse)[1];
+						var parsed = quoteScan.exec(textToParse);
+						if(!parsed){
+							error("unterminated string");
+						}
+						var str = parsed[1];
 						cssScan.lastIndex = quoteScan.lastIndex;
 						// push the string on the current value and keep parsing
 						addInSequence(new String(str));

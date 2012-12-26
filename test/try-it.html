@@ -13,23 +13,32 @@
 		save-parser: true;
 		bind: require(xstyle/test/converter);
 	}
+	data {
+		from: converter.parsed;
+	}
 	body {=>
 		h1 'XStyle',
 		p 'Try it out',
 		div.column {=>
-			h2 'Data',
-			textarea.live-source {
+			h2 'Data:',
+			textarea[data-continuous].live-source {
 				from: converter.data;
+			},
+			span.error {
+				from: converter.data.error 
 			}
 		},
 		div.column {=>
-			h2 'Presentation',
-			textarea.live-source {
+			h2 'Presentation:',
+			textarea[data-continuous].live-source {
 				from: converter.ui;
+			},
+			span.error {
+				from: converter.ui.error 
 			}
 		},
 		div.column {=>
-			h2 'Result',
+			h2 'Result: #target',
 			div#target {
 				from: converter.result;
 			}
@@ -50,7 +59,7 @@
 	}
 	.live-source {
 		width: 280px;
-		height: 300px;
+		height: 200px;
 	}
 	</style>
 	

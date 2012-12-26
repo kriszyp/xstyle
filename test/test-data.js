@@ -1,3 +1,6 @@
 define([], function(){
-	return {};
+	return {
+		price: 4,
+		quantity: 3
+	};
 });
