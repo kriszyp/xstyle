@@ -42,9 +42,9 @@ var cssCache = window.cssCache || (window.cssCache = {});
 	}*/
  	return {
 		load: function (resourceDef, require, callback, config) {
-			var url = require.toUrl(resourceDef);
-			if(cssCache[url]){
-				return createStyleSheet(cssCache[url]);
+			var mid = require.toAbsMid(resourceDef);
+			if(cssCache[mid]){
+				return createStyleSheet(cssCache[mid]);
 			}
 /*			var cssIdTest = resourceDef.match(/(.+)\?(.+)/);
 			if(cssIdTest){*/
@@ -66,7 +66,7 @@ var cssCache = window.cssCache || (window.cssCache = {});
 				callback();
 			}else{*/
 			moduleRequire(["./load-css"], function(load){
-				load(url, callback);
+				load(require.toUrl(resourceDef), callback);
 			});
 		},
 		pluginBuilder: "xstyle/css-builder"

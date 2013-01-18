@@ -21,7 +21,13 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
 	var commentScan = /\*\//g;
 	var nextId = 0;
-	var globalAttributes = {Math:Math};
+	var globalAttributes = {Math:Math, require: function(mid){
+		return {
+			then: function(callback){
+				require([mid], callback);
+			}
+		};
+	}};
 	var undef, testDiv = document.createElement("div");
 	function search(tag){
 		var elements = document.getElementsByTagName(tag);
@@ -35,6 +41,12 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 	function arrayWithoutCommas(array){
 		array.toString = toStringWithoutCommas;
 		return array;
+	}
+	function LiteralString(string){
+		this.value = string; 
+	}
+	LiteralString.prototype.toString = function(){
+		return JSON.stringify(this.value);
 	}
 	var ua = navigator.userAgent;
 	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
@@ -196,13 +208,13 @@ console.log("add", selector, cssText);
 				return this.properties[key];
 			},
 			addAttribute: function(name, value){
-				if(value[0].charAt(0) == '>'){
+				if(value[0].toString().charAt(0) == '>'){
 					value = generate(value, this);
 					if(!name){
 						xstyle.addRenderer("", value, this, value);
 						return;
 					}
-				}else{
+				}else if(name){
 					var target, variables = [], id = 0, variableLength = 0, callbacks = [],
 					parameterized = false;
 					var expression = [];
@@ -211,45 +223,65 @@ console.log("add", selector, cssText);
 					// deal with an array, converting strings to JS-eval'able strings
 					for(var i = 0;i < parts.length;i++){
 						var part = parts[i];
-						expression.push(part instanceof String ? addString(part) : 
-							// find all the variables in the expression
-							part.toString().replace(/[a-zA-Z_$][\w_$\.]*/g, function(variable){
-								var position = id++;
+						// find all the variables in the expression
+						part.toString().replace(/("[^\"]*")|([a-zA-Z_$][\w_$\.]*)/g, function(t, string, variable){
+							if(variable){
 								// for each reference, we break apart into variable reference and property references after each dot
 								var parts = variable.split('.');
-								variables.push(parts);
-								return addArgument(position);
+								variables.push(parts[0]);
 								// we will reference the variable a function argument in the function we will create
-							})
-						);
+							}
+						})
 					}
-					expression = expression.join('');
+					expression = parts.join('');
 					if(expression.length > variableLength){
 						// it's a full expression, so we create a time-varying bound function with the expression
-						var reactiveFunction = new Function('return ' + expression);
+						var reactiveFunction = Function.apply(null, variables.concat(['return ' + expression]));
 					}
 				}
-				function addString(part){
-					var position = id++;
-					variables[position] = part;
-					return addArgument(position);
-				}
-				function addArgument(position){
-					var replacement = 'arguments[' + position + ']';
-					variableLength += replacement.length;
-					return replacement;
-				}
-				var rule = this; // TODO: can this be passed by addRenderer
+				var rule = this; // TODO: can this be passed by addRenderer?
 				xstyle.addRenderer(name, value, this, function(element){
-					var waiting = 1, waiting = variables.length, satisfied = [];
+					var satisfied = [];
 					function recompute(element, setupRule){
+						var waiting = 1;
 						for(var i = 0; i < variables.length; i++){
-							var parts = variables[i];
-							satisfied[i] = typeof parts.sort ?
-								// TODO: add support for promises
-								findAttributeInAncestors(element, parts[0], setupRule) : parts;
+							// TODO: add support for promises
+							var value = findAttributeInAncestors(element, variables[i], setupRule);
+/*							for(var j = 1; j < parts.length; j++){
+								value = value && (value.get ? value.get(part[i]) : value[parts[i]]);
+							}*/
+							if(value && value.then){
+								waiting++;
+								(function(i){
+									value.then(function(value){
+										satisfied[i] = value;
+										done();
+									});
+								})(i);
+							}
+							satisfied[i] = value;
 						}
-						element[name] = reactiveFunction ? reactiveFunction.apply(this, satisfied) : value;
+						var callbacks = [];
+						done(value);
+						function done(value){
+							if(--waiting == 0){
+								value = reactiveFunction ? reactiveFunction.apply(this, satisfied) : value;
+							}
+							for(var i = 0; i < callbacks.length; i++){
+								callbacks[i](value);
+							}
+							element[name] = value;
+						}
+						if(waiting != 0){
+							element[name] = {
+								then: function(callback){
+									callbacks.push(callback);
+								},
+								toString: function(){
+									return "Loading";
+								}
+							}
+						}
 					}
 					recompute(element, rule);
 					(rule.attributeFunctions || (rule.attributeFunctions = {}))[name] = recompute;
@@ -281,7 +313,7 @@ console.log("add", selector, cssText);
 			this.args = [];
 		}
 		var CallPrototype = Call.prototype = new Rule;
-		CallPrototype.addProperty = function(name, value){
+		CallPrototype.addAttribute = function(name, value){
 			this.args.push(value);
 		};
 		CallPrototype.toString = function(){
@@ -410,8 +442,10 @@ console.log("add", selector, cssText);
 					if(assignment){
 						name = first;
 						assignmentOperator = assignment.charAt(0);
+					}else{
+						value = first;
 					}
-					sequence = value = value || first;
+					sequence = value;
 					if(name || operator != '/'){
 						// as long we haven't hit an initial comment, we have the assigned property name now, and don't need to assign again
 						assignNextName = false;
@@ -432,7 +466,7 @@ console.log("add", selector, cssText);
 						var str = parsed[1];
 						cssScan.lastIndex = quoteScan.lastIndex;
 						// push the string on the current value and keep parsing
-						addInSequence(new String(str));
+						addInSequence(new LiteralString(str));
 						continue;
 					case '/':
 						// we parse these in case it is a comment
@@ -460,7 +494,7 @@ console.log("add", selector, cssText);
 								newTarget.cssRule = styleSheet.cssRules[ruleIndex++];
 							}
 							// todo: check the type
-							if(sequence[0].charAt(0) == '='){
+							if(assignmentOperator){
 								sequence.creating = true;
 							}
 						}else{
@@ -474,6 +508,7 @@ console.log("add", selector, cssText);
 						}
 						target.currentName = name;
 						target.currentSequence = sequence;
+						target.assignmentOperator = assignmentOperator;
 						stack.push(target = newTarget);
 						target.operator = operator;
 						target.start = cssScan.lastIndex,
@@ -518,6 +553,7 @@ console.log("add", selector, cssText);
 						target = stack[stack.length - 1];				
 						sequence = target.currentSequence;
 						name = target.currentName;
+						assignmentOperator = target.assignmentOperator;
 						break;
 					case "":
 						// no operator means we have reached the end
@@ -578,6 +614,7 @@ console.log("add", selector, cssText);
 							}
 						}
 					}
+					value && ((elementAncestor._values || (elementAncestor._values = {}))[name] = value);
 					Object.defineProperty(elementAncestor, name, descriptor);
 				}
 			}
@@ -748,7 +785,7 @@ console.log("add", selector, cssText);
 						}
 					}
 				}else{
-					lastElement.appendChild(document.createTextNode(part));
+					lastElement.appendChild(document.createTextNode(part.value));
 				}
 			}
 			return lastElement;
@@ -815,7 +852,7 @@ console.log("add", selector, cssText);
 			// clears all the renderers in use
 			selectorRenderers = [];
 		},
-		globalAttributes: globalAttributes		
+		globalAttributes: globalAttributes
 	};
 	return xstyle;
 
