@@ -224,19 +224,23 @@ console.log("add", selector, cssText);
 					for(var i = 0;i < parts.length;i++){
 						var part = parts[i];
 						// find all the variables in the expression
-						part.toString().replace(/("[^\"]*")|([a-zA-Z_$][\w_$\.]*)/g, function(t, string, variable){
+						parts[i] = part.toString().replace(/("[^\"]*")|([a-zA-Z_$][\w_$\.]*)/g, function(t, string, variable){
 							if(variable){
 								// for each reference, we break apart into variable reference and property references after each dot
 								var parts = variable.split('.');
 								variables.push(parts[0]);
 								// we will reference the variable a function argument in the function we will create
+								if(parts.length > 1){
+									return 'this.get(' + parts[0] + ',' + parts.slice(1).map(JSON.stringify).join(',') + ')';
+								}
 							}
+							return t;
 						})
 					}
 					expression = parts.join('');
 					if(expression.length > variableLength){
 						// it's a full expression, so we create a time-varying bound function with the expression
-						var reactiveFunction = Function.apply(null, variables.concat(['return ' + expression]));
+						var reactiveFunction = Function.apply(xstyle, variables.concat(['return ' + expression]));
 					}
 				}
 				var rule = this; // TODO: can this be passed by addRenderer?
@@ -244,12 +248,14 @@ console.log("add", selector, cssText);
 					var satisfied = [];
 					function recompute(element, setupRule){
 						var waiting = 1;
+						var callbacks = [];
 						for(var i = 0; i < variables.length; i++){
 							// TODO: add support for promises
 							var value = findAttributeInAncestors(element, variables[i], setupRule);
 /*							for(var j = 1; j < parts.length; j++){
 								value = value && (value.get ? value.get(part[i]) : value[parts[i]]);
 							}*/
+							satisfied[i] = value;
 							if(value && value.then){
 								waiting++;
 								(function(i){
@@ -259,13 +265,11 @@ console.log("add", selector, cssText);
 									});
 								})(i);
 							}
-							satisfied[i] = value;
 						}
-						var callbacks = [];
 						done(value);
 						function done(value){
 							if(--waiting == 0){
-								value = reactiveFunction ? reactiveFunction.apply(this, satisfied) : value;
+								value = reactiveFunction ? reactiveFunction.apply(xstyle, satisfied) : value;
 							}
 							for(var i = 0; i < callbacks.length; i++){
 								callbacks[i](value);
@@ -313,7 +317,7 @@ console.log("add", selector, cssText);
 			this.args = [];
 		}
 		var CallPrototype = Call.prototype = new Rule;
-		CallPrototype.addAttribute = function(name, value){
+		CallPrototype.addAttribute = CallPrototype.addProperty = function(name, value){
 			this.args.push(value);
 		};
 		CallPrototype.toString = function(){
@@ -824,6 +828,16 @@ console.log("add", selector, cssText);
 			});
 		},
 		parse: parse,
+		get: function(target){
+			// used by the constructed reactive functions
+			for(var i = 1; i < arguments.length; i++){
+				var name = arguments[i];
+				target = target && (target.get ?
+					target.get(name) :
+					target = target[name]);
+			}
+			return target && target.value || target;
+		},
 		
 		addRenderer: function(propertyName, propertyValue, rule, handler){
 			var renderer = {
