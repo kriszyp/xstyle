@@ -1,7 +1,7 @@
 define(['dbind/bind', 'xstyle/util/create-style-sheet', 'xstyle/elemental'], function(bind, createStyleSheet, elemental){
 	var model = {
 		data: '{\n  "first": "Web",\n  "last": "Developer",\n  "favorites": [\n    "Data Bindings", "CSS Extensions"\n  ]\n}', 
-		ui: "#target {\n => h2 {\n      innerHTML = data.first+' '+data.last;\n    },\n    ul {\n      from: data.favorites;\neach:span {from:item[0];};    };\n  background-color: red;\n  width: 100px;\n  height: 100px;\n}", 
+		ui: "#target {\n => h2 {\n      innerHTML = body/data/first+' '+body/data/last;\n    },\n    ul {\n      from: /data/favorites;\neach:span {from:item[0];};    };\n  background-color: red;\n  width: 100px;\n  height: 100px;\n}", 
 		parsed: {}};
 	var converter = bind(model);
 	converter.get('data', update);

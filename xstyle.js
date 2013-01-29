@@ -21,13 +21,55 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
 	var commentScan = /\*\//g;
 	var nextId = 0;
-	var globalAttributes = {Math:Math, require: function(mid){
-		return {
-			then: function(callback){
-				require([mid], callback);
+	function when(value, callback){
+		return value && value.then ? 
+			value.then(callback) : callback(value);
+	}
+	function whenever(value, callback){
+		return value && value.then ? 
+			value.then(function(value){
+					return whenever(value, callback);
+				}) :
+				value && value.to ?
+				value.to(callback) : 
+					callback(value);
+		
+	}
+	function get(target, path, callback){
+		return when(target, function(target){
+			if(path.length){
+				var name = path[0];
+				return get(target && (target.get ?
+					target.get(name) :
+					target = target[name]), path.slice(1), callback);
+			}else{
+				return target && target.to ? 
+					target.to(callback) : 
+					callback(target);
 			}
-		};
-	}};
+		});
+	}
+	
+	var globalAttributes = {
+		Math:Math, 
+		require: function(mid){
+			return {
+				then: function(callback){
+					require([mid], callback);
+				}
+			};
+		},
+		get: function(target){
+			// used by the constructed reactive functions
+			for(var i = 1; i < arguments.length; i++){
+				var name = arguments[i];
+				target = target && (target.get ?
+					target.get(name) :
+					target = target[name]);
+			}
+			return target && target.value || target;
+		}
+	};
 	var undef, testDiv = document.createElement("div");
 	function search(tag){
 		var elements = document.getElementsByTagName(tag);
@@ -215,32 +257,53 @@ console.log("add", selector, cssText);
 						return;
 					}
 				}else if(name){
-					var target, variables = [], id = 0, variableLength = 0, callbacks = [],
-					parameterized = false;
-					var expression = [];
-					var parts = value.sort ? value : [value];
+					var target, variables = [], parameters = [], id = 0, variableLength = 0, callbacks = [],
+						attributeParts, expression = value.join ? value.join("") : value.toString(),
+						simpleExpression = expression.match(/^[\w_$\/\.]*$/); 
 					// Do the parsing and function creation just once, and adapt the dependencies for the element at creation time
 					// deal with an array, converting strings to JS-eval'able strings
-					for(var i = 0;i < parts.length;i++){
-						var part = parts[i];
 						// find all the variables in the expression
-						parts[i] = part.toString().replace(/("[^\"]*")|([a-zA-Z_$][\w_$\.]*)/g, function(t, string, variable){
-							if(variable){
-								// for each reference, we break apart into variable reference and property references after each dot
-								var parts = variable.split('.');
-								variables.push(parts[0]);
-								// we will reference the variable a function argument in the function we will create
-								if(parts.length > 1){
-									return 'this.get(' + parts[0] + ',' + parts.slice(1).map(JSON.stringify).join(',') + ')';
+					expression = expression.replace(/("[^\"]*")|([\w_]*\/[\w_$\/]*)|([\w_$\.]+)/g, function(t, string, attribute, global){
+						if(attribute){
+							// for each reference, we break apart into variable reference and property references after each dot
+							attributeParts = attribute.split('/');
+							var parameterName = attributeParts.join('_');
+							parameters.push(parameterName);
+							attributeParts[0] = attributeParts[0].toUpperCase();
+							variables.push(attributeParts);
+							// we will reference the variable a function argument in the function we will create
+							return parameterName;
+						}else if(global){
+							return 'this.' + global;
+						}
+						return t;
+					})
+				
+					if(simpleExpression){
+						// a direct reversible reference
+						// no forward reactive needed
+						// create the reverse function
+						var reversal = function(element, name, value){
+							when(findAttributeInAncestors(element, attributeParts[0], attributeParts[1]), function(target){
+								for(var i = 2; i < attributeParts.length -1; i++){
+									var name = attributeParts[i];
+									target = target.get ?
+										target.get(name) :
+										target[name];
 								}
-							}
-							return t;
-						})
-					}
-					expression = parts.join('');
-					if(expression.length > variableLength){
+								var name = attributeParts[i];
+								if(target.set){
+									target.set(name, value);
+								}else{
+									target[name] = value;
+								}
+							});
+						};
+						reversal.rule = this;
+						(reversalOfAttributes[name] || (reversalOfAttributes[name] = [])).push(reversal);
+					}else{
 						// it's a full expression, so we create a time-varying bound function with the expression
-						var reactiveFunction = Function.apply(xstyle, variables.concat(['return ' + expression]));
+						var reactiveFunction = Function.apply(globalAttributes, parameters.concat(['return ' + expression]));
 					}
 				}
 				var rule = this; // TODO: can this be passed by addRenderer?
@@ -250,41 +313,36 @@ console.log("add", selector, cssText);
 						var waiting = 1;
 						var callbacks = [];
 						for(var i = 0; i < variables.length; i++){
-							// TODO: add support for promises
-							var value = findAttributeInAncestors(element, variables[i], setupRule);
-/*							for(var j = 1; j < parts.length; j++){
-								value = value && (value.get ? value.get(part[i]) : value[parts[i]]);
-							}*/
-							satisfied[i] = value;
-							if(value && value.then){
-								waiting++;
-								(function(i){
-									value.then(function(value){
+							var path = variables[i];
+							var value = findAttributeInAncestors(element, path[0], path[1], setupRule);
+							waiting++;
+							get(value, path.slice(2), (function(i){
+									return function(value){
+										// TODO: use another array to keep track of which have been satisfied
 										satisfied[i] = value;
 										done();
-									});
-								})(i);
-							}
+									};
+								})(i));
 						}
-						done(value);
-						function done(value){
-							if(--waiting == 0){
-								value = reactiveFunction ? reactiveFunction.apply(xstyle, satisfied) : value;
+						done();
+						function done(){
+							if(--waiting < 1){
+								var value = reactiveFunction ? reactiveFunction.apply(globalAttributes, satisfied) : satisfied[0];
+								for(var i = 0; i < callbacks.length; i++){
+									callbacks[i](value);
+								}
+								setAttribute(element, name, value, false);
 							}
-							for(var i = 0; i < callbacks.length; i++){
-								callbacks[i](value);
-							}
-							element[name] = value;
 						}
 						if(waiting != 0){
-							element[name] = {
+							setAttribute(element, name, {
 								then: function(callback){
 									callbacks.push(callback);
 								},
 								toString: function(){
 									return "Loading";
 								}
-							}
+							}, false);
 						}
 					}
 					recompute(element, rule);
@@ -309,6 +367,9 @@ console.log("add", selector, cssText);
 				var properties = (this.properties || (this.properties = []));
 				properties.push(name);
 				properties[name] = property;
+			},
+			set: function(element, name, value){
+				
 			},
 			cssText: ""
 		};
@@ -583,51 +644,80 @@ console.log("add", selector, cssText);
 	search('style');
 
 
-	var rulesListeningToAttribute = {};
-
-	function findAttributeInAncestors(element, name, listeningRule){	
+	var rulesListeningToAttribute = {},
+		reversalOfAttributes = {};
+		
+	function findAttributeInAncestors(element, tag, name, listeningRule){	
 		var elementAncestor = element;
 		if(listeningRule){
+			// TODO: make it specific to tag as well
 			var rules = (rulesListeningToAttribute[name] || (rulesListeningToAttribute[name] = []));
 			rules.push(listeningRule); 
 		}
 		do{
-			var value = elementAncestor[name];
-			// if we have a callback, setup a listener
-			if(listeningRule){
-				var oldDescriptor = Object.getOwnPropertyDescriptor(elementAncestor, name);
-				var descriptor, setter = oldDescriptor && oldDescriptor.set;
-				if(!setter){ // only if the a setter hasn't already been defined
-					if(!descriptor){ // create the descriptor just once, and reuse
-						// determine if we should call setAttribute
-						var useSetAttribute = typeof value == 'string';						descriptor = {
-							get: function(){
-								return this._values && this._values[name];
-							},
-							set: function(value){
-								(this._values || (this._values = {}))[name] = value;
-								// set the attribute, the default action
-								useSetAttribute && this.setAttribute(name, value);
-								for(var i = 0; i < rules.length; i++){
-									var rule = rules[i];
-									var nodeList = this.querySelectorAll(rule.selector);
-									for(var j = 0; j < nodeList.length; j++){
-										rule.recomputeAttribute(nodeList[j], name);
+			if(!tag || tag == elementAncestor.tagName){
+				var value = elementAncestor[name];
+				// if we have a callback, setup a listener
+				if(listeningRule && xstyle.configDOMSetters){
+					var oldDescriptor = Object.getOwnPropertyDescriptor(elementAncestor, name);
+					var descriptor, setter = oldDescriptor && oldDescriptor.set;
+					if(!setter){ // only if the a setter hasn't already been defined
+						if(!descriptor){ // create the descriptor just once, and reuse
+							// determine if we should call setAttribute
+							var useSetAttribute = typeof value == 'string';							descriptor = {
+								get: function(){
+									return this._values && this._values[name];
+								},
+								set: function(value){
+									(this._values || (this._values = {}))[name] = value;
+									if(!callingFromSetAttribute){
+										setAttribute(this, name, value, undefined, useSetAttribute);
 									}
 								}
 							}
 						}
+						value && ((elementAncestor._values || (elementAncestor._values = {}))[name] = value);
+						Object.defineProperty(elementAncestor, name, descriptor);
 					}
-					value && ((elementAncestor._values || (elementAncestor._values = {}))[name] = value);
-					Object.defineProperty(elementAncestor, name, descriptor);
 				}
 			}
-			
 		}while(!value && (elementAncestor != globalAttributes) && 
 				(elementAncestor = elementAncestor.parentNode || globalAttributes));
 		return value;
 	}
-	
+	var callingFromSetAttribute;
+	function setAttribute(element, name, value, put, useSetAttribute){
+		callingFromSetAttribute = true;
+		element[name] = value;
+		callingFromSetAttribute = false;
+		// set the attribute, the default action
+		useSetAttribute && this.setAttribute(name, value);
+		if(put !== true){
+			var rules = rulesListeningToAttribute[name] || 0;
+			for(var i = 0; i < rules.length; i++){
+				var rule = rules[i];
+				var nodeList = element.querySelectorAll(rule.selector);
+				for(var j = 0; j < nodeList.length; j++){
+					rule.recomputeAttribute(nodeList[j], name);
+				}
+			}
+		}
+		if(put !== false){
+			var reversals = reversalOfAttributes[name] || 0;
+			for(var i = 0; i < reversals.length; i++){
+				var reversal = reversals[i];
+				if(matchesSelector.call(element, reversal.rule.selector)){
+					reversal(element, name, value);
+				}
+			}
+		}
+	}
+	// using delegation, listen for any input changes in the document and "put" the value  
+	// TODO: add a hook so one could add support for IE8
+	document.addEventListener('change', function(event){
+		var element = event.target;
+		setAttribute(element, 'value', element.value, true);
+	});
 	// elemental section
 	var testDiv = document.createElement("div");
 	var features = {
@@ -828,16 +918,6 @@ console.log("add", selector, cssText);
 			});
 		},
 		parse: parse,
-		get: function(target){
-			// used by the constructed reactive functions
-			for(var i = 1; i < arguments.length; i++){
-				var name = arguments[i];
-				target = target && (target.get ?
-					target.get(name) :
-					target = target[name]);
-			}
-			return target && target.value || target;
-		},
 		
 		addRenderer: function(propertyName, propertyValue, rule, handler){
 			var renderer = {
@@ -866,6 +946,8 @@ console.log("add", selector, cssText);
 			// clears all the renderers in use
 			selectorRenderers = [];
 		},
+		set: setAttribute,
+		configDOMSetters: true, // disable this for better performance
 		globalAttributes: globalAttributes
 	};
 	return xstyle;
