@@ -50,26 +50,6 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 		});
 	}
 	
-	var globalAttributes = {
-		Math:Math, 
-		require: function(mid){
-			return {
-				then: function(callback){
-					require([mid], callback);
-				}
-			};
-		},
-		get: function(target){
-			// used by the constructed reactive functions
-			for(var i = 1; i < arguments.length; i++){
-				var name = arguments[i];
-				target = target && (target.get ?
-					target.get(name) :
-					target = target[name]);
-			}
-			return target && target.value || target;
-		}
-	};
 	var undef, testDiv = document.createElement("div");
 	function search(tag){
 		var elements = document.getElementsByTagName(tag);
@@ -249,127 +229,22 @@ console.log("add", selector, cssText);
 				// TODO: need to add inheritance?
 				return this.properties[key];
 			},
-			addAttribute: function(name, value){
+			addVariable: function(name, value){
 				if(value[0].toString().charAt(0) == '>'){
 					value = generate(value, this);
 					if(!name){
 						xstyle.addRenderer("", value, this, value);
 						return;
 					}
-				}else if(name){
-					var target, variables = [], parameters = [], id = 0, variableLength = 0, callbacks = [],
-						attributeParts, expression = value.join ? value.join("") : value.toString(),
-						simpleExpression = expression.match(/^[\w_$\/\.]*$/); 
-					// Do the parsing and function creation just once, and adapt the dependencies for the element at creation time
-					// deal with an array, converting strings to JS-eval'able strings
-						// find all the variables in the expression
-					expression = expression.replace(/("[^\"]*")|([\w_]*\/[\w_$\/]*)|([\w_$\.]+)/g, function(t, string, attribute, global){
-						if(attribute){
-							// for each reference, we break apart into variable reference and property references after each dot
-							attributeParts = attribute.split('/');
-							var parameterName = attributeParts.join('_');
-							parameters.push(parameterName);
-							attributeParts[0] = attributeParts[0].toUpperCase();
-							variables.push(attributeParts);
-							// we will reference the variable a function argument in the function we will create
-							return parameterName;
-						}else if(global){
-							return 'this.' + global;
-						}
-						return t;
-					})
-				
-					if(simpleExpression){
-						// a direct reversible reference
-						// no forward reactive needed
-						// create the reverse function
-						var reversal = function(element, name, value){
-							when(findAttributeInAncestors(element, attributeParts[0], attributeParts[1]), function(target){
-								for(var i = 2; i < attributeParts.length -1; i++){
-									var name = attributeParts[i];
-									target = target.get ?
-										target.get(name) :
-										target[name];
-								}
-								var name = attributeParts[i];
-								if(target.set){
-									target.set(name, value);
-								}else{
-									target[name] = value;
-								}
-							});
-						};
-						reversal.rule = this;
-						(reversalOfAttributes[name] || (reversalOfAttributes[name] = [])).push(reversal);
-					}else{
-						// it's a full expression, so we create a time-varying bound function with the expression
-						var reactiveFunction = Function.apply(globalAttributes, parameters.concat(['return ' + expression]));
-					}
+				}else{
+					var variables = (this.variables || (this.variables = {}));
+					variables[name] = value;					
 				}
-				var rule = this; // TODO: can this be passed by addRenderer?
-				xstyle.addRenderer(name, value, this, function(element){
-					var satisfied = [];
-					function recompute(element, setupRule){
-						var waiting = 1;
-						var callbacks = [];
-						for(var i = 0; i < variables.length; i++){
-							var path = variables[i];
-							var value = findAttributeInAncestors(element, path[0], path[1], setupRule);
-							waiting++;
-							get(value, path.slice(2), (function(i){
-									return function(value){
-										// TODO: use another array to keep track of which have been satisfied
-										satisfied[i] = value;
-										done();
-									};
-								})(i));
-						}
-						done();
-						function done(){
-							if(--waiting < 1){
-								var value = reactiveFunction ? reactiveFunction.apply(globalAttributes, satisfied) : satisfied[0];
-								for(var i = 0; i < callbacks.length; i++){
-									callbacks[i](value);
-								}
-								setAttribute(element, name, value, false);
-							}
-						}
-						if(waiting != 0){
-							setAttribute(element, name, {
-								then: function(callback){
-									callbacks.push(callback);
-								},
-								toString: function(){
-									return "Loading";
-								}
-							}, false);
-						}
-					}
-					recompute(element, rule);
-					(rule.attributeFunctions || (rule.attributeFunctions = {}))[name] = recompute;
-					/*var each = findAttributeInAncestors(element, "eachFunction");
-					if(each){
-						elementBinding.each = function(item){
-							try{
-								var itemElement = each(element, item);
-								itemElement.item = item;
-								return itemElement;
-							}catch(e){
-								// TODO: use put-selector?
-								console.error(e);
-								element.appendChild(document.createElement('span')).appendChild(document.createTextNode(e));
-							}
-						}
-					}*/
-				});
 			},
 			addProperty: function(name, property){
 				var properties = (this.properties || (this.properties = []));
 				properties.push(name);
 				properties[name] = property;
-			},
-			set: function(element, name, value){
-				
 			},
 			cssText: ""
 		};
@@ -378,7 +253,7 @@ console.log("add", selector, cssText);
 			this.args = [];
 		}
 		var CallPrototype = Call.prototype = new Rule;
-		CallPrototype.addAttribute = CallPrototype.addProperty = function(name, value){
+		CallPrototype.addVariable = CallPrototype.addProperty = function(name, value){
 			this.args.push(value);
 		};
 		CallPrototype.toString = function(){
@@ -387,6 +262,30 @@ console.log("add", selector, cssText);
 		
 		var target, root = new Rule;
 		root.root = true;
+		root.variables = {
+			Math: Math,
+			require: function(mid){
+				return {
+					then: function(callback){
+						require([mid], callback);
+					}
+				};
+			},
+			item: {
+				forElement: function(element){
+					while(!element.item){
+						element = element.parentNode;
+					}
+					return {
+						element: element,
+						receive: function(){
+							return element.item;
+						}
+					}
+				}
+			}
+		};
+		
 		root.css = textToParse;
 		root.parse = parseSheet;
 		
@@ -597,7 +496,7 @@ console.log("add", selector, cssText);
 							cssScan.lastIndex = currentIndex;
 						}
 					}else{
-						target[assignmentOperator == ':' ? 'addProperty' : 'addAttribute'](name, sequence);
+						target[assignmentOperator == ':' ? 'addProperty' : 'addVariable'](name, sequence);
 					}
 				}
 				name = null;
@@ -854,30 +753,55 @@ console.log("add", selector, cssText);
 				renderer.render(element);
 			}
 		}
-		
 	}
 
 
 	function generate(value, rule){
+		var id = nextId++;
 		return function(element, item){
 			var lastElement = element;
+			var subId = 0;
 			for(var i = 0, l = value.length;i < l; i++){
 				var part = value[i];
 				if(part.eachProperty){
-					put(lastElement, part.selector);
-					xstyle.update(lastElement);
+					if(part.args){
+								// TODO: make sure we only do this only once
+						var apply = evaluateExpression({parent: rule, selector:'.x-generated-' + id + subId++}, 0, part.toString());
+						// TODO: assess how we could propagate changes categorically
+						if(apply.forElement){
+							apply = apply.forElement(lastElement);
+							// now apply.element should indicate the element that it is actually keying or varying on
+						}
+						if(apply.receive){
+							// TODO: do this
+							apply.receive();
+						}
+						// add the text
+						lastElement.appendChild(document.createTextNode(apply.valueOf()));
+					}else{
+						put(lastElement, part.selector);
+						xstyle.update(lastElement);
+					}
 				}else if(typeof part == 'string'){
 					if(part.charAt(0) == '='){
 						part = part.slice(1); // remove the '=' at the beginning					
 					}
+					
 					var children = part.split(',');
 					for(var j = 0, cl = children.length;j < cl; j++){
 						var child = children[j].trim();
+						var reference = null;
 						if(child){
+							child = child.replace(/\([^)]*\)/, function(expression){
+								reference = expression;
+							});
 							lastElement = put(j == 0 ? lastElement : element, child);
 							xstyle.update(lastElement);
+							if(reference){
+							}
 						}
 					}
+					
 				}else{
 					lastElement.appendChild(document.createTextNode(part.value));
 				}
@@ -885,7 +809,162 @@ console.log("add", selector, cssText);
 			return lastElement;
 		}
 	}
+
+	function evaluateExpression(rule, name, value){
+		var binding = rule["var-expr-" + name];
+		if(variables){
+			return binding;
+		}
+		var variables = [], isElementDependent;
+		variables.id = nextId++;
+		var target, parameters = [], id = 0, callbacks = [],
+			attributeParts, expression = value.join ? value.join("") : value.toString(),
+			simpleExpression = expression.match(/^[\w_$\/\.]*$/); 
+		// Do the parsing and function creation just once, and adapt the dependencies for the element at creation time
+		// deal with an array, converting strings to JS-eval'able strings
+			// find all the variables in the expression
+		expression = expression.replace(/("[^\"]*")|([\w_$\.\/]+)/g, function(t, string, variable){
+			if(variable){
+				// for each reference, we break apart into variable reference and property references after each dot				
+				attributeParts = variable.split('/');
+				var parameterName = attributeParts.join('_');
+				parameters.push(parameterName);
+				variables.push(attributeParts);
+				// first find the rule that is being referenced
+				var parentRule = rule;
+				var firstReference = attributeParts[0];
+				while(!(target = parentRule.variables && parentRule.variables[firstReference])){
+					parentRule = parentRule.parent;
+					if(!parentRule){
+						throw new Error('Could not find reference "' + firstReference + '"');
+					}
+				}
+				if(typeof target == 'string' || target instanceof Array){
+					target = evaluateExpression(parentRule, firstReference, target);
+				}
+				if(target.forElement){
+					isElementDependent = true;
+				}
+				attributeParts[0] = target;
+				// we will reference the variable a function argument in the function we will create
+				return parameterName;
+			}
+			return t;
+		})
 	
+		if(simpleExpression){
+			// a direct reversible reference
+			// no forward reactive needed
+			if(name){
+				// create the reverse function
+				var reversal = function(element, name, value){
+					when(findAttributeInAncestors(element, attributeParts[0], attributeParts[1]), function(target){
+						for(var i = 2; i < attributeParts.length -1; i++){
+							var name = attributeParts[i];
+							target = target.get ?
+								target.get(name) :
+								target[name];
+						}
+						var name = attributeParts[i];
+						if(target.set){
+							target.set(name, value);
+						}else{
+							target[name] = value;
+						}
+					});
+				};
+				reversal.rule = rule;
+				(reversalOfAttributes[name] || (reversalOfAttributes[name] = [])).push(reversal);
+			}
+		}else{
+			// it's a full expression, so we create a time-varying bound function with the expression
+			var reactiveFunction = Function.apply(this, parameters.concat(['return ' + expression]));
+		}
+		variables.func = reactiveFunction;
+		rule["var-expr-" + name] = variables;
+		function getComputation(){
+			var waiting = variables.length + 1;
+			var values = [], callbacks = [];
+			var result;
+			var done = function(i){
+				return function(value){
+					values[i] = value;
+					waiting--;
+					if(waiting <= 0){
+						result = reactiveFunction.apply(this, values);
+						for(var j = 0; j < callbacks.length;j++){
+							callback(result);
+						}
+						callbacks = null;
+					}
+				};
+			};
+			for(var i = 0; i < variables.length; i++){
+				var variable = variables[i];
+				get(variable[0], variable.slice(1), done(i));
+			}
+			done(-1)();
+			return {
+				valueOf: function(){
+					return reactiveFunction.apply(this, values);
+				},
+				receive: function(callback){
+					if(callbacks){
+						callbacks.push(callback);
+					}
+					callback(result);
+				}
+				
+			}
+		}
+		return rule["var-expr-" + name] = isElementDependent ? {
+			forElement: function(element){
+				// TODO: at some point may make this async
+				var callbacks = [];
+				var mostSpecificElement;
+				var elementVariables = [];
+				for(var i = 0; i < variables.length; i++){
+					var variable = variables[i];
+					// now find the element that matches that rule
+					var parentElement = element;
+					while(!matchesSelector.call(parentElement, parentRule.selector)){
+						parentElement = parentElement.parentNode;
+					}
+					var target = variable[0];
+					// now find the element that is keyed on
+					if(target.forElement){
+						target = target.forElement(parentElement);
+					}
+					// we need to find the most parent element that we need to vary on for this computation 
+					var varyOnElement = target.element;
+					if(parentElement != mostSpecificElement){
+						while(parentElement != varyOnElement){
+							if(parentElement == mostSpecificElement){
+								return;
+							}
+							parentElement = parentElement.parentNode;
+						}
+						mostSpecificElement = parentElement;
+					}
+				}
+				// make sure we indicate the store we are keying off of
+				var computation = mostSpecificElement["expr-result-" + variables.id];
+				if(!computation){
+					mostSpecificElement["expr-result-" + variables.id] = computation = getComputation();
+					computation.element = mostSpecificElement;
+				}
+				return computation;
+			}
+		} : getComputation();
+	}
+	function resolveReference(rule, name){
+		var parentRule = rule;
+		do{
+			var target = parentRule.variables && parentRule.variables[name];
+			parentRule = parentRule.parent;
+		}while(!target);
+		return target;
+	}
 	var xstyle =  {
 		process: checkImports,
 		vendorPrefix: vendorPrefix,
@@ -945,10 +1024,7 @@ console.log("add", selector, cssText);
 		clearRenderers: function(){
 			// clears all the renderers in use
 			selectorRenderers = [];
-		},
-		set: setAttribute,
-		configDOMSetters: true, // disable this for better performance
-		globalAttributes: globalAttributes
+		}
 	};
 	return xstyle;
 
