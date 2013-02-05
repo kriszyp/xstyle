@@ -12,8 +12,6 @@
 	
 	body {
 		save-parser: true;
-		converter = require('xstyle/test/converter');
-		data = converter/parsed;
 		font-family: "Segoe UI", "Segoe WP", "Helvetica Neue", Roboto, sans-serif;	
 		=>
 			h1 'xstyle',
@@ -30,12 +28,13 @@
 			},
 			div.column {=>
 				h2 'result: #target',
-				div#target[title='The result of the data rendered according to the presentation CSS']; 
+				div#target; /*[title='The result of the data rendered according to the presentation CSS'];*/ 
 			},
 			p 'more information about XStyle' {
 				clear: both;
 			};
 	}
+
 	h1, h2 {
 		font-weight: 100;
 		font-family: "Segoe UI Light", "Helvetica Neue", RobotoLight, "Segoe UI", "Segoe WP", sans-serif;
@@ -54,7 +53,9 @@
 	.live-source {
 		width: 280px;
 		height: 200px;
-	}
+	};
+	converter = require('xstyle/test/converter');
+	data = converter/parsed;
 	</style>
 	
 	<script src="../../dojo/dojo.js" data-dojo-config="async:true"></script>

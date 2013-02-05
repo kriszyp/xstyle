@@ -30,26 +30,39 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 			value.then(function(value){
 					return whenever(value, callback);
 				}) :
-				value && value.to ?
-				value.to(callback) : 
+				value && value.receive ?
+				value.receive(callback) : 
 					callback(value);
 		
 	}
 	function get(target, path, callback){
 		return when(target, function(target){
-			if(path.length){
-				var name = path[0];
-				return get(target && (target.get ?
-					target.get(name) :
-					target = target[name]), path.slice(1), callback);
-			}else{
-				return target && target.to ? 
-					target.to(callback) : 
-					callback(target);
+			var name = path[0];
+			if(!target){
+				return callback(name || target);
 			}
+			if(name && target.get){
+				return get(target.get(name), path.slice(1), callback);
+			}
+			if(target.receive){
+				return target.receive(name ? function(value){
+					get(value, path, callback);
+				} : callback);
+			}
+			if(name){
+				return get(target[name], path.slice(1), callback);
+			}
+			callback(target);
 		});
 	}
-	
+	function set(target, path, value){
+		get(target, path.slice(0, path.length - 1), function(target){
+			var property = path[path.length - 1];
+			target.set ?
+				target.set(property, value) :
+				target[property] = value;
+		});
+	}
 	var undef, testDiv = document.createElement("div");
 	function search(tag){
 		var elements = document.getElementsByTagName(tag);
@@ -278,8 +291,8 @@ console.log("add", selector, cssText);
 					}
 					return {
 						element: element,
-						receive: function(){
-							return element.item;
+						receive: function(callback){
+							callback(element.item);
 						}
 					}
 				}
@@ -615,7 +628,10 @@ console.log("add", selector, cssText);
 	// TODO: add a hook so one could add support for IE8
 	document.addEventListener('change', function(event){
 		var element = event.target;
-		setAttribute(element, 'value', element.value, true);
+		var variable = element['-x-variable'];
+		if(variable.put){
+			variable.put(element.value);
+		}
 	});
 	// elemental section
 	var testDiv = document.createElement("div");
@@ -756,28 +772,67 @@ console.log("add", selector, cssText);
 	}
 
 
-	function generate(value, rule){
+	function generate(generatingSelector, rule){
 		var id = nextId++;
+		generatingSelector = generatingSelector.sort ? generatingSelector : [generatingSelector];
 		return function(element, item){
 			var lastElement = element;
 			var subId = 0;
-			for(var i = 0, l = value.length;i < l; i++){
-				var part = value[i];
+			for(var i = 0, l = generatingSelector.length;i < l; i++){
+				var part = generatingSelector[i];
 				if(part.eachProperty){
 					if(part.args){
+						var nextPart = generatingSelector[i+1];
+						if(nextPart && nextPart.eachProperty){
+							// apply the class for the next part so we can reference it properly
+							put(lastElement, nextPart.selector);
+						}
 								// TODO: make sure we only do this only once
-						var apply = evaluateExpression({parent: rule, selector:'.x-generated-' + id + subId++}, 0, part.toString());
+						var apply = evaluateExpression(part, 0, part.args.toString());
 						// TODO: assess how we could propagate changes categorically
 						if(apply.forElement){
 							apply = apply.forElement(lastElement);
 							// now apply.element should indicate the element that it is actually keying or varying on
 						}
-						if(apply.receive){
-							// TODO: do this
-							apply.receive();
-						}
-						// add the text
-						lastElement.appendChild(document.createTextNode(apply.valueOf()));
+						(function(element){
+							if("value" in element){
+								apply.receive(function(value){
+									// add the text
+									element.value= value;
+								});
+								element['-x-variable'] = apply; 
+							}else{
+								var textNode = element.appendChild(document.createTextNode("Loading"));
+								if(apply.receive){
+									apply.receive(function(value){
+										if(value && value.sort){
+											if(textNode){
+												textNode.parentNode.removeChild(textNode);
+												textNode = null;
+											}
+											var eachHandler = nextPart && nextPart.eachProperty && nextPart.get('each');
+											if(eachHandler){
+												eachHandler = generate(eachHandler, nextPart);
+											}
+											value.forEach(eachHandler ? 
+												function(value){
+													// TODO: do this inside generate
+													eachHandler(element, value);
+												} :
+												function(value){
+													put(element, 'li', value);
+												});
+										}else{
+											// add the text
+											textNode.nodeValue = value;
+										}
+									});
+								}else{
+									console.error("no receive method");
+									//TODO:
+								}
+							}
+						})(lastElement);
 					}else{
 						put(lastElement, part.selector);
 						xstyle.update(lastElement);
@@ -796,6 +851,9 @@ console.log("add", selector, cssText);
 								reference = expression;
 							});
 							lastElement = put(j == 0 ? lastElement : element, child);
+							if(item){
+								lastElement.item = item;
+							}
 							xstyle.update(lastElement);
 							if(reference){
 							}
@@ -885,36 +943,77 @@ console.log("add", selector, cssText);
 		function getComputation(){
 			var waiting = variables.length + 1;
 			var values = [], callbacks = [];
-			var result;
+			var result, isResolved;
 			var done = function(i){
 				return function(value){
 					values[i] = value;
 					waiting--;
 					if(waiting <= 0){
-						result = reactiveFunction.apply(this, values);
+						isResolved = true;
+						result = reactiveFunction ? reactiveFunction.apply(this, values) : values[0];
 						for(var j = 0; j < callbacks.length;j++){
-							callback(result);
+							callbacks[j](result);
 						}
-						callbacks = null;
 					}
 				};
 			};
-			for(var i = 0; i < variables.length; i++){
-				var variable = variables[i];
-				get(variable[0], variable.slice(1), done(i));
+			if(reactiveFunction){
+				for(var i = 0; i < variables.length; i++){
+					var variable = variables[i];
+					get(variable[0], variable.slice(1), done(i));
+				}
+			}else{
+				var variable = variables[0];
+				var value = {
+					then: function(callback){
+						callbacks.push(callback);
+					}
+				}
+				when(variable[0], function(resolved){
+					value = resolved;
+					for(var j = 1; j < variable.length; j++){
+						if(value && value.get){
+							value = value.get(variable[j]);
+						}else{
+							value = {
+								receive: function(callback){
+									get(resolved, variable.slice(1), callback);
+								},
+								put: function(value){
+									set(resolve, variable.slice(1), value);
+								}
+							};
+							break;
+						}
+					}
+					for(var j = 1; j < callbacks.length; j++){
+						callbacks[j](value);
+					}
+				});
+				return value;
+				if(first && first.then){
+					return {
+						then: function(callback){
+							get(variable[0], variable.slice(1), callback);
+						}
+					};
+				}else{
+					return variable;
+				}
 			}
 			done(-1)();
+			if(result && result.then){
+				return result;
+			}
 			return {
-				valueOf: function(){
-					return reactiveFunction.apply(this, values);
-				},
 				receive: function(callback){
 					if(callbacks){
 						callbacks.push(callback);
 					}
-					callback(result);
+					if(isResolved){
+						callback(result);
+					}
 				}
-				
 			}
 		}
 		return rule["var-expr-" + name] = isElementDependent ? {
@@ -923,17 +1022,17 @@ console.log("add", selector, cssText);
 				var callbacks = [];
 				var mostSpecificElement;
 				var elementVariables = [];
+				// now find the element that matches that rule, in case we are dealing with a child
+				var parentElement = element;
+				while(!matchesSelector.call(element, rule.selector)){
+					element = element.parentNode;
+				}
 				for(var i = 0; i < variables.length; i++){
 					var variable = variables[i];
-					// now find the element that matches that rule
-					var parentElement = element;
-					while(!matchesSelector.call(parentElement, parentRule.selector)){
-						parentElement = parentElement.parentNode;
-					}
 					var target = variable[0];
 					// now find the element that is keyed on
 					if(target.forElement){
-						target = target.forElement(parentElement);
+						target = variable[0] = target.forElement(parentElement);
 					}
 					// we need to find the most parent element that we need to vary on for this computation 
 					var varyOnElement = target.element;
@@ -979,22 +1078,34 @@ console.log("add", selector, cssText);
 			// handle extends(selector)
 			var args = rule.args;
 			var extendingRule = rule.parent;
-			var parentRule = extendingRule;
-			do{
-				var baseRule = parentRule.rules && parentRule.rules[args[0]];
-				parentRule = parentRule.parent;
-			}while(!baseRule);
-			var newText = baseRule.cssText;
-			extendingRule.cssText += newText;
-			extendingRule.properties = Object.create(baseRule.properties);
-			baseRule.eachProperty(function(name, value){
-				if(name){
-					var ruleStyle = extendingRule.cssRule.style;
-					if(!ruleStyle[name]){
-						ruleStyle[name] = value;
+			if(name == 'extends'){
+				var parentRule = extendingRule;
+				do{
+					var baseRule = parentRule.rules && parentRule.rules[args[0]];
+					parentRule = parentRule.parent;
+				}while(!baseRule);
+				var newText = baseRule.cssText;
+				extendingRule.cssText += newText;
+				extendingRule.properties = Object.create(baseRule.properties);
+				baseRule.eachProperty(function(name, value){
+					if(name){
+						var ruleStyle = extendingRule.cssRule.style;
+						if(!ruleStyle[name]){
+							ruleStyle[name] = value;
+						}
 					}
+				});
+			}else if(name == 'bind'){
+				var result = evaluateExpression(extendingRule, null, args[0]);
+				if(result.forElement){
+					// it is element dependent, this means we need to use inline styles
+					xstyle.addRenderer();
+				}else{
+					result.receive(function(value){
+						extendingRule.addSheetRule(extendingRule, name + ': ' + extendingRule.get(name).replace(/bind\([^)]+\)/g, target))
+					});
 				}
-			});
+			}
 		},
 		parse: parse,
 		
