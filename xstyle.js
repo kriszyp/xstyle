@@ -28,7 +28,7 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 		"UL": "li",
 		"OL": "li"
 	};
-function when(value, callback){
+	function when(value, callback){
 		return value && value.then ? 
 			value.then(callback) : callback(value);
 	}
@@ -85,7 +85,7 @@ function when(value, callback){
 		return array;
 	}
 	function LiteralString(string){
-		this.value = string; 
+		this.value = string;
 	}
 	LiteralString.prototype.toString = function(){
 		return JSON.stringify(this.value);
@@ -133,6 +133,9 @@ function when(value, callback){
 			parse(sheet.localSource || sheet.ownerElement.innerHTML, sheet, callback);
 		}
 	}
+	parse.getStyleSheet = function(importRule, sequence){
+		return importRule.styleSheet;
+	};
 	function parse(textToParse, styleSheet, callback) {
 		// this function is responsible for parsing a stylesheet with all of xstyle's syntax rules
 		
@@ -568,7 +571,7 @@ console.log("add", selector, cssText);
 						// it's a directive
 						if(sequence[0].slice(1,7) == "import"){
 							// get the stylesheet
-							var importedSheet = styleSheet.cssRules[ruleIndex++].styleSheet;
+							var importedSheet = parse.getStyleSheet(styleSheet.cssRules[ruleIndex++], sequence, styleSheet);
 							waiting++;
 							// preserve the current index, as we are using a single regex to be shared by all parsing executions
 							var currentIndex = cssScan.lastIndex;
@@ -632,6 +635,7 @@ console.log("add", selector, cssText);
 		}
 		// synchronous completion
 		finishedLoad(target);
+		return root;
 	}
 	// search the document for <link> and <style> elements to potentially parse.
 	search('link');
