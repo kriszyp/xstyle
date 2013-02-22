@@ -5,9 +5,8 @@ body {
 		font-weight: bold;
 	}
 }
-content {
-	bind: require(xstyle/test/test-data);
-}
+content = require(xstyle/test/test-data);
+{}
 validated-content {
 	require(dbind/Validator)
 	from: content;

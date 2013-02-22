@@ -26,7 +26,8 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 		"TBODY": "tr",
 		"TR": "td",
 		"UL": "li",
-		"OL": "li"
+		"OL": "li",
+		"SELECT": "option"
 	};
 	function when(value, callback){
 		return value && value.then ? 
@@ -70,6 +71,11 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 				target[property] = value;
 		});
 	}
+	var trim = ''.trim ? function (str){
+		return str.trim();
+	} : function(str){
+		return str.replace(/^\s+|\s+$/g, '');
+	};
 	var undef, testDiv = document.createElement("div");
 	function search(tag){
 		var elements = document.getElementsByTagName(tag);
@@ -244,13 +250,14 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 console.log("add", selector, cssText);
 				// Used to add a new rule
 				if(cssText){
-					styleSheet.addRule(selector, cssText);
+					return styleSheet.addRule(selector, cssText);
 				}
 			},
 			onRule: function(){
 				// called by parser once a rule is finished parsing
-				if(!this.parent.root){
+				if(!this.cssRule){
 					this.addSheetRule(this.selector, this.cssText);
+					// TODO: set this.cssRule
 				}
 			},
 			recomputeAttribute: function(element, name){
@@ -436,6 +443,7 @@ console.log("add", selector, cssText);
 					}
 				}
 				// load the module using the module id, or direclty use it if it is already loaded
+				console.log('module', module)
 				typeof module == "string" ? require([module], onLoad) : onLoad(module);					
 			}
 		}
@@ -453,18 +461,20 @@ console.log("add", selector, cssText);
 			}
 			target = root; // start at root
 			cssScan.lastIndex = 0; // start at zero
-			var ruleIndex = 0;
+			var ruleIndex = 0, browserUnderstoodRule = true;
 			while(true){
 				// parse the next block in the CSS
 				// we could perhaps use a simplified regex when we are in a property value 
 				var match = cssScan.exec(textToParse);
 				// the next block is parsed into several parts that comprise some operands and an operator
 				var operator = match[4],
-					first = match[1].trim(),
+					first = match[1],
 					assignment = match[2],
 					value = match[3],
 					assignmentOperator, name, sequence, assignNextName;
-					value = value && value.trim();
+				value = value && trim(value);
+				
+				first = trim(first);
 				if(assignNextName){
 					// we are at the beginning of a new property
 					if(assignment){
@@ -528,7 +538,7 @@ console.log("add", selector, cssText);
 							assignNextName = true; // enter into the beginning of property mode					
 							// add this new rule to the current parent rule
 							addInSequence(newTarget = target.newRule(value));
-							if(target.root){
+							if(target.root && browserUnderstoodRule){
 								// we track the native CSSOM rule that we are attached to so we can add properties to the correct rule
 								newTarget.cssRule = styleSheet.cssRules[ruleIndex++];
 							}
@@ -599,6 +609,7 @@ console.log("add", selector, cssText);
 								// don't trigger the property for the property registration
 								target.eachProperty(onProperty);
 							}
+							browserUnderstoodRule = true;
 						}else{
 							// call handler
 							onCall(target.caller, target);
@@ -618,6 +629,8 @@ console.log("add", selector, cssText);
 						// end of a property, end the sequence return to the beginning of propery mode
 						sequence = null;
 						assignNextName = true;
+						browserUnderstoodRule = false;
+						assignmentOperator = false;
 				}
 			}
 		}
@@ -739,23 +752,34 @@ console.log("add", selector, cssText);
 	var renderQueue = [];
 	var documentQueried;
 	// probably want to inline our own DOM readiness code
-	require(["dojo/domReady!"], function(){
-		documentQueried = true;
-		if(has("dom-qsa2.1")){
-			// if we have a query engine, it is fastest to use that
-			for(var i = 0, l = selectorRenderers.length; i < l; i++){
-				// find the matches and register the renderers
-				findMatches(selectorRenderers[i]);
-			}
-			// render all the elements that are queued up
-			renderWaiting();
-		}else{
-			var all = document.all;
-			for(var i = 0, l = all.length; i < l; i++){
-				update(all[i]);
+	function domReady(){
+		if(!documentQueried){
+			documentQueried = true;
+			if(has("dom-qsa2.1")){
+				// if we have a query engine, it is fastest to use that
+				for(var i = 0, l = selectorRenderers.length; i < l; i++){
+					// find the matches and register the renderers
+					findMatches(selectorRenderers[i]);
+				}
+				// render all the elements that are queued up
+				renderWaiting();
+			}else{
+			//else rely on css expressions (or maybe we should use document.all and just scan everything)
+				var all = document.all;
+				for(var i = 0, l = all.length; i < l; i++){
+					update(all[i]);
+				}
 			}
 		}
-	});//else rely on css expressions (or maybe we should use document.all and just scan everything)
+	}
+	// TODO: support IE7-8
+	if(/e/.test(document.readyState||'')){
+		// TODO: fix the issues with sync so this can be run immediately
+		setTimeout(domReady, 200);
+	}else{
+		print("addEventListener");
+		document.addEventListener("DOMContentLoaded", domReady);
+	}
 	function findMatches(renderer){
 		// find the elements for a given selector and apply the renderers to it
 		var toRender = [];
@@ -882,37 +906,25 @@ console.log("add", selector, cssText);
 			for(var i = 0, l = generatingSelector.length;i < l; i++){
 				// go through each part in the selector/generation sequence
 				var part = generatingSelector[i];
-				if(part.eachProperty){
-					// it's a rule or call
-					if(part.args){// a call (or at least parans), for now we are assuming it is a binding
-						var nextPart = generatingSelector[i+1];
-						if(nextPart && nextPart.eachProperty){
-							// apply the class for the next part so we can reference it properly
-							put(lastElement, nextPart.selector);
-						}
-								// TODO: make sure we only do this only once
-						var apply = evaluateExpression(part, 0, part.args.toString());
-						// TODO: assess how we could propagate changes categorically
-						if(apply.forElement){
-							apply = apply.forElement(lastElement);
-							// now apply.element should indicate the element that it is actually keying or varying on
-						}
-						(function(element){
-							if("value" in element){
-								apply.receive(function(value){
-									// add the text
-									element.value= value;
-								});
-								// we are going to store the variable computation on the element
-								// so that on a change we can quickly do a put on it
-								// we might want to consider changing that in the future, to
-								// reduce memory, but for now this probably has minimal cost
-								element['-x-variable'] = apply; 
-							}else{
-								// put text in for Loading until we are ready
-								// TODO: we should do this after setting up the receive in case we synchronously get the data 
-								var textNode = element.appendChild(document.createTextNode("Loading"));
-								if(apply.receive){
+				try{
+					if(part.eachProperty){
+						// it's a rule or call
+						if(part.args){// a call (or at least parans), for now we are assuming it is a binding
+							var nextPart = generatingSelector[i+1];
+							if(nextPart && nextPart.eachProperty){
+								// apply the class for the next part so we can reference it properly
+								put(lastElement, nextPart.selector);
+							}
+									// TODO: make sure we only do this only once
+							var apply = evaluateExpression(part, 0, part.args.toString());
+							(function(element, lastElement){
+								when(apply, function(apply){
+									// TODO: assess how we could propagate changes categorically
+									if(apply.forElement){
+										apply = apply.forElement(lastElement);
+										// now apply.element should indicate the element that it is actually keying or varying on
+									}
+									var textNode = element.appendChild(document.createTextNode("Loading"));
 									apply.receive(function(value){
 										if(value && value.sort){
 											// if it is an array, we do iterative rendering
@@ -936,48 +948,63 @@ console.log("add", selector, cssText);
 													put(element, childTagForParent[element.tagName] || 'div', value);
 												});
 										}else{
-											// if not an array, render as plain text
-											textNode.nodeValue = value;
+											if("value" in element){
+												// add the text
+												element.value= value;
+												// we are going to store the variable computation on the element
+												// so that on a change we can quickly do a put on it
+												// we might want to consider changing that in the future, to
+												// reduce memory, but for now this probably has minimal cost
+												element['-x-variable'] = apply; 
+											}else{
+												// put text in for Loading until we are ready
+												// TODO: we should do this after setting up the receive in case we synchronously get the data 
+												// if not an array, render as plain text
+												textNode.nodeValue = value;
+											}
 										}
 									});
-								}else{
-									console.error("no receive method");
-									//TODO:
-								}
-							}
-						})(lastElement);
-					}else{
-						// it is plain rule (not a call), we need to apply the auto-generated selector, so CSS is properly applied
-						put(lastElement, part.selector);
-						// do any elemental updates
-						xstyle.update(lastElement);
-					}
-				}else if(typeof part == 'string'){
-					// actual CSS selector syntax, we generate the elements specified
-					if(part.charAt(0) == '='){
-						part = part.slice(1); // remove the '=' at the beginning					
-					}
-					
-					var children = part.split(',');
-					for(var j = 0, cl = children.length;j < cl; j++){
-						var child = children[j].trim();
-						var reference = null;
-						if(child){
-							// TODO: inline our own put-selector code, and handle bindings
-							child = child.replace(/\([^)]*\)/, function(expression){
-								reference = expression;
-							});
-							lastElement = put(j == 0 ? lastElement : element, child);
-							if(item){
-								// set the item property, so the item reference will work
-								lastElement.item = item;
-							}
+								});
+							})(lastElement, element);
+						}else{
+							// it is plain rule (not a call), we need to apply the auto-generated selector, so CSS is properly applied
+							put(lastElement, part.selector);
+							// do any elemental updates
 							xstyle.update(lastElement);
 						}
+					}else if(typeof part == 'string'){
+						// actual CSS selector syntax, we generate the elements specified
+						if(part.charAt(0) == '='){
+							part = part.slice(1); // remove the '=' at the beginning					
+						}
+						
+						var children = part.split(',');
+						for(var j = 0, cl = children.length;j < cl; j++){
+							var child = children[j].trim();
+							var reference = null;
+							if(child){
+								// TODO: inline our own put-selector code, and handle bindings
+								child = child.replace(/\([^)]*\)/, function(expression){
+									reference = expression;
+								});
+								var nextElement = put(j == 0 ? lastElement : element, child);
+								if(item){
+									// set the item property, so the item reference will work
+									nextElement.item = item;
+								}
+								if(nextElement != lastElement){ // avoid infinite loop if it is a nop selector
+									xstyle.update(nextElement);
+								}
+								lastElement = nextElement;
+							}
+						}
+					}else{
+						// a string literal
+						lastElement.appendChild(document.createTextNode(part.value));
 					}
-				}else{
-					// a string literal
-					lastElement.appendChild(document.createTextNode(part.value));
+				}catch(e){
+					console.error(e, e.stack);
+					lastElement.appendChild(document.createTextNode(e));
 				}
 			}
 			return lastElement;
@@ -1103,7 +1130,7 @@ console.log("add", selector, cssText);
 							break;
 						}
 					}
-					for(var j = 1; j < callbacks.length; j++){
+					for(var j = 0; j < callbacks.length; j++){
 						callbacks[j](value);
 					}
 				});
@@ -1191,20 +1218,26 @@ console.log("add", selector, cssText);
 			}
 			return vendorPrefix + name + ':' + value + ';';
 		},
+		onFunction: function(name, value, rule){
+		},
 		onCall: function(name, rule){
 			// handle extends(selector)
 			var args = rule.args;
 			var extendingRule = rule.parent;
+			var parentRule = extendingRule;
+			var namespace = name == 'extends' ? 'rules' : 'variables'; 
+			do{
+				if(!parentRule){
+					throw new Error('Could not find "' + name + '" in the defined ' + namespace);
+				}
+				var target = parentRule[namespace] && parentRule[namespace][args[0]];
+				parentRule = parentRule.parent;
+			}while(!target);
 			if(name == 'extends'){
-				var parentRule = extendingRule;
-				do{
-					var baseRule = parentRule.rules && parentRule.rules[args[0]];
-					parentRule = parentRule.parent;
-				}while(!baseRule);
-				var newText = baseRule.cssText;
+				var newText = target.cssText;
 				extendingRule.cssText += newText;
-				extendingRule.properties = Object.create(baseRule.properties);
-				baseRule.eachProperty(function(name, value){
+				extendingRule.properties = Object.create(target.properties);
+				target.eachProperty(function(name, value){
 					if(name){
 						var ruleStyle = extendingRule.cssRule.style;
 						if(!ruleStyle[name]){
@@ -1212,7 +1245,7 @@ console.log("add", selector, cssText);
 						}
 					}
 				});
-			}else if(name == 'bind'){
+/*			}else if(name == 'bind'){
 				var result = evaluateExpression(extendingRule, null, args[0]);
 				if(result.forElement){
 					// it is element dependent, this means we need to use inline styles
@@ -1221,7 +1254,12 @@ console.log("add", selector, cssText);
 					result.receive(function(value){
 						extendingRule.addSheetRule(extendingRule, name + ': ' + extendingRule.get(name).replace(/bind\([^)]+\)/g, target))
 					});
-				}
+				}*/
+			}else if(name == 'var'){
+				// TODO: do we need to reevaluate the value based on the new context? 
+				parentRule = rule.parent;
+				// TODO: 
+				parentRule.addSheetRule(parentRule.selector, parentRule.currentName + ': ' + parentRule.currentSequence.toString().replace(/var\([^)]+\)/g, target));				
 			}
 		},
 		parse: parse,
