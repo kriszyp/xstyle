@@ -1,15 +1,4 @@
-var fs = require('fs'),
-	pathModule = require('path'),
-	xstyle,
-	requiredModules = [];
-
-define = function(id, deps, factory){
-	function pseudoRequire(deps){
-		[].push.apply(requiredModules, deps);
-	}
-	pseudoRequire.isBuild = true;
-	xstyle = factory(pseudoRequire);
-};
+print("buidl");
 
 document = {
 	createElement: function(){
@@ -23,12 +12,49 @@ document = {
 navigator = {
 	userAgent: "build"
 };
-require('./xstyle');
 
+var pseudoDefine = function(id, deps, factory){
+		function pseudoRequire(deps){
+			[].push.apply(requiredModules, deps);
+		}
+		pseudoRequire.isBuild = true;
+		xstyle = factory(pseudoRequire);
+	};
+if(typeof define == 'undefined'){
+	var fs = require('fs'),
+		pathModule = require('path'),
+		xstyle,
+		requiredModules = [];
+	define = pseudoDefine; 
+	require('./xstyle');
+}else{
+	console.log("calling original define");
+	define(['build/fs'], function(fsModule){
+		fs = fsModule;
+		pathModule = {
+			resolve: function(base, target){
+				return base.replace(/[^\/]+$/, '') + target;
+			}
+		}
+		return function(xstyleText){
+			var define = pseudoDefine;
+			eval(xstyleText);
+			return xstyle;
+		};
+	});
+}
 function main(source, target){
 	var imported = {};
-	var cssText = fs.readFileSync(source).toString("utf-8");
 	var basePath = source.replace(/[^\/]*$/, '');
+	var cssText = fs.readFileSync(source).toString("utf-8");
+	process(cssText, basPath);
+	if(target){
+		fs.writeFileSync(target, html);
+	}else{
+		console.log(html);
+	}
+}
+function process(cssText,basePath){
 	function insertRule(cssText){
 		browserCss.push(cssText);
 	}
@@ -58,13 +84,11 @@ function main(source, target){
 	visit(rootRule);
 	console.log('browserCss:', browserCss.join(''));
 	console.log('xstyleCss:', xstyleCss.join(''));
-	if(target){
-		fs.writeFileSync(target, html);
-	}else{
-		console.log(html);
-	}
-	
+	return {
+		css: browserCss.join(''),
+		requiredModules: requiredModules
+	};
 }
-if(require.main == module){
+if(typeof module != 'undefined' && require.main == module){
 	main.apply(this, process.argv.slice(2));
 }
