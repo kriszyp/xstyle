@@ -19,12 +19,12 @@ To start using xstyle, you simply need to load the xstyle JavaScript library, <p
 xstyle's <pre>x.css</p> stylesheet within your stylesheet that will be using CSS extensions:
 
 <pre>
-<style>
+&lt;style>
 	@import 'xstyle/x.css';
 	
-</style>
-<script src="xstyle/xstyle.js"></script>
-</pre>
+&lt;/style>
+&lt;script src="xstyle/xstyle.js">&lt;/script>
+&lt;/pre>
 
 # Variables
 
