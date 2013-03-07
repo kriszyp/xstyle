@@ -1,17 +1,144 @@
-XStyle is a framework for shimming (or polyfilling) and extending CSS, to efficiently support various 
-plugins for additional CSS functionality and backwards compatibility of newer features.
+Xstyle is a framework for building applications through extensible CSS. With xstyle you
+can define data bindings, UI elements, variables, extensions, and shims to create modern
+web applications with an elegantly simple, stylesheet driven approach.
 
-A simple example of using XStyle to shim CSS:
+# Why Extensible CSS with xstyle?
+Modern web browsers have increasingly moved towards relying on CSS to define the 
+presentation of the user interface. Furthermore, CSS is fundamentally built on of the 
+powerful paradigms of declarative, function reactive programming, providing similiar types of
+expressiveness as dependency injection systems. By adding a few simple CSS constructs,
+bridges the gap to provide the capabilities for composition and modular extensions that
+allow virtually unlimited expression of user interfaces, with a familiar syntax. Xstyle goes
+beyond the capabilites of preprocessor because it runs in the browser and extensions
+can interact with the DOM. Xstyle prevents the common abuse of HTML for UI, by allowing
+the definition of UI elements with the presentation definition, where they belong.  
+
+# Getting Started
+To start using xstyle, you simply need to load the xstyle JavaScript library, <pre>xstyle.js</pre> and then @import
+xstyle's <pre>x.css</p> stylesheet within your stylesheet that will be using CSS extensions:
+
 <pre>
 <style>
-@import "/path/to/xstyle/shims.css";
-.my-class {
-	box-shadow: 10px 10px 5px #888888;
-	transform: rotate(10deg);
-}
+	@import 'xstyle/x.css';
+	
 </style>
 <script src="xstyle/xstyle.js"></script>
-</pre>
+
+# Variables
+
+The first concept to learn in xstyle is variables. Variables can be assigned and used elsewhere
+in stylesheets. For many, this concept may be very familiar from CSS preprocessors, 
+and the recent addition in modern browsers according to the W3C specification. 
+Xstyle goes well beyond just value-replacement,
+but we will start with the basics. First to create a variable, we use the '=' operator
+to assign a value to a variable. For example, we could create a variable:
+
+	highlightColor = blue;
+
+To reference the variable and use value in another property, xstyle uses the W3C
+syntax, referencing the variable with a var(variable-name) syntax:
+
+	.highlight {
+		color: var(highlightColor);
+	}
+
+# Element Generation
+
+With xstyle, you can declare the creation of elements within rules, allowing for the creation
+of complex presentation components without abusing HTML for presentation. This not only 
+simplifies the creation and composition of UI components, it helps to keep cleaner semantics in HTML.
+
+To create an element, we use the => operator, followed a selector designating the 
+tag of the element to create along with class names, id, and attributes to assign to the element.
+For example, we could create a &lt;div> with an class name of "tile" inside of any element
+with a class name of "all-tiles":
+
+	.all-tiles {
+		=> div.tile;
+	}
+
+Element generation can take advantage of a few CSS selector combinators as well.
+We can use spaces to create child elements and use commas to separate different
+elements to create. For example, we could create a two row table:
+
+	table.two-row {
+		=>
+			tr td,
+			tr td;
+	}  
+
+We could also generate text nodes inside elements with quoted strings. We could create
+an h1 header with some text like:
+
+	header {
+		=> h1 'The header of the page';
+
+# Data Binding
+
+We can combine variables with element generation to create data bindings. With data
+bindings, an element can be generated and the contents can be bound to a variable.
+A basic example of a data binding would be to create a variable with a string value:
+
+	firstName = 'John';
+	
+	div.content {
+		=> span(firstName);
+	}
+
+The value of firstName would then be set to the value of firstName. Changes in the
+value of the firstName would automatically be updated in the span's contents.
+
+We can also bind variables to inputs, and then the binding will work two ways, not only can 
+changes in the variable be reflected in the input, but user edits to the value will be updated
+to the variable. For example:
+
+	firstName = 'John';
+	
+	div.content {
+		=> input[type=text](firstName);
+	}
+
+This provides the foundation for wiring components to data sources. We can also assign
+variables to modules, providing an interface between JavaScript-driven data and the UI.
+We bind a variable to a module like this:
+
+	person = require(data/person);
+ 
+We can then bind to the object returned from the module. We use a / operator to refer
+to properties of an object:
+
+	form.content {
+		=> 
+			label 'First Name:',
+			input[type=text](person/firstName),
+			label 'Last Name:',
+			input[type=text](person/lastName);
+	}
+
+## Expressions
+
+Data bindings can include more than just a plain variable reference, we can also write
+expressions that include other JavaScript operators. For example, we could bind
+to the value of concatenation of two strings (again a live binding, updated if either
+variable or property changes):
+
+	h1.name {
+		=> span(person/firstName + person/lastName);
+	}
+
+ # Extensions and Shims
+
+Xstyle allows one to define extensions to CSS. These extensions can be used for creating
+custom components or for filling in missing functionality in browsers. Xstyle includes
+a shimming stylesheet that provides shims for a few commonly used properties that
+are missing in some older browsers. For example:
+
+	@import "/path/to/xstyle/shims.css";
+	.my-class {
+		box-shadow: 10px 10px 5px #888888;
+		transform: rotate(10deg);
+	}
+
 Here, we can use newer CSS properties like 'box-shadow' and 'transform' and XStyle
 will shim (or "polyfill" or "fix") older browsers for you. XStyle will scan your stylesheet, load the shims.css which defines the CSS extensions
 for the rules for shimming, and process the stylesheet. 
@@ -23,7 +150,7 @@ define(["xstyle!./path/to/example.css"], function(){
 });
 </pre>
 
-XStyle is plugin based so that new shims and extensions can be selected and combined
+XStyle is plugin-based so that new shims and extensions can be selected and combined
 without incurring additional CSS parsing overhead. XStyle is designed to allow for plugins to be 
 registered to handle different CSS properties, so that the shims and extensions that are
 applied can be explicilty controlled for each stylesheet.
