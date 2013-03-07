@@ -3,6 +3,7 @@ can define data bindings, UI elements, variables, extensions, and shims to creat
 web applications with an elegantly simple, stylesheet driven approach.
 
 # Why Extensible CSS with xstyle?
+
 Modern web browsers have increasingly moved towards relying on CSS to define the 
 presentation of the user interface. Furthermore, CSS is fundamentally built on of the 
 powerful paradigms of declarative, function reactive programming, providing similiar types of
@@ -23,6 +24,7 @@ xstyle's <pre>x.css</p> stylesheet within your stylesheet that will be using CSS
 	
 </style>
 <script src="xstyle/xstyle.js"></script>
+</pre>
 
 # Variables
 
