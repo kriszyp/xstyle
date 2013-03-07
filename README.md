@@ -128,7 +128,7 @@ variable or property changes):
 		=> span(person/firstName + person/lastName);
 	}
 
- # Extensions and Shims
+# Extensions and Shims
 
 Xstyle allows one to define extensions to CSS. These extensions can be used for creating
 custom components or for filling in missing functionality in browsers. Xstyle includes
