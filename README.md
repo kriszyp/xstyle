@@ -24,7 +24,7 @@ xstyle's <code>x.css</code> stylesheet within your stylesheet that will be using
 	
 &lt;/style>
 &lt;script src="xstyle/xstyle.js">&lt;/script>
-&lt;/pre>
+</pre>
 
 # Variables
 
