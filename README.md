@@ -15,8 +15,8 @@ can interact with the DOM. Xstyle prevents the common abuse of HTML for UI, by a
 the definition of UI elements with the presentation definition, where they belong.  
 
 # Getting Started
-To start using xstyle, you simply need to load the xstyle JavaScript library, <pre>xstyle.js</pre> and then @import
-xstyle's <pre>x.css</p> stylesheet within your stylesheet that will be using CSS extensions:
+To start using xstyle, you simply need to load the xstyle JavaScript library, <code>xstyle.js</code> and then @import
+xstyle's <code>x.css</code> stylesheet within your stylesheet that will be using CSS extensions:
 
 <pre>
 &lt;style>
