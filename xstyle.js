@@ -1,19 +1,7 @@
 if(typeof define == "undefined"){
-	(function(){
-		// pseudo passive loader
-		var modules = {};
-		define = function(id, deps, factory){
-			for(var i = 0;i < deps.length; i++){
-				deps[i] = modules[deps[i]];
-			}
-			modules[id] = factory.apply(this, deps);
-		};
-		require = function(deps){
-			define("", deps, factory);
-		};
-	})();
+	addXstyleDefine();
 }
-define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put) {
+define("xstyle/xstyle", ["require"], function (require, put) {
 	"use strict";
 	var cssScan = /\s*([^{\}\(\)\/\\'":=;]*)([=:]\s*([^{\}\(\)\/\\'";]*))?([{\}\(\)\/\\'";]|$)/g;
 									// name: value 	operator
@@ -29,6 +17,7 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 		"OL": "li",
 		"SELECT": "option"
 	};
+	var doc = document;
 	function when(value, callback){
 		return value && value.then ? 
 			value.then(callback) : callback(value);
@@ -76,9 +65,9 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 	} : function(str){
 		return str.replace(/^\s+|\s+$/g, '');
 	};
-	var undef, testDiv = document.createElement("div");
+	var undef, testDiv = doc.createElement("div");
 	function search(tag){
-		var elements = document.getElementsByTagName(tag);
+		var elements = doc.getElementsByTagName(tag);
 		for(var i = 0; i < elements.length; i++){
 			checkImports(elements[i]);
 		}
@@ -96,6 +85,7 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 	LiteralString.prototype.toString = function(){
 		return JSON.stringify(this.value);
 	}
+
 	var ua = navigator.userAgent;
 	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
 		ua.indexOf("Firefox") > -1 ? "-moz-" :
@@ -107,7 +97,7 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 			cssRules = sheet.rules || sheet.cssRules;
 		function fixImports(){
 			// need to fix imports, applying load-once semantics for all browsers, and flattening for IE to fix nested @import bugs
-			require(["./load-imports"], function(load){
+			require(["xstyle/load-imports"], function(load){
 				load(element, function(){
 					checkImports(element, callback, true);
 				});
@@ -195,7 +185,7 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 								if(type == "pseudo"){
 									// if it is pseudo, we test with a query
 									try{
-										document.querySelectorAll("x:" + name);
+										doc.querySelectorAll("x:" + name);
 										return;
 									}catch(e){}
 								}
@@ -247,9 +237,10 @@ define("xstyle/xstyle", ["require", "put-selector/put"], function (require, put)
 				return new Call(name);
 			},
 			addSheetRule: function(selector, cssText){
-console.log("add", selector, cssText);
 				// Used to add a new rule
-				if(cssText){
+				if(cssText &&
+					selector.charAt(0) != '@'){ // for now just ignore and don't add at-rules
+console.log("add", selector, cssText);
 					return styleSheet.addRule(selector, cssText);
 				}
 			},
@@ -650,9 +641,6 @@ console.log("add", selector, cssText);
 		finishedLoad(target);
 		return root;
 	}
-	// search the document for <link> and <style> elements to potentially parse.
-	search('link');
-	search('style');
 
 	// TODO: remove
 	/*
@@ -726,7 +714,7 @@ console.log("add", selector, cssText);
 	}*/
 	// using delegation, listen for any input changes in the document and "put" the value  
 	// TODO: add a hook so one could add support for IE8, or maybe this event delegation isn't really that useful
-	document.addEventListener('change', function(event){
+	doc.addEventListener('change', function(event){
 		var element = event.target;
 		// get the variable computation so we can put the value
 		var variable = element['-x-variable'];
@@ -738,7 +726,7 @@ console.log("add", selector, cssText);
 
 	// elemental section, this code is for property handlers that need to mutate the DOM for elements
 	// that match it's rule
-	var testDiv = document.createElement("div");
+	var testDiv = doc.createElement("div");
 	var features = {
 		"dom-qsa2.1": !!testDiv.querySelectorAll
 	};
@@ -753,6 +741,10 @@ console.log("add", selector, cssText);
 	var documentQueried;
 	// probably want to inline our own DOM readiness code
 	function domReady(){
+		// search the document for <link> and <style> elements to potentially parse.
+		search('link');
+		search('style');
+		
 		if(!documentQueried){
 			documentQueried = true;
 			if(has("dom-qsa2.1")){
@@ -765,7 +757,7 @@ console.log("add", selector, cssText);
 				renderWaiting();
 			}else{
 			//else rely on css expressions (or maybe we should use document.all and just scan everything)
-				var all = document.all;
+				var all = doc.all;
 				for(var i = 0, l = all.length; i < l; i++){
 					update(all[i]);
 				}
@@ -773,17 +765,16 @@ console.log("add", selector, cssText);
 		}
 	}
 	// TODO: support IE7-8
-	if(/e/.test(document.readyState||'')){
+	if(/e/.test(doc.readyState||'')){
 		// TODO: fix the issues with sync so this can be run immediately
 		setTimeout(domReady, 200);
 	}else{
-		print("addEventListener");
-		document.addEventListener("DOMContentLoaded", domReady);
+		doc.addEventListener("DOMContentLoaded", domReady);
 	}
 	function findMatches(renderer){
 		// find the elements for a given selector and apply the renderers to it
 		var toRender = [];
-		var results = document.querySelectorAll(renderer.selector);
+		var results = doc.querySelectorAll(renderer.selector);
 		var name = renderer.name;
 		for(var i = 0, l = results.length; i < l; i++){
 			var element = results[i];
@@ -924,7 +915,7 @@ console.log("add", selector, cssText);
 										apply = apply.forElement(lastElement);
 										// now apply.element should indicate the element that it is actually keying or varying on
 									}
-									var textNode = element.appendChild(document.createTextNode("Loading"));
+									var textNode = element.appendChild(doc.createTextNode("Loading"));
 									apply.receive(function(value){
 										if(value && value.sort){
 											// if it is an array, we do iterative rendering
@@ -944,7 +935,7 @@ console.log("add", selector, cssText);
 													eachHandler(element, value);
 												} :
 												function(value){
-													// if there no each handler, we 
+													// if there no each handler, we use the default tag name for the parent 
 													put(element, childTagForParent[element.tagName] || 'div', value);
 												});
 										}else{
@@ -1000,11 +991,11 @@ console.log("add", selector, cssText);
 						}
 					}else{
 						// a string literal
-						lastElement.appendChild(document.createTextNode(part.value));
+						lastElement.appendChild(doc.createTextNode(part.value));
 					}
 				}catch(e){
 					console.error(e, e.stack);
-					lastElement.appendChild(document.createTextNode(e));
+					lastElement.appendChild(doc.createTextNode(e));
 				}
 			}
 			return lastElement;
@@ -1208,6 +1199,101 @@ console.log("add", selector, cssText);
 		}while(!target);
 		return target;
 	}
+	
+	var selectorParse = /(?:\s*([-+ ,<>]))?\s*(\.|!\.?|#)?([-\w%$|]+)?(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g,
+		ieCreateElement = typeof doc.createElement == "object"; // telltale sign of the old IE behavior with createElement that does not support later addition of name 
+	function insertTextNode(element, text){
+		element.appendChild(doc.createTextNode(text));
+	}
+	function put(referenceElement, selector, text){
+		var fragment, lastSelectorArg, nextSibling, current = referenceElement,
+			args = arguments,
+			returnValue = args[0]; // use the first argument as the default return value in case only an element is passed in
+		function insertLastElement(){
+			// we perform insertBefore actions after the element is fully created to work properly with 
+			// <input> tags in older versions of IE that require type attributes
+			//	to be set before it is attached to a parent.
+			// We also handle top level as a document fragment actions in a complex creation 
+			// are done on a detached DOM which is much faster
+			// Also if there is a parse error, we generally error out before doing any DOM operations (more atomic) 
+			if(current && referenceElement && current != referenceElement){
+				referenceElement.
+								insertBefore(current, nextSibling || null); // do the actual insertion
+			}
+		}
+				lastSelectorArg = true;
+				var leftoverCharacters = selector.replace(selectorParse, function(t, combinator, prefix, value, attrName, attrValue){
+					if(combinator){
+						// insert the last current object
+						insertLastElement();
+						if(combinator == '-' || combinator == '+'){
+							// + or - combinator, 
+							// TODO: add support for >- as a means of indicating before the first child?
+							referenceElement = (nextSibling = (current || referenceElement)).parentNode;
+							current = null;
+							if(combinator == "+"){
+								nextSibling = nextSibling.nextSibling;
+							}// else a - operator, again not in CSS, but obvious in it's meaning (create next element before the current/referenceElement)
+						}else{
+							if(combinator == "<"){
+								// parent combinator (not really in CSS, but theorized, and obvious in it's meaning)
+								referenceElement = current = (current || referenceElement).parentNode;
+							}else{
+								if(combinator == ","){
+									// comma combinator, start a new selector
+									referenceElement = topReferenceElement;
+								}else if(current){
+									// else descendent or child selector (doesn't matter, treated the same),
+									referenceElement = current;
+								}
+								current = null;
+							}
+							nextSibling = 0;
+						}
+						if(current){
+							referenceElement = current;
+						}
+					}
+					var tag = !prefix && value;
+					if(tag || (!current && (prefix || attrName))){
+						// Need to create an element
+						tag = tag || put.defaultTag;
+						var ieInputName = ieCreateElement && args[i +1] && args[i +1].name;
+						if(ieInputName){
+							// in IE, we have to use the crazy non-standard createElement to create input's that have a name 
+							tag = '<' + tag + ' name="' + ieInputName + '">';
+						}
+						// we swtich between creation methods based on namespace usage
+						current = doc.createElement(tag);
+					}
+					if(prefix){
+						if(prefix == "#"){
+							// #id was specified
+							current.id = value;
+						}else{
+							// we are in the className addition and removal branch
+							var currentClassName = current.className;
+							// remove the className (needed for addition or removal)
+							// see http://jsperf.com/remove-class-name-algorithm/2 for some tests on this
+							var removed = currentClassName && (" " + currentClassName + " ").replace(" " + value + " ", " ");
+							if(prefix == "."){
+								// addition, add the className
+								current.className = currentClassName ? (removed + value).substring(1) : value;
+							}
+						}
+					}
+					if(attrName){
+						var method = attrName.charAt(0) == "!" ? (attrName = attrName.substring(1)) && 'removeAttribute' : 'setAttribute';
+						attrValue = attrValue === '' ? attrName : attrValue;
+						// determine if we need to use a namespace
+						current[method](attrName, attrValue);
+					}
+					return '';
+				});
+				insertLastElement();
+				return current;
+			}	
+	
 	var xstyle =  {
 		process: checkImports,
 		vendorPrefix: vendorPrefix,
@@ -1295,3 +1381,54 @@ console.log("add", selector, cssText);
 	return xstyle;
 
 });
+function addXstyleDefine(){
+	var doc = document;
+	var scripts = doc.scripts;
+	var baseScript = scripts[scripts.length-1];
+	var baseUrl = baseScript.src.replace(/[^\/]+\/xstyle[^\/]*js/,'');
+	// a very simple AMD loader
+	define = function(id, deps, factory){
+		var waiting = 1;
+		for(var i = 0;i < deps.length; i++){
+			var dep = deps[i];
+			var module = modules[dep];
+			if(!module){
+				// inject script tag
+				module = modules[dep] = {callbacks: []};
+				var node = doc.createElement('script');
+				node.src = baseUrl + dep + '.js';
+				baseScript.parentNode.insertBefore(node, baseScript);
+			}
+			if(module.callbacks){
+				waiting++;
+				module.callbacks.push((function(i){
+					return function(value){
+						deps[i] = value;
+						loaded();
+					};
+				})(i));
+			}else{
+				deps[i] = module.result;
+			} 
+		}
+		module = modules[id] || (modules[id] = {callbacks: []});
+		loaded();
+		function loaded(){
+			if(--waiting < 1){
+				var result = module.result = factory && factory.apply(this, deps);
+				var callbacks = module.callbacks;
+				for(var i = 0 ; i < callbacks.length; i++){
+					callbacks[i](result);
+				}
+				module.callbacks = 0;
+			}
+		}
+	};
+	
+	require = function(deps, factory){
+		define("", deps, factory);
+	};
+	
+	var modules = {require: {result: require}};
+	
+}

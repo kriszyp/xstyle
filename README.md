@@ -5,12 +5,12 @@ web applications with an elegantly simple, stylesheet driven approach.
 # Why Extensible CSS with xstyle?
 
 Modern web browsers have increasingly moved towards relying on CSS to define the 
-presentation of the user interface. Furthermore, CSS is fundamentally built on of the 
-powerful paradigms of declarative, function reactive programming, providing similiar types of
+presentation of the user interface. Furthermore, CSS is fundamentally built on the 
+powerful paradigms of declarative, function reactive programming, providing similar types of
 expressiveness as dependency injection systems. By adding a few simple CSS constructs,
 bridges the gap to provide the capabilities for composition and modular extensions that
 allow virtually unlimited expression of user interfaces, with a familiar syntax. Xstyle goes
-beyond the capabilites of preprocessor because it runs in the browser and extensions
+beyond the capabilities of preprocessor because it runs in the browser and extensions
 can interact with the DOM. Xstyle prevents the common abuse of HTML for UI, by allowing
 the definition of UI elements with the presentation definition, where they belong.  
 
@@ -21,10 +21,23 @@ xstyle's <code>x.css</code> stylesheet within your stylesheet that will be using
 <pre>
 &lt;style>
 	@import 'xstyle/x.css';
-	
+	/* my rules */	
 &lt;/style>
 &lt;script src="xstyle/xstyle.js">&lt;/script>
 </pre>
+
+Or xstyle can be used with an AMD module loader, like Dojo:
+<pre>
+&lt;style>
+	@import 'xstyle/x.css';
+	/* my rules */	
+&lt;/style>
+&lt;script src="dojo/dojo.js">&lt;/script>
+&lt;script>
+	require(['xstyle/xstyle']);
+&lt;/script>
+</pre>
+Using a module loader is recommended, as it provides for automatic 
 
 # Variables
 
@@ -141,19 +154,19 @@ are missing in some older browsers. For example:
 		transform: rotate(10deg);
 	}
 
-Here, we can use newer CSS properties like 'box-shadow' and 'transform' and XStyle
-will shim (or "polyfill" or "fix") older browsers for you. XStyle will scan your stylesheet, load the shims.css which defines the CSS extensions
+Here, we can use newer CSS properties like 'box-shadow' and 'transform' and Xstyle
+will shim (or "polyfill" or "fix") older browsers for you. Xstyle will scan your stylesheet, load the shims.css which defines the CSS extensions
 for the rules for shimming, and process the stylesheet. 
 
-You can also use XStyle as a CSS loader plugin for AMD loaders like Dojo and RequireJS:
+You can also use Xstyle as a CSS loader plugin for AMD loaders like Dojo and RequireJS:
 <pre>
 define(["xstyle!./path/to/example.css"], function(){
 	// module starts after css is loaded
 });
 </pre>
 
-XStyle is plugin-based so that new shims and extensions can be selected and combined
-without incurring additional CSS parsing overhead. XStyle is designed to allow for plugins to be 
+Xstyle is plugin-based so that new shims and extensions can be selected and combined
+without incurring additional CSS parsing overhead. Xstyle is designed to allow for plugins to be 
 registered to handle different CSS properties, so that the shims and extensions that are
 applied can be explicilty controlled for each stylesheet.
 
@@ -168,12 +181,12 @@ shims.css, both A and B stylesheets will have the shims applied. If another styl
 later independently loaded and it doesn't import any stylesheets, none of the shims
 will be applied to it.
 
-XStyle also includes an ext.css stylesheet that enables a number of CSS extensions
+Xstyle also includes an ext.css stylesheet that enables a number of CSS extensions
 including :supported and :unsupported pseudo selectors, and an -x-widget CSS property
 for instantiated widgets. 
 
 We can also explicitly define exactly which properties and other CSS elements to shim 
-or extend. The XStyle parser looks for extension rules. The first rule is x-property
+or extend. The Xstyle parser looks for extension rules. The first rule is x-property
 which defines how a CSS property should be handled. A rule with an 'x-property' selector
 make define properties with values indicating how the corresponding CSS property 
 should be handled. Let's look at a simplified example from shims.css to see how we 
@@ -200,28 +213,28 @@ x-property {
 }		
 </pre>
 This extension rule includes multiple, comma separated values. The first value is 'default'.
-This indicates that first XStyle should check if the 'box-shadow' is natively supported
+This indicates that first Xstyle should check if the 'box-shadow' is natively supported
 by the browser in standard form. If it is, then no further extensions or modifications to the CSS are applied.
-The next value is 'prefix'. This indicates that first XStyle should check if the 'box-shadow' 
+The next value is 'prefix'. This indicates that first Xstyle should check if the 'box-shadow' 
 is supported by the browser with a vendor prefix (like -webkit- or -moz-). If it is, then 
 the vendor prefix is added to the CSS property to enable it. Finally, if 'box-shadow' is
 not supported in standard form or with a vendor prefix, then the ie-filter module is
 loaded to apply the MS filter.
  
 <h1>Import Fixing</h1>
-Another feature XStyle provides is reliable @import behavior. Internet Explorer is not
-capable of loading multiples levels deep @imports. XStyle provides @import "flattening"
+Another feature Xstyle provides is reliable @import behavior. Internet Explorer is not
+capable of loading multiples levels deep @imports. Xstyle provides @import "flattening"
 to fix this IE deficiency.
 
-XStyle also normalizes @import once behavior. If two stylesheets both @import the
-same sheetsheet, XStyle ensures that the @import'ed stylesheet is only imported once (by the first
+Xstyle also normalizes @import once behavior. If two stylesheets both @import the
+same sheetsheet, Xstyle ensures that the @import'ed stylesheet is only imported once (by the first
 stylesheet) and the second @import is removed. This is a powerful feature because
 it allows stylesheets to @import another stylesheet without worrying about overriding
 another stylesheet that expected to come after the target sheet due to it's @import statement.
 
 <h1>Available Shims (and limitations)</h1>
-The following shim modules come with XStyle:
-* xstyle - XStyle itself provide vendor prefix shimming with the prefix property. This is
+The following shim modules come with Xstyle:
+* xstyle - Xstyle itself provide vendor prefix shimming with the prefix property. This is
 used to shim border-radius, box-shadow, box-sizing, and border-image (for browsers 
 that use support these properties with vendor prefixes).
 * shim/ie-filter - This creates MS filters to emulate standard CSS properties. This is used to shim
@@ -231,7 +244,7 @@ box-shadow and transform.
 bottom and right CSS properties.
 
 <h1>Available Extensions</h1>
-The following shim modules come with XStyle:
+The following shim modules come with Xstyle:
 * ext/pseudo - This modules provides emulation of hover, focus and other pseudos that
 are not present in older versions of IE.
 * ext/scrollbar - This module provides scrollbar measurement so that elements can be sized
@@ -243,7 +256,7 @@ and can be used to instantiate Dojo's Dijit widgets.
 
 
 <h1>Creating Extension Modules</h1>
-XStyle is a plugin-based and you are encouraged to create your own CSS extension modules/plugins.
+Xstyle is a plugin-based and you are encouraged to create your own CSS extension modules/plugins.
 An extension module that handles extension properties should return an object with an 
 onProperty function that will be called each time the extension property is encountered.
 The onProperty function has the signature:

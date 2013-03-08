@@ -3,7 +3,7 @@
 //		and provides loading of the text of any sheets. This is intended to only be loaded as needed
 // 		for development, ideally stylesheets should be flattened and inlined for finished/production
 // 		applications, and this module won't be loaded.  
-define([], function(){
+define('xstyle/load-imports', [], function(){
 	var insertedSheets = {},
 		features = {
 			"dom-deep-import": !document.createStyleSheet // essentially test to see if it is IE, inaccurate marker, maybe should use dom-addeventlistener? 

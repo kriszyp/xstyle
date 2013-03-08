@@ -9,7 +9,5 @@ x-pseudo {
 x-property {
 	widget: require(xstyle/ext/widget);
 	-x-content: require(xstyle/ext/generate);
-	bind: require(xstyle/ext/bind);
-	from: require(xstyle/ext/bind);
 	onclick: require(xstyle/ext/event);
 }
