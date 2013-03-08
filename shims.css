@@ -1,6 +1,6 @@
 x-function { 
 	linear-gradient: default, require(xstyle/shim/gradient);
-	var: default, require(xstyle/shim/var);
+	var: default, require(xstyle/xstyle);
 }
 x-property { 
 	opacity: default, require(xstyle/xstyle);

@@ -3,7 +3,7 @@ define(['../elemental', 'put-selector/put'], function(elemental, put){
 	var nextId = 0;
 	return {
 		onProperty: function(name, value, rule){
-			elemental.addRenderer(name, value, rule, function(element){
+			var renderer = function(element, item){
 				var lastElement = element;
 				for(var i = 0, l = value.length;i < l; i++){
 					var part = value[i];
@@ -24,9 +24,15 @@ define(['../elemental', 'put-selector/put'], function(elemental, put){
 						}
 					}else{
 						lastElement.appendChild(document.createTextNode(part));
-					}			
+					}
 				}
-			});
+				return lastElement;
+			}
+			if(name === '-x-content'){
+				elemental.addRenderer(name, value, rule, renderer);
+			}else{
+				rule.properties[name + 'Function'] = renderer;
+			}
 		}
 	}
 });

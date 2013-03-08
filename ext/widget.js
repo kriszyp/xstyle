@@ -113,7 +113,7 @@ define(['../elemental'], function(elemental){
 			//	}
 			return {
 				then: function(callback){
-					parse(value[1].eachProperty ? value[1] : rule, function(renderer){
+					parse(value[0].eachProperty ? value[0] : rule, function(renderer){
 						elemental.addRenderer(name, value, rule, renderer);
 						callback();
 					}, typeof value == "string" && value, rule); 
