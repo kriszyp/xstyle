@@ -607,6 +607,11 @@ console.log("add", selector, cssText);
 						sequence = target.currentSequence;
 						name = target.currentName;
 						assignmentOperator = target.assignmentOperator;
+						if(target.root && operator == '}'){
+							// CSS ASI
+							assignNextName = true;
+							assignmentOperator = false;
+						}
 						break;
 					case "":
 						// no operator means we have reached the end of the text to parse
