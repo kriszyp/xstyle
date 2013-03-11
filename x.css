@@ -1,4 +1,7 @@
 /* shims */
+x-parse {
+	content: 'xstyle/xstyle';
+}
 x-function { 
 	var: default, require(xstyle/xstyle);
 }

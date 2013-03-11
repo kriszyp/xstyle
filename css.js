@@ -8,66 +8,42 @@ var cssCache = window.cssCache || (window.cssCache = {});
  * module checks to see if the CSS is already loaded before incurring the cost
  * of loading the full CSS loader codebase
  */
-/* 	function search(tag, href){
-		var elements = document.getElementsByTagName(tag);
-		for(var i = 0; i < elements.length; i++){
-			var element = elements[i];
-			var sheet = alreadyLoaded(element.sheet || element.styleSheet, href)
-			if(sheet){
-				return sheet;
-			}
-		}
-	}
-	function alreadyLoaded(sheet, href){
-		if(sheet){
-			var importRules = sheet.imports || sheet.rules || sheet.cssRules;
-			for(var i = 0; i < importRules.length; i++){								
-				var importRule = importRules[i];
-				if(importRule.href){
-					sheet = importRule.styleSheet || importRule;
-					if(importRule.href == href){
-						return sheet;
-					}
-					sheet = alreadyLoaded(sheet, href);
-					if(sheet){
-						return sheet;
-					}
-				}
-			}
-		}
-	}
-	function nameWithExt (name, defaultExt) {
-		return name.lastIndexOf('.') <= name.lastIndexOf('/') ?
-			name + '.' + defaultExt : name;
-	}*/
+ 	function testElementStyle(tag, id, property){
+ 		// test an element's style
+		var docElement = document.documentElement;
+		var testDiv = docElement.insertBefore(document.createElement(tag), docElement.firstChild);
+		testDiv.id = id;
+		var styleValue = (testDiv.currentStyle || getComputedStyle(testDiv, null))[property];
+		docElement.removeChild(testDiv);
+ 		return styleValue;
+ 	} 
  	return {
-		load: function (resourceDef, require, callback, config) {
+		load: function(resourceDef, require, callback, config) {
 			var url = require.toUrl(resourceDef);
 			var cachedCss = cssCache[url];
 			if(cachedCss){
 				return createStyleSheet(cachedCss);
 			}
-/*			var cssIdTest = resourceDef.match(/(.+)\?(.+)/);
-			if(cssIdTest){*/
-				// if there is an id test available, see if the referenced rule is already loaded,
-				// and if so we can completely avoid any dynamic CSS loading. If it is
-				// not present, we need to use the dynamic CSS loader.
-				var docElement = document.documentElement;
-				var testDiv = docElement.insertBefore(document.createElement('div'), docElement.firstChild);
-				testDiv.id = require.toAbsMid(resourceDef).replace(/\//g,'-').replace(/\..*/,'') + "-loaded";  //cssIdTest[2];
-				var displayStyle = (testDiv.currentStyle || getComputedStyle(testDiv, null)).display;
-				docElement.removeChild(testDiv);
-				if(displayStyle == "none"){
-					return callback();
+			function checkForParser(){
+				var parser = testElementStyle('x-parse', null, 'content');
+				if(parser){
+					// TODO: wait for parser to load
+					require([parser], callback);
+				}else{
+					callback();
 				}
-				//resourceDef = cssIdTest[1];
-			//}
+			}
+			
+			// if there is an id test available, see if the referenced rule is already loaded,
+			// and if so we can completely avoid any dynamic CSS loading. If it is
+			// not present, we need to use the dynamic CSS loader.
+			var displayStyle = testElementStyle('div', require.toAbsMid(resourceDef).replace(/\//g,'-').replace(/\..*/,'') + "-loaded", 'display');
+			if(displayStyle == "none"){
+				return checkForParser();
+			}
 			// use dynamic loader
-			/*if(search("link", url) || search("style", url)){
-				callback();
-			}else{*/
 			moduleRequire(["./load-css"], function(load){
-				load(url, callback);
+				load(url, checkForParser);
 			});
 		},
 		pluginBuilder: "xstyle/css-builder"

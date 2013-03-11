@@ -33,7 +33,7 @@ dijit-text {
 	background-color: red;
 }
 red-dijit-text  {
-	extends(dijit-text);/*dijit-text(200px)*/
+	extends(dijit-text);
 	height: 50px;
 }
 form.edit-object { 
