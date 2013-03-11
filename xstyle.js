@@ -1292,6 +1292,9 @@ console.log("add", selector, cssText);
 					return '';
 				});
 				insertLastElement();
+				if(text){
+					insertTextNode(current, text);
+				}
 				return current;
 			}	
 	
