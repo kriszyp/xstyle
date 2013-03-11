@@ -4,11 +4,13 @@
 	<meta charset="UTF-8">
 	<title>Try xstyle</title>
 	<style>
-	@import '../ext.css';
+	@import '../x.css';
 	/* Using XStyle to create a page to try out XStyle. */
 	x-property {
 		save-parser: require(xstyle/test/converter);
 	}
+	converter = require('xstyle/test/converter');
+	data = converter/parsed;
 	
 	body {
 		save-parser: true;
@@ -54,8 +56,6 @@
 		width: 280px;
 		height: 200px;
 	};
-	converter = require('xstyle/test/converter');
-	data = converter/parsed;
 	</style>
 	
 	<script src="../../dojo/dojo.js" data-dojo-config="async:true"></script>
