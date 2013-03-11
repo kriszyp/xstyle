@@ -1,14 +1,17 @@
 if(typeof define == "undefined"){
+	// use the embedded AMD loader if one is not present
 	addXstyleDefine();
 }
 define("xstyle/xstyle", ["require"], function (require, put) {
 	"use strict";
+	// regular expressions used to parse CSS
 	var cssScan = /\s*([^{\}\(\)\/\\'":=;]*)([=:]\s*([^{\}\(\)\/\\'";]*))?([{\}\(\)\/\\'";]|$)/g;
 									// name: value 	operator
 	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
 	var commentScan = /\*\//g;
 	var nextId = 0;
+	// selection of default children for given elements
 	var childTagForParent = {
 		"TABLE": "tr",
 		"TBODY": "tr",
@@ -18,19 +21,10 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		"SELECT": "option"
 	};
 	var doc = document;
+	// some utility functions
 	function when(value, callback){
 		return value && value.then ? 
 			value.then(callback) : callback(value);
-	}
-	function whenever(value, callback){
-		return value && value.then ? 
-			value.then(function(value){
-					return whenever(value, callback);
-				}) :
-				value && value.receive ?
-				value.receive(callback) : 
-					callback(value);
-		
 	}
 	function get(target, path, callback){
 		return when(target, function(target){
@@ -67,6 +61,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 	};
 	var undef, testDiv = doc.createElement("div");
 	function search(tag){
+		// used to search for link and style tags
 		var elements = doc.getElementsByTagName(tag);
 		for(var i = 0; i < elements.length; i++){
 			checkImports(elements[i]);
@@ -91,8 +86,9 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		ua.indexOf("Firefox") > -1 ? "-moz-" :
 		ua.indexOf("MSIE") > -1 ? "-ms-" :
 		ua.indexOf("Opera") > -1 ? "-o-" : "";
+	// traverse the @imports to load the sources 
 	function checkImports(element, callback, fixedImports){
-		var sheet = element.sheet || element.styleSheet;
+		var sheet = element.sheet || element.styleSheet || element;
 		var needsParsing = sheet.needsParsing, // load-imports can check for the need to parse when it does it's recursive look at imports 
 			cssRules = sheet.rules || sheet.cssRules;
 		function fixImports(){
@@ -1376,13 +1372,23 @@ console.log("add", selector, cssText);
 		clearRenderers: function(){
 			// clears all the renderers in use
 			selectorRenderers = [];
+		},
+		load:  function(resourceDef, require, callback, config){
+			// support use an AMD plugin loader
+			require(['xstyle/css'], function(plugin){
+				plugin.load(resourceDef, require, callback, config);
+			});
 		}
 	};
 	return xstyle;
 
 });
+/*
+ * This is a very simple AMD module loader so that xstyle can be used standalone
+ */
 function addXstyleDefine(){
 	var doc = document;
+	// find a script to go off of
 	var scripts = doc.scripts;
 	var baseScript = scripts[scripts.length-1];
 	var baseUrl = baseScript.src.replace(/[^\/]+\/xstyle[^\/]*js/,'');
@@ -1400,6 +1406,7 @@ function addXstyleDefine(){
 				baseScript.parentNode.insertBefore(node, baseScript);
 			}
 			if(module.callbacks){
+				// add a callback for this waiting module
 				waiting++;
 				module.callbacks.push((function(i){
 					return function(value){
@@ -1415,6 +1422,7 @@ function addXstyleDefine(){
 		loaded();
 		function loaded(){
 			if(--waiting < 1){
+				// done loading, run the factory
 				var result = module.result = factory && factory.apply(this, deps);
 				var callbacks = module.callbacks;
 				for(var i = 0 ; i < callbacks.length; i++){
