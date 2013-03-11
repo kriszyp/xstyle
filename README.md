@@ -439,3 +439,43 @@ same sheetsheet, Xstyle ensures that the @import'ed stylesheet is only imported 
 stylesheet) and the second @import is removed. This is a powerful feature because
 it allows stylesheets to @import another stylesheet without worrying about overriding
 another stylesheet that expected to come after the target sheet due to it's @import statement.
+
+# has-class
+
+The has-class module provides decoration of the root &lt;html> element with class names
+based on feature detection. The has-class module works in conjunction with the has()
+module in Dojo (dojo/has) to detect features, and adds a class name for matches with
+a "has-" prefix. For example, if we wanted to create a CSS rule that was conditional on the detection of
+the "quirks" feature, first we would need to register this feature detection with the has-class module:
+
+	define(['xstyle/has-class'], function(hasClass){
+		hasClass("quirks");
+	}); 
+
+And then we could create a rule that uses this conditional class name:
+
+	html.has-quirks .row {
+		/* rule only applied if in quirks mode */
+		height: auto;
+	}
+
+We can also base rules on the absence of a feature. In converse, we could create
+a rule for when quirks mode is not present:
+
+	hasClass("no-quirks");
+
+And then use this in the selector:
+	
+	html.has-no-quirks .row {
+		/* rule only applied if in quirks mode */
+		width: auto;
+	}
+
+We can also base rules on a numerical feature values. We could create a rule that
+just matches IE7 with:
+
+	hasClass("ie-7");
+
+Or version IE8 through IE10:
+
+	hasClass("ie-8-10");
