@@ -186,6 +186,9 @@ define('xstyle/load-imports', [], function(){
 					fetchText(href, function(text){
 						sourceSheet.localSource = text;
 						finishedModule();
+					}, function(){
+						sourceSheet.localSource = '';
+						finishedModule();
 					});
 				}else{
 					sheet.localSource = link.innerHTML;
