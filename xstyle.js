@@ -441,7 +441,13 @@ console.log("add", selector, cssText);
 			function addInSequence(operand){
 				if(sequence){
 					// we had a string so we are accumulated sequences now
-					sequence.push ? operand && sequence.push(operand) : typeof sequence == 'string' && typeof operand == 'string' ? sequence += operand : sequence = arrayWithoutCommas([sequence, operand]);				
+					sequence.push ?
+						typeof sequence[sequence.length - 1] == 'string' && typeof operand == 'string' ?
+							sequence[sequence.length - 1] += operand : // just append the string to last segment
+							operand && sequence.push(operand) : // add to the sequence
+						typeof sequence == 'string' && typeof operand == 'string' ?
+							sequence += operand : // keep appending to the string
+							sequence = arrayWithoutCommas([sequence, operand]); // start a new sequence array
 				}else{
 					sequence = operand;
 				}
