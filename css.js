@@ -37,7 +37,7 @@ var cssCache = window.cssCache || (window.cssCache = {});
 			// if there is an id test available, see if the referenced rule is already loaded,
 			// and if so we can completely avoid any dynamic CSS loading. If it is
 			// not present, we need to use the dynamic CSS loader.
-			var displayStyle = testElementStyle('div', require.toAbsMid(resourceDef).replace(/\//g,'-').replace(/\..*/,'') + "-loaded", 'display');
+			var displayStyle = testElementStyle('div', resourceDef.replace(/\//g,'-').replace(/\..*/,'') + "-loaded", 'display');
 			if(displayStyle == "none"){
 				return checkForParser();
 			}
