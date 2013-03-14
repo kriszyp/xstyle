@@ -217,7 +217,60 @@ to properties of an object:
 			input[type=text](person/lastName);
 	}
 
+### Attribute Binding
+
+All elements have default binding. For input elements, bindings are bound to the input's 
+"value" attribute, for other elements, to the text content of the element. However,
+you can also bind to specific attributes of an element as well. This accomplished
+by placing the paranthesis embedded binding reference in an attribute selector generator.
+For example, we could bind the href of an anchor element to a variable:
+
+	targetUrl = 'http://target/';
+	.content {
+		=> a[href=(targetUrl)];
+	}
+
 This functionality is implemented and has been lightly tested.
+
+### List Binding
+
+Not only can we bind scalar values to elements, we can also bind lists or array to elements
+to generate a list of children elements corresponding to each item in an array. We bind
+arrays just like we do scalar values. For example, we could easily output an array
+of strings as a list like:
+
+	.content {
+		=> ul(arrayOfItems);
+	}
+
+Xstyle will iterate through the array, outputting a &lt;li/> element for each item, with the contents
+corresponding to the item value. Different elements have different rendering for arrays, 
+&lt;ul> and &lt;ol> elements will have have &lt;li> children, &lt;select>'s will have &lt;option> children,
+and most others will have &lt;div> children.
+
+You can also declare your own rendering of children by defining an "each" property for the 
+targeted element. The
+value of the each property should be a generating selector (just as we use with the => operator).
+The item for each iteration in the array can be referenced with the "item" reference.
+For example, we could generate a paragraph tag for each item:
+
+	.content {
+		=> div(arrayOfItems) {
+			each: p(item);
+		}
+	}
+
+This makes it possible to render arrays of objects. For example, we could render
+a table of objects, where the first column corresponds to the "name" property of the
+items in the array, and the second column corresponds to the "age" property:
+
+	.content {
+		=> table(arrayOfPeople) {
+			each: tr {
+				=> td(item/name), td(item/age);
+			};
+		};
+	}
 
 ### Expressions
 
@@ -231,6 +284,7 @@ variable or property changes):
 	}
 
 This functionality is implemented and has been lightly tested.
+
 
 ## Extensions and Shims
 
