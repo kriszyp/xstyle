@@ -1,4 +1,4 @@
-define(['../elemental'], function(elemental){
+define(['../xstyle'], function(xstyle){
 	var nextId = 0;
 	function parse(value, callback, type, rule){
 		var Class, prototype;
@@ -114,7 +114,7 @@ define(['../elemental'], function(elemental){
 			return {
 				then: function(callback){
 					parse(value[0].eachProperty ? value[0] : rule, function(renderer){
-						elemental.addRenderer(name, value, rule, renderer);
+						xstyle.addRenderer(name, value, rule, renderer);
 						callback();
 					}, typeof value == "string" && value, rule); 
 				}
@@ -130,7 +130,7 @@ define(['../elemental'], function(elemental){
 			//	}
 			return function(name, propertyValue){
 				require([value], function(Class){
-					elemental.addRenderer(rule, function(element){
+					xstyle.addRenderer(rule, function(element){
 						new Class(parse(propertyValue), element);
 					});
 				});

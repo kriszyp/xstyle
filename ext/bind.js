@@ -1,4 +1,4 @@
-define(['xstyle/elemental'], function(elemental){
+define(['xstyle/xstyle'], function(xstyle){
 	return module = {
 		onProperty: function(name, value, rule){
 			if(name == 'bind'){
@@ -104,7 +104,7 @@ define(['xstyle/elemental'], function(elemental){
 					done();
 					
 				};
-				elemental.addRenderer(name, value, rule, function(element){
+				xstyle.addRenderer(name, value, rule, function(element){
 					var elementBinding = bind(element), waiting = variables.length;					
 					for(var i = 0; i < variables.length; i++){
 						var elementAncestor = element;
