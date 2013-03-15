@@ -1,6 +1,5 @@
 define(["require"], function(moduleRequire){
 "use strict";
-var cssCache = window.cssCache || (window.cssCache = {});
 /*
  * AMD css! plugin
  * This plugin will load and wait for css files.  This could be handy when
@@ -20,15 +19,27 @@ var cssCache = window.cssCache || (window.cssCache = {});
  	return {
 		load: function(resourceDef, require, callback, config) {
 			var url = require.toUrl(resourceDef);
-			var cachedCss = cssCache[url];
+			var cachedCss = require.cache['url:' + url];
 			if(cachedCss){
-				return createStyleSheet(cachedCss);
+				// we have CSS cached inline in the build
+				if(cachedCss.xCss){
+					var parser = cachedCss.parser;
+					var xCss =cachedCss.xCss;
+					cachedCss = cachedCss.cssText;
+				}
+				moduleRequire(['./util/createStyleSheet'],function(createStyleSheet){
+					createStyleSheet(cachedCss);
+				});
+				if(xCss){
+					//require([parsed], callback);
+				}
+				return;
 			}
 			function checkForParser(){
 				var parser = testElementStyle('x-parse', null, 'content');
-				if(parser){
+				if(parser && parser != 'none'){
 					// TODO: wait for parser to load
-					require([parser], callback);
+					require([eval(parser)], callback);
 				}else{
 					callback();
 				}
@@ -45,8 +56,6 @@ var cssCache = window.cssCache || (window.cssCache = {});
 			moduleRequire(["./load-css"], function(load){
 				load(url, checkForParser);
 			});
-		},
-		pluginBuilder: "xstyle/css-builder"
-
+		}
 	};
 });
