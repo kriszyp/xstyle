@@ -1,6 +1,7 @@
 {
   "name": "xstyle",
   "author": "Kris Zyp",
+  "version": "0.1.0",
   "description": "CSS framework providing polyfills, extensions, dynamic loading, and selector based DOM manipulation",
   "licenses": [
      {
