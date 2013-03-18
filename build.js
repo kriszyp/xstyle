@@ -1,8 +1,15 @@
-print("buidl");
+/*
+ * This module can be executed standalone in node, to build CSS files, inlining imports, and 
+ * pre-processing extensions for faster run-time execution. This module is also
+ * used by the AMD build process.
+ */
 
 document = {
 	createElement: function(){
-		return {};
+		return {style:
+			{// TODO: may want to import static has features to determine if some of these exist
+			}
+		};
 	},
 	getElementsByTagName: function(){
 		return [];
@@ -20,15 +27,15 @@ var pseudoDefine = function(id, deps, factory){
 		pseudoRequire.isBuild = true;
 		xstyle = factory(pseudoRequire);
 	};
+var requiredModules = [];
+
 if(typeof define == 'undefined'){
 	var fs = require('fs'),
 		pathModule = require('path'),
-		xstyle,
-		requiredModules = [];
+		xstyle;
 	define = pseudoDefine; 
 	require('./xstyle');
 }else{
-	console.log("calling original define");
 	define(['build/fs'], function(fsModule){
 		fs = fsModule;
 		pathModule = {
@@ -39,7 +46,7 @@ if(typeof define == 'undefined'){
 		return function(xstyleText){
 			var define = pseudoDefine;
 			eval(xstyleText);
-			return xstyle;
+			return process;
 		};
 	});
 }
@@ -61,9 +68,14 @@ function process(cssText,basePath){
 	xstyle.parse.getStyleSheet = function(importRule, sequence, styleSheet){
 		console.log("path parst", styleSheet.href, sequence[1].value);
 		var path = pathModule.resolve(styleSheet.href, sequence[1].value);
-		console.log("path", path);
+		var localSource = '';
+		try{
+			localSource = fs.readFileSync(path).toString("utf-8");
+		}catch(e){
+			console.error(e);
+		}
 		return {
-			localSource: fs.readFileSync(path).toString("utf-8"),
+			localSource: localSource,
 			href: path,
 			insertRule: insertRule,
 			cssRules: []
@@ -73,19 +85,25 @@ function process(cssText,basePath){
 	var xstyleCss = [];
 	var rootRule = xstyle.parse(cssText, {href:basePath, cssRules:[], insertRule: insertRule});
 	console.log("requiredModules",requiredModules);
+	var intrinsicVariables = {
+		Math:1,
+		require:1,
+		item: 1
+	}
 	function visit(parent){
 		if(!parent.root){
 			browserCss.push(parent.selector + '{' + parent.cssText + '}'); 
 		}
 		for(var i in parent.variables){
-			xstyleCss.push(i,'=',parent.variables[i]);
+			if(!intrinsicVariables.hasOwnProperty(i)){
+				xstyleCss.push(i,'=',parent.variables[i]);
+			}
 		}
 	}
 	visit(rootRule);
-	console.log('browserCss:', browserCss.join(''));
-	console.log('xstyleCss:', xstyleCss.join(''));
 	return {
-		css: browserCss.join(''),
+		standardCss: browserCss.join(''),
+		xstyleCss: xstyleCss.join(';'),
 		requiredModules: requiredModules
 	};
 }

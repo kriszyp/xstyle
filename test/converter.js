@@ -1,4 +1,4 @@
-define(['dbind/bind', 'xstyle/util/create-style-sheet', 'xstyle/xstyle'], function(bind, createStyleSheet, xstyle){
+define(['dbind/bind', 'xstyle/util/createStyleSheet', 'xstyle/xstyle'], function(bind, createStyleSheet, xstyle){
 	var model = {
 		data: '{\n  "first": "Web",\n  "last": "Developer",\n  "favorites": [\n    "Data Bindings", "CSS Extensions"\n  ]\n}', 
 		ui: "#target {\n => h2 (data/first+' '+data/last),\n    ul (data/favorites) {\n      color: #060;\n    };\n  background-color: #ccc;\n  width: 200px;\n  padding: 10px;\n}", 
