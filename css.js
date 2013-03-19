@@ -33,7 +33,7 @@ define(["require"], function(moduleRequire){
 				if(xCss){
 					//require([parsed], callback);
 				}
-				return;
+				return checkForParser();
 			}
 			function checkForParser(){
 				var parser = testElementStyle('x-parse', null, 'content');
