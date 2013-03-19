@@ -13,8 +13,9 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 				xstyleModuleInfo = bc.getSrcModuleInfo("xstyle/xstyle", referenceModule, true),
 				xstyleText = fs.readFileSync(xstyleModuleInfo.url + '.js', "utf8"),
 				xstyleProcess = buildModule(xstyleText),
-				targetStylesheet = referenceModule.layer.targetStylesheet,
-				targetStylesheetContents = referenceModule.layer.targetStylesheetContents;
+				layer = referenceModule.layer,
+				targetStylesheet = layer && layer.targetStylesheet,
+				targetStylesheetContents = layer && layer.targetStylesheetContents;
 			if(targetStylesheet){
 				// we want to calculate the target stylesheet relative to the layer
 				var layerModule = bc.getSrcModuleInfo(referenceModule.layer.name, referenceModule, true);

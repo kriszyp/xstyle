@@ -46,7 +46,7 @@ if(typeof define == 'undefined'){
 		return function(xstyleText){
 			var define = pseudoDefine;
 			eval(xstyleText);
-			return process;
+			return processCss;
 		};
 	});
 }
@@ -54,19 +54,25 @@ function main(source, target){
 	var imported = {};
 	var basePath = source.replace(/[^\/]*$/, '');
 	var cssText = fs.readFileSync(source).toString("utf-8");
-	process(cssText, basPath);
+	var processed = processCss(cssText, basePath);
+	var output = processed.standardCss;
+	if(processed.xstyleCss){
+		output = 'x-xstyle{content:"' + 
+				processed.xstyleCss.replace(/["\\\n\r]/g, '\\$&') + 
+					'";}' + output;
+	}
 	if(target){
-		fs.writeFileSync(target, html);
+		fs.writeFileSync(target, output);
 	}else{
-		console.log(html);
+		console.log(output);
 	}
 }
-function process(cssText,basePath){
+function processCss(cssText,basePath){
 	function insertRule(cssText){
+		cssText = cssText.replace(/\s*([^:\s]+)\s*:\s*(("(\\\\|[^\"])*"|'(\\\\|[^\'])*'|[^;}])+);\s*/g,"$1:$2;");
 		browserCss.push(cssText);
 	}
 	xstyle.parse.getStyleSheet = function(importRule, sequence, styleSheet){
-		console.log("path parst", styleSheet.href, sequence[1].value);
 		var path = pathModule.resolve(styleSheet.href, sequence[1].value);
 		var localSource = '';
 		try{
@@ -76,15 +82,14 @@ function process(cssText,basePath){
 		}
 		return {
 			localSource: localSource,
-			href: path,
+			href: path || '.',
 			insertRule: insertRule,
 			cssRules: []
 		}
 	};
 	var browserCss = [];
 	var xstyleCss = [];
-	var rootRule = xstyle.parse(cssText, {href:basePath, cssRules:[], insertRule: insertRule});
-	console.log("requiredModules",requiredModules);
+	var rootRule = xstyle.parse(cssText, {href:basePath || '.', cssRules:[], insertRule: insertRule});
 	var intrinsicVariables = {
 		Math:1,
 		require:1,
@@ -92,7 +97,7 @@ function process(cssText,basePath){
 	}
 	function visit(parent){
 		if(!parent.root){
-			browserCss.push(parent.selector + '{' + parent.cssText + '}'); 
+			//browserCss.push(parent.selector + '{' + parent.cssText + '}'); 
 		}
 		for(var i in parent.variables){
 			if(!intrinsicVariables.hasOwnProperty(i)){

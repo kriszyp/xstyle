@@ -78,7 +78,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		this.value = string;
 	}
 	LiteralString.prototype.toString = function(){
-		return '"' + this.value.replace(/["\\]/g, '\\$&') + '"';
+		return '"' + this.value.replace(/["\\\n\r]/g, '\\$&') + '"';
 	}
 
 	var ua = navigator.userAgent;
@@ -236,7 +236,6 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 				// Used to add a new rule
 				if(cssText &&
 					selector.charAt(0) != '@'){ // for now just ignore and don't add at-rules
-console.log("add", selector, cssText);
 					return styleSheet.addRule(selector, cssText);
 				}
 			},
@@ -430,7 +429,6 @@ console.log("add", selector, cssText);
 					}
 				}
 				// load the module using the module id, or direclty use it if it is already loaded
-				console.log('module', module)
 				typeof module == "string" ? require([module], onLoad) : onLoad(module);					
 			}
 		}
