@@ -67,10 +67,14 @@ function main(source, target){
 		console.log(output);
 	}
 }
+function minify(cssText){
+	return cssText.
+			replace(/\/\*([^\*]|\*[^\/])*\*\//g, ' ').
+			replace(/\s*("(\\\\|[^\"])*"|'(\\\\|[^\'])*'|[;}{:])\s*/g,"$1");	
+}
 function processCss(cssText,basePath){
 	function insertRule(cssText){
-		cssText = cssText.replace(/\s*([^:\s]+)\s*:\s*(("(\\\\|[^\"])*"|'(\\\\|[^\'])*'|[^;}])+);\s*/g,"$1:$2;");
-		browserCss.push(cssText);
+		//browserCss.push(cssText);
 	}
 	xstyle.parse.getStyleSheet = function(importRule, sequence, styleSheet){
 		var path = pathModule.resolve(styleSheet.href, sequence[1].value);
@@ -80,6 +84,7 @@ function processCss(cssText,basePath){
 		}catch(e){
 			console.error(e);
 		}
+		browserCss.push(localSource);
 		return {
 			localSource: localSource,
 			href: path || '.',
@@ -93,12 +98,12 @@ function processCss(cssText,basePath){
 	var intrinsicVariables = {
 		Math:1,
 		require:1,
-		item: 1
+		item: 1,
+		'native': 1,
+		prefixed: 1
 	}
 	function visit(parent){
-		if(!parent.root){
-			//browserCss.push(parent.selector + '{' + parent.cssText + '}'); 
-		}
+		browserCss.push(parent.selector + '{' + parent.cssText + '}'); 
 		for(var i in parent.variables){
 			if(!intrinsicVariables.hasOwnProperty(i)){
 				xstyleCss.push(i,'=',parent.variables[i]);
@@ -107,7 +112,7 @@ function processCss(cssText,basePath){
 	}
 	visit(rootRule);
 	return {
-		standardCss: browserCss.join(''),
+		standardCss: minify(browserCss.join('')),
 		xstyleCss: xstyleCss.join(';'),
 		requiredModules: requiredModules
 	};
