@@ -76,6 +76,12 @@ function processCss(cssText,basePath){
 	function insertRule(cssText){
 		//browserCss.push(cssText);
 	}
+	function correctUrls(cssText, path){
+		var relativePath = pathModule.relative(basePath, pathModule.dirname(path));
+		return cssText.replace(/url\s*\(['"]?([^'"\)]*)['"]?\)/g, function(t, url){
+			return 'url("' + pathModule.join(relativePath, url).replace(/\\/g, '/') + '")';
+		});
+	}
 	xstyle.parse.getStyleSheet = function(importRule, sequence, styleSheet){
 		var path = pathModule.resolve(styleSheet.href, sequence[1].value);
 		var localSource = '';
@@ -84,7 +90,7 @@ function processCss(cssText,basePath){
 		}catch(e){
 			console.error(e);
 		}
-		browserCss.push(localSource);
+		browserCss.push(correctUrls(localSource, path));
 		return {
 			localSource: localSource,
 			href: path || '.',
