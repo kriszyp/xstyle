@@ -41,7 +41,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 				var createStyleSheetModule = bc.getSrcModuleInfo('xstyle/util/createStyleSheet', referenceModule);
 			}
 			// read the stylesheet so we can process
-			var text= fs.readFileSync(stylesheetInfo.src, "utf8");
+			//var text= fs.readFileSync(stylesheetInfo.src, "utf8");
 
 			if (!cssPlugin){
 				throw new Error("text! plugin missing");
@@ -57,7 +57,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 			}
 			if(targetStylesheetUrl){
 				// accumulate all the stylesheets in our target stylesheet
-				var processed = processCss(cssResource);
+				var processed = processCss(cssResource);//, targetStylesheetUrl);
 				targetStylesheetContents += processed.standardCss;
 				referenceModule.layer.targetStylesheetContents = targetStylesheetContents;
 			}
@@ -69,7 +69,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 					mid:stylesheetInfo.mid,
 					deps:[],
 					getText:function(){
-						var processed = processCss(this.module);
+						var processed = this.processed = processCss(this.module, true);//stylesheetInfo.url,  // inline resources too
 						return processed.xstyleCss ?
 							json.stringify({
 								cssText: processed.standardCss,
@@ -78,17 +78,21 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 							json.stringify(processed.standardCss +"");
 					},
 					internStrings:function(){
-						return ["url:" + this.mid, this.getText()];
+						if(!this.processed){
+							return ["url:" + this.mid, this.getText()];
+						}else{
+							return '';
+						}
 					}
 				});
 			}
-			function processCss(module){
+			function processCss(module, inlineAllResource){
 				var text = module.getText ? module.getText() : module.text;
 				if(text===undefined){
 					// the module likely did not go through the read transform; therefore, just read it manually
 					text= fs.readFileSync(this.module.src, "utf8");
 				}
-				var processed = xstyleProcess(text, stylesheetInfo.url);
+				var processed = xstyleProcess(text, stylesheetInfo.url, inlineAllResource);
 				//for(var i = 0; i < processed.requiredModules.length; i++){
 					// TODO: at some point, we may add an option to include the modules that
 					// are required by the stylesheet, but at least by default these should 
