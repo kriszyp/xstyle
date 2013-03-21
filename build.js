@@ -40,7 +40,20 @@ if(typeof define == 'undefined'){
 		fs = fsModule;
 		pathModule = {
 			resolve: function(base, target){
-				return base.replace(/[^\/]+$/, '') + target;
+				return (base.replace(/[^\/]+$/, '') + target)
+						.replace(/\/[^\/]*\/\.\./g, '')
+						.replace(/\/\./g,'');
+			},
+			dirname: function(path){
+				return path.replace(/[\/\\][^\/\\]*$/, '');
+			},
+			relative: function(basePath, path){
+				return path.slice(this.dirname(basePath).length + 1);
+			},
+			join: function(base, target){
+				return ((base[base.length - 1]  == '/' ? base : (base + '/'))+ target)
+						.replace(/\/[^\/]*\/\.\./g, '')
+						.replace(/\/\./g,'');
 			}
 		}
 		return function(xstyleText){
@@ -72,13 +85,37 @@ function minify(cssText){
 			replace(/\/\*([^\*]|\*[^\/])*\*\//g, ' ').
 			replace(/\s*("(\\\\|[^\"])*"|'(\\\\|[^\'])*'|[;}{:])\s*/g,"$1");	
 }
-function processCss(cssText,basePath){
+var mimeTypes = {
+	eot: "application/vnd.ms-fontobject",
+	woff: "application/font-woff",
+	gif: "image/gif",
+	jpg: "image/jpeg",
+	jpeg: "image/jpeg",
+	png: "image/png"	
+}
+function processCss(cssText, basePath, inlineAllResources){
+	console.log("processing",basePath);
 	function insertRule(cssText){
 		//browserCss.push(cssText);
 	}
 	function correctUrls(cssText, path){
-		var relativePath = pathModule.relative(basePath, pathModule.dirname(path));
-		return cssText.replace(/url\s*\(['"]?([^'"\)]*)['"]?\)/g, function(t, url){
+		// correct all the URLs in the stylesheets
+		// determine the directory path
+		path = pathModule.dirname(path) + '/';
+		//console.log("starting path", basePath , path);
+		// compute the relative path from where we are to the base path where the stylesheet will go
+		var relativePath = pathModule.relative(basePath, path);
+		return cssText.replace(/url\s*\(\s*['"]?([^'"\)]*)['"]?\s*\)/g, function(t, url){
+		//console.log("relativePath", relativePath, pathModule.resolve(path, url), pathModule.join(relativePath, url));
+			if(inlineAllResources || /#inline$/.test(url)){
+				// we can inline the resource
+				suffix = url.match(/\.(\w+)(#|\?|$)/);
+				suffix = suffix && suffix[1];
+				url = url.replace(/[\?#].*/,'');
+				return 'url(data:' + (mimeTypes[suffix] || 'application/octet-stream') + 
+							';base64,' + fs.readFileSync(pathModule.resolve(path, url)).toString("base64") + ')';
+			}
+			// or we adjust the URL
 			return 'url("' + pathModule.join(relativePath, url).replace(/\\/g, '/') + '")';
 		});
 	}
@@ -98,7 +135,7 @@ function processCss(cssText,basePath){
 			cssRules: []
 		}
 	};
-	var browserCss = [];
+	var browserCss = [cssText];
 	var xstyleCss = [];
 	var rootRule = xstyle.parse(cssText, {href:basePath || '.', cssRules:[], insertRule: insertRule});
 	var intrinsicVariables = {
@@ -109,7 +146,7 @@ function processCss(cssText,basePath){
 		prefixed: 1
 	}
 	function visit(parent){
-		browserCss.push(parent.selector + '{' + parent.cssText + '}'); 
+		//browserCss.push(parent.selector + '{' + parent.cssText + '}'); 
 		for(var i in parent.variables){
 			if(!intrinsicVariables.hasOwnProperty(i)){
 				xstyleCss.push(i,'=',parent.variables[i]);
@@ -117,6 +154,7 @@ function processCss(cssText,basePath){
 		}
 	}
 	visit(rootRule);
+	//console.log('browserCss', browserCss);
 	return {
 		standardCss: minify(browserCss.join('')),
 		xstyleCss: xstyleCss.join(';'),
