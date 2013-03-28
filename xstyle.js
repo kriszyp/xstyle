@@ -5,7 +5,7 @@ if(typeof define == "undefined"){
 define("xstyle/xstyle", ["require"], function (require, put) {
 	"use strict";
 	// regular expressions used to parse CSS
-	var cssScan = /\s*([^{\}\(\)\/\\'":=;]*)([=:]\s*([^{\}\(\)\/\\'";]*))?([{\}\(\)\/\\'";]|$)/g;
+	var cssScan = /\s*([^{\}\[\]\(\)\/\\'":=;]*)([=:]\??\s*([^{\}\[\]\(\)\/\\'":;]*))?([{\}\[\]\(\)\/\\'":;]|$)/g;
 									// name: value 	operator
 	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
@@ -120,10 +120,8 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 				}
 			}
 		}
-		if(needsParsing){
-			// ok, determined that CSS extensions are in the CSS, need to get the source and really parse it
-			parse(sheet.localSource || sheet.ownerElement.innerHTML, sheet, callback);
-		}
+		// ok, determined that CSS extensions are in the CSS, need to get the source and really parse it
+		parse(sheet.localSource || (sheet.ownerNode || sheet.ownerElement).innerHTML, sheet, callback);
 	}
 	parse.getStyleSheet = function(importRule, sequence){
 		return importRule.styleSheet;
@@ -161,7 +159,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					rule.eachProperty(function(name, value){
 						var asString = value.toString();
 						// we iterate through each part of the handler value, using the first one that applies
-						// handler values usually look like: default, require(some/module)
+						// handler values usually look like: prefix, module(some/module)
 						do{
 							// do some simple parsing, we really only support default, native, and require(), so this can handle that
 							var parts = asString.match(/([^, \(]+)(?:[, ]+(.+))?/);
@@ -169,15 +167,10 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 								return;
 							}
 							var first = parts[1];
-							if(first == 'require'){
+							if(first == 'module'){
 								// add a handler with a module id provided so it can be asynchronously loaded with require()
 								return addHandler(type, name, value[1].args[0]);
 							}if(first == "default"){
-								// check to see if the browser supports it natively
-								// if it is property we can check by the presence of the property on the style object
-								if((type == "property" && typeof testDiv.style[name] == "string")){
-									return;
-								}
 								if(type == "pseudo"){
 									// if it is pseudo, we test with a query
 									try{
@@ -186,11 +179,6 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 									}catch(e){}
 								}
 							}else if(first == "prefix"){
-								// check to see if the browser supports this feature through vendor prefixing
-								if(typeof testDiv.style[vendorPrefix + name] == "string"){
-									// if so this module can handle the prefixing
-									return addHandler(type, name, 'xstyle/xstyle');
-								}
 							}else{
 								return addHandler(type, name, function(){
 									return value;
@@ -204,7 +192,11 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		addExtensionHandler("property"); // add x-property selector for registering properties
 		addExtensionHandler("function");// add x-function selector for registering functions
 		addExtensionHandler("pseudo");// add x-pseudo selector for registering pseudos
-		
+
+		// make these intrinsically registered
+		handlers['function']['var'] = xstyle;
+		handlers['function']['extends'] = xstyle;
+
 		var waiting = 1;
 		// determine base url
 		var baseUrl = (styleSheet.href || location.href).replace(/[^\/]+$/,'');
@@ -214,10 +206,10 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		Rule.prototype = {
 			eachProperty: function(onProperty){
 				// iterate through each property on the rule
-				var properties = this.properties || 0;
-				for(var i = 0; i < properties.length; i++){
-					var name = properties[i];
-					onProperty(name || 'unnamed', properties[name]);
+				var values = this.values || 0;
+				for(var i = 0; i < values.length; i++){
+					var name = values[i];
+					onProperty.call(this, name || 'unnamed', values[name]);
 				}
 			},
 			fullSelector: function(){
@@ -229,14 +221,18 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 				return (this.rules || (this.rules = {}))[name] = new Rule();
 			},
 			newCall: function(name){
-				// called by the parser when a function call is encountered 
-				return new Call(name);
+				// called by the parser when a function call is encountered
+				var call = new Call(name);
+				(this.calls || (this.calls = [])).push(call);
+				return call; 
 			},
 			addSheetRule: function(selector, cssText){
 				// Used to add a new rule
 				if(cssText &&
 					selector.charAt(0) != '@'){ // for now just ignore and don't add at-rules
-					return styleSheet.addRule(selector, cssText);
+					try{
+						return styleSheet.addRule(selector, cssText);
+					}catch(e){}
 				}
 			},
 			onRule: function(){
@@ -246,15 +242,11 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					// TODO: set this.cssRule
 				}
 			},
-			recomputeAttribute: function(element, name){
-				// TODO: remove, I believe
-				this.attributeFunctions[name](element);
-			},
 			get: function(key){
 				// TODO: need to add inheritance? or can this be removed
-				return this.properties[key];
+				return this.values[key];
 			},
-			addVariable: function(name, value){
+			declareProperty: function(name, value, conditional){
 				// called by the parser when a variable assignment is encountered
 				if(value[0].toString().charAt(0) == '>'){
 					// this is used to indicate that generation should be triggered
@@ -265,15 +257,46 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					}
 				}else{
 					// add it to the variables for this rule
-					var variables = (this.variables || (this.variables = {}));
-					variables[name] = value;					
+					if(!conditional || (name in testDiv.style)){
+						var properties = (this.properties || (this.properties = {}));
+						properties[name] = value;
+					}	
 				}
 			},
-			addProperty: function(name, property){
+			setValue: function(name, value){
 				// called by the parser when a property is encountered
-				var properties = (this.properties || (this.properties = []));
-				properties.push(name);
-				properties[name] = property;
+				var values = (this.values || (this.values = []));
+				values.push(name);
+				values[name] = value;
+				// called when each property is parsed, and this determines if there is a handler for it
+				//TODO: delete the property if it one that the browser actually uses
+				// this is called for each CSS property
+				if(name){
+					var propertyName = name;
+					do{
+						// check for the handler
+						var target = resolveProperty(this, name);
+						if(target){
+							var rule = this;
+							// call the handler to handle this rule
+							when(evaluateExpression(rule, name, target), function(target){
+								target = target.splice ? target : [target];
+								for(var i = 0; i < target.length; i++){
+									var segment = target[i];
+									if(segment.put(value, rule, name)){
+										break;
+									}
+								}
+							});
+							break;
+						}
+						// we progressively go through parent property names. For example if the 
+						// property name is foo-bar-baz, it first checks for foo-bar-baz, then 
+						// foo-bar, then foo
+						name = name.substring(0, name.lastIndexOf("-"));
+						// try shorter name
+					}while(name);
+				}
 			},
 			cssText: ""
 		};
@@ -284,7 +307,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			this.args = [];
 		}
 		var CallPrototype = Call.prototype = new Rule;
-		CallPrototype.addVariable = CallPrototype.addProperty = function(name, value){
+		CallPrototype.declareProperty = CallPrototype.setValue = function(name, value){
 			// handle these both as addition of arguments
 			this.args.push(value);
 		};
@@ -296,9 +319,9 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		var target, root = new Rule;
 		root.root = true;
 		// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
-		root.variables = {
+		root.properties = {
 			Math: Math, // just useful
-			require: function(mid){
+			module: function(mid){
 				// require calls can be used to load in data in
 				return {
 					then: function(callback){
@@ -321,31 +344,60 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 						}
 					}
 				}
+			},
+			prefix: {
+				put: function(value, rule, name){
+					// add a vendor prefix
+					// check to see if the browser supports this feature through vendor prefixing
+					if(typeof testDiv.style[vendorPrefix + name] == "string"){
+						// if so, handle the prefixing right here
+						return rule.addSheetRule(rule.selector, vendorPrefix + name +':' + value);
+					}
+				}
+			},
+			'var': {
+				put: function(value, rule, name){
+					(rule.variables || (rule.variables = {}))[name] = value;
+				},
+				call: function(rule, ref){
+					resolve;
+				},
+				receive: function(callback, rule, name){
+					var parentRule = rule;
+					do{
+						var target = parentRule.variables && parentRule.variables[name];
+						parentRule = parentRule.parent;
+					}while(!target && parentRule);
+					callback(target);
+				}
+			},
+			on: {
+				put: function(value, rule, name){
+					// TODO: implement this
+					console.log("add event listener");
+					evaluateExpression(rule, name, value);
+				}
 			}
 		};
 		// keep references
 		root.css = textToParse;
 		root.parse = parseSheet;
 		
-		function onProperty(name, value) {
-			// called when each property is parsed, and this determines if there is a handler for it
-			//TODO: delete the property if it one that the browser actually uses
-			// this is called for each CSS property
-			if(name){
-				var propertyName = name;
-				do{
-					// check for the handler
-					var handlerForName = handlers.property[name];
-					if(handlerForName){
-						// call the handler to handle this rule
-						return handler(handlerForName, "onProperty", propertyName, value);
+		function onRule(selector, rule){
+			// check for selector handler
+			rule.onRule();
+			var calls = rule.calls;
+			if(calls){
+				for(var i = 0; i < calls.length; i++){
+					var call = calls[i];
+					if(typeof call.result == 'function'){
+						call.result(rule);
 					}
-					// we progressively go through parent property names. For example if the 
-					// property name is foo-bar-baz, it first checks for foo-bar-baz, then 
-					// foo-bar, then foo
-					name = name.substring(0, name.lastIndexOf("-"));
-					// try shorter name
-				}while(name);
+				}
+			}
+			var handlerForName = handlers.selector[selector];
+			if(handlerForName){
+				handler(handlerForName, "onRule", rule);
 			}
 		}
 		function onCall(identifier, value){
@@ -353,14 +405,6 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			var handlerForName = handlers['function'][identifier];
 			if(handlerForName){
 				handler(handlerForName, "onCall", identifier, value, value.args);
-			}
-		}
-		function onRule(selector, rule){
-			// check for selector handler
-			rule.onRule();
-			var handlerForName = handlers.selector[selector];
-			if(handlerForName){
-				handler(handlerForName, "onRule", rule);
 			}
 		}
 		function onPseudo(pseudo, rule){
@@ -376,7 +420,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			if(module){
 				var rule = target;
 				var ruleHandled = function(text){
-					if(text){
+					if(typeof text == 'string'){
 						/* TODO: is the a way to determine the index deterministically?
 						var cssRules = styleSheet.rules || styleSheet.cssRules;
 						for(var index = rule.index || 0; index < cssRules.length; index++){
@@ -408,6 +452,9 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					try{
 						// module is loaded, now exectue the appropriate function on the module (like onProperty)
 						var result = module[type](name, value, rule, styleSheet);
+						if(rule instanceof Call){
+							rule.result = result;
+						}
 						// a module can also return a promise
 						if(result && result.then){
 							// a promise, return immediately defer handling
@@ -422,7 +469,9 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					function handleError(error){
 						// Add some error handling to give developers a better idea of where error occurs.
 						// TODO: Add line number, and file name
-						console.error('Error occurred processing ' + type.slice(2) + ' ' + name + ' in rule "' + rule.selector + '" {' + rule.cssText);
+						console.error('Error occurred processing ' + type.slice(2).toLowerCase() + ' ' + name + 
+							(rule.operator == '{' ? (' in rule "' + rule.selector + '" {' + rule.cssText) : '') + '. ' + 
+												error.message);
 						if(error){
 							console.error(error);
 						}
@@ -436,7 +485,10 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		var stack = [root];
 		function parseSheet(textToParse, styleSheet){
 			// parse the CSS, finding each rule
-			function addInSequence(operand){
+			function addInSequence(operand, dontAddToSelector){
+				if(!dontAddToSelector){
+					selector += operand;
+				}
 				if(sequence){
 					// we had a string so we are accumulated sequences now
 					sequence.push ?
@@ -452,7 +504,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			}
 			target = root; // start at root
 			cssScan.lastIndex = 0; // start at zero
-			var ruleIndex = 0, browserUnderstoodRule = true;
+			var ruleIndex = 0, browserUnderstoodRule = true, selector = '', assignNextName = true;
 			while(true){
 				// parse the next block in the CSS
 				// we could perhaps use a simplified regex when we are in a property value 
@@ -462,7 +514,8 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					first = match[1],
 					assignment = match[2],
 					value = match[3],
-					assignmentOperator, name, sequence, assignNextName;
+					assignmentOperator, name, sequence,
+					conditionalAssignment;
 				value = value && trim(value);
 				
 				first = trim(first);
@@ -470,11 +523,12 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					// we are at the beginning of a new property
 					if(assignment){
 						// remember the name, so can assign to it
-						name = first;
-						// remember the operator (could be ':' for a property or '=' for a variable)
+						selector = name = first;
+						// remember the operator (could be ':' for a property assignment or '=' for a property declaration)
 						assignmentOperator = assignment.charAt(0);
+						conditionalAssignment = assignment.charAt(1) == '?';
 					}else{
-						value = first;
+						selector = value = first;
 					}
 					// store in the sequence, the sequence can contain values from multiple rounds of parsing
 					sequence = value;
@@ -521,14 +575,14 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 						// add the escaped character to the sequence
 						addInSequence(textToParse.charAt(lastIndex));
 						continue;
-					case '(': case '{':
+					case '(': case '{': case '[':
 						// encountered a new contents of a rule or a function call
 						var newTarget;
 						if(operator == '{'){
 							// it's a rule
 							assignNextName = true; // enter into the beginning of property mode					
 							// add this new rule to the current parent rule
-							addInSequence(newTarget = target.newRule(value));
+							addInSequence(newTarget = target.newRule(value), true);
 							if(target.root && browserUnderstoodRule){
 								// we track the native CSSOM rule that we are attached to so we can add properties to the correct rule
 								newTarget.cssRule = styleSheet.cssRules[ruleIndex++];
@@ -539,7 +593,8 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 							}
 						}else{
 							// it's a call, add it in the current sequence
-							addInSequence(newTarget = target.newCall(value));
+							var callParts = value.match(/(.*?)([\w-]*)$/);
+							addInSequence(newTarget = target.newCall(callParts[2]));
 						}
 						// make the parent reference
 						newTarget.parent = target;
@@ -547,7 +602,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 							// in generation, we auto-generate selectors so we can reference them
 							newTarget.selector = '.x-generated-' + nextId++;
 						}else{
-							newTarget.selector = target.root ? value : target.selector + ' ' + value;
+							newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
 						}
 						// store the current state information so we can restore it when exiting this rule or call
 						target.currentName = name;
@@ -556,7 +611,8 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 						// add to the stack
 						stack.push(target = newTarget);
 						target.operator = operator;
-						target.start = cssScan.lastIndex,
+						target.start = cssScan.lastIndex;
+						selector = '';
 						// if it has a pseudo, call the pseudo handler
 						target.selector && target.selector.replace(/:([-\w]+)/, function(t, pseudo){
 							onPseudo(pseudo, target);
@@ -582,26 +638,32 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 							cssScan.lastIndex = currentIndex;
 						}
 					}else{
-						// need to do an assignement
-						target[assignmentOperator == ':' ? 'addProperty' : 'addVariable'](name, sequence);
+						// need to do an assignment
+						target[assignmentOperator == ':' ? 'setValue' : 'declareProperty'](name, sequence, conditionalAssignment);
 					}
 				}
-				// clear the name now
-				name = null;
 				switch(operator){
-					case '}': case ')':
+					case ':':
+						// assignment can happen after a property declaration
+						assignNextName = true;
+						assignmentOperator = ':';
+						break;
+					case '}': case ')': case ']':
 						// end of a rule or function call
+						// clear the name now
+						name = null;
 						// record the cssText
 						target.cssText = textToParse.slice(target.start, cssScan.lastIndex - 1);
 						if(operator == '}'){
 							// if it is rule, call the rule handler 
 							onRule(target.selector, target);
-							if(target.selector.slice(0,2) != "x-"){
-								// don't trigger the property for the property registration
+							// TODO: remove this conditional, now that we use assignment
+							/*if(target.selector.slice(0,2) != "x-"){// don't trigger the property for the property registration
 								target.eachProperty(onProperty);
-							}
+							}*/
 							browserUnderstoodRule = true;
-						}else{
+							selector = '';
+						}else if(operator == ')'){
 							// call handler
 							onCall(target.caller, target);
 						}
@@ -627,6 +689,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 						assignNextName = true;
 						browserUnderstoodRule = false;
 						assignmentOperator = false;
+						selector = '';
 				}
 			}
 		}
@@ -871,7 +934,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 	put.oncreateelement = function(element){
 		tagTriggers[element.tagName];
 	}*/
-	function update(element){
+	function update(element, selector){
 	/* At some point, might want to use getMatchedCSSRules for faster access to matching rules 			
 	 	if(typeof getMatchedCSSRules != "undefined"){
 			// webkit gives us fast access to which rules apply
@@ -879,11 +942,12 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		}else{*/
 			for(var i = 0, l = selectorRenderers.length; i < l; i++){
 			var renderer = selectorRenderers[i];
-			if(matchesSelector ?
+			if((!selector || (selector == renderer.selector)) &&
+				(matchesSelector ?
 					// use matchesSelector if available
 					matchesSelector.call(element, renderer.selector) : // TODO: determine if it is higher specificity that other  same name properties
 					// else use IE's custom css property inheritance mechanism
-					element.currentStyle[renderer.name] == renderer.propertyValue){
+					element.currentStyle[renderer.name] == renderer.propertyValue)){
 				renderer.render(element);
 			}
 		}
@@ -911,8 +975,9 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 								// apply the class for the next part so we can reference it properly
 								put(lastElement, nextPart.selector);
 							}
-									// TODO: make sure we only do this only once
-							var apply = evaluateExpression(part, 0, part.args.toString());
+							// TODO: make sure we only do this only once
+							var expression = part.args.toString();
+							var apply = evaluateExpression(part, 0, expression);
 							(function(element, lastElement){
 								when(apply, function(apply){
 									// TODO: assess how we could propagate changes categorically
@@ -959,14 +1024,14 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 												textNode.nodeValue = value;
 											}
 										}
-									});
+									}, rule, expression);
 								});
 							})(lastElement, element);
 						}else{
 							// it is plain rule (not a call), we need to apply the auto-generated selector, so CSS is properly applied
 							put(lastElement, part.selector);
 							// do any elemental updates
-							xstyle.update(lastElement);
+							xstyle.update(lastElement, part.selector);
 						}
 					}else if(typeof part == 'string'){
 						// actual CSS selector syntax, we generate the elements specified
@@ -1006,7 +1071,6 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			return lastElement;
 		}
 	}
-
 	function evaluateExpression(rule, name, value){
 		// evaluate a binding
 		var binding = rule["var-expr-" + name];
@@ -1017,11 +1081,11 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		variables.id = nextId++;
 		var target, parameters = [], id = 0, callbacks = [],
 			attributeParts, expression = value.join ? value.join("") : value.toString(),
-			simpleExpression = expression.match(/^[\w_$\/\.]*$/); 
+			simpleExpression = expression.match(/^[\w_$\/\.-]*$/); 
 		// Do the parsing and function creation just once, and adapt the dependencies for the element at creation time
 		// deal with an array, converting strings to JS-eval'able strings
 			// find all the variables in the expression
-		expression = expression.replace(/("[^\"]*")|([\w_$\.\/]+)/g, function(t, string, variable){
+		expression = expression.replace(/("[^\"]*")|([\w_$\.\/-]+)/g, function(t, string, variable){
 			if(variable){
 				// for each reference, we break apart into variable reference and property references after each dot				
 				attributeParts = variable.split('/');
@@ -1029,16 +1093,12 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 				parameters.push(parameterName);
 				variables.push(attributeParts);
 				// first find the rule that is being referenced
-				var parentRule = rule;
 				var firstReference = attributeParts[0];
-				while(!(target = parentRule.variables && parentRule.variables[firstReference])){
-					parentRule = parentRule.parent;
-					if(!parentRule){
-						throw new Error('Could not find reference "' + firstReference + '"');
-					}
-				}
+				var target = resolveProperty(rule, firstReference);
 				if(typeof target == 'string' || target instanceof Array){
-					target = evaluateExpression(parentRule, firstReference, target);
+					target = evaluateExpression(rule, firstReference, target);
+				}else if(!target){
+					throw new Error('Could not find reference "' + firstReference + '"');					
 				}
 				if(target.forElement){
 					isElementDependent = true;
@@ -1076,7 +1136,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			}
 		}else{
 			// it's a full expression, so we create a time-varying bound function with the expression
-			var reactiveFunction = Function.apply(this, parameters.concat(['return ' + expression]));
+			var reactiveFunction = Function.apply(this, parameters.concat(['return xstyleReturn(' + expression + ')']));
 		}
 		variables.func = reactiveFunction;
 		rule["var-expr-" + name] = variables;
@@ -1196,12 +1256,12 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			}
 		} : getComputation();
 	}
-	function resolveReference(rule, name){
+	function resolveProperty(rule, name){
 		var parentRule = rule;
 		do{
-			var target = parentRule.variables && parentRule.variables[name];
+			var target = parentRule.properties && parentRule.properties[name];
 			parentRule = parentRule.parent;
-		}while(!target);
+		}while(!target && parentRule);
 		return target;
 	}
 	
@@ -1305,7 +1365,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 	var xstyle =  {
 		process: checkImports,
 		vendorPrefix: vendorPrefix,
-		onProperty: function(name, value){
+		applyProperty: function(name, value){
 			// basically a noop for most operations, we rely on the vendor prefixing in the main property parser 
 			if(name == "opacity" && vendorPrefix == "-ms-"){
 				return 'filter: alpha(opacity=' + (value * 100) + '); zoom: 1;';
@@ -1318,19 +1378,24 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			// handle extends(selector)
 			var args = rule.args;
 			var extendingRule = rule.parent;
-			var parentRule = extendingRule;
-			var namespace = name == 'extends' ? 'rules' : 'variables'; 
-			do{
-				if(!parentRule){
-					throw new Error('Could not find "' + name + '" in the defined ' + namespace);
-				}
-				var target = parentRule[namespace] && parentRule[namespace][args[0]];
-				parentRule = parentRule.parent;
-			}while(!target);
+			function resolve(){
+				var parentRule = extendingRule;
+				var namespace = name == 'extends' ? 'rules' : 'variables'; 
+				do{
+					if(!parentRule){
+						throw new Error('Could not find "' + args[0] + '" in the defined ' + namespace);
+					}
+					var target = parentRule[namespace] && parentRule[namespace][args[0]];
+					parentRule = parentRule.parent;
+				}while(!target);
+				return target;
+			}
 			if(name == 'extends'){
+				var target = resolve();
 				var newText = target.cssText;
 				extendingRule.cssText += newText;
-				extendingRule.properties = Object.create(target.properties);
+				extendingRule.values = Object.create(target.values);
+				extendingRule.properties= Object.create(target.properties);
 				target.eachProperty(function(name, value){
 					if(name){
 						var ruleStyle = extendingRule.cssRule.style;
@@ -1350,10 +1415,10 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					});
 				}*/
 			}else if(name == 'var'){
-				// TODO: do we need to reevaluate the value based on the new context? 
-				parentRule = rule.parent;
-				// TODO: 
-				parentRule.addSheetRule(parentRule.selector, parentRule.currentName + ': ' + parentRule.currentSequence.toString().replace(/var\([^)]+\)/g, target));				
+				// TODO: do we need to reevaluate the value based on the new context?
+				return function(parentRule){
+					parentRule.addSheetRule(parentRule.selector, parentRule.currentName + ': ' + parentRule.currentSequence.toString().replace(/var\([^)]+\)/g, resolve()));
+				};
 			}
 		},
 		parse: parse,
@@ -1395,12 +1460,21 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 	return xstyle;
 
 });
+xstyleReturn = function(first){
+	// global function used by the reactive functions to separate out comma-separated expressions into an array
+	if(arguments.length == 1){
+		// one arg, just return that
+		return first;
+	}
+	// if it is a comma separated list of values, return them as an array
+	return [].slice.call(arguments);
+};
 /*
  * This is a very simple AMD module loader so that xstyle can be used standalone
  */
 
-addXstyleDefine = function(){
-	function has(){	
+function addXstyleDefine(){
+	function has(){
 	}
 	// anything that could be true, and allow it to be omitted from AMD builds
 	if(!has("dom")){

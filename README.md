@@ -3,7 +3,7 @@ can define data bindings, UI elements, variables, extensions, and shims to creat
 web applications with an elegantly simple, stylesheet driven approach. Xstyle also includes
 tools for loading CSS and building and minifying CSS-driven applications.
 
-Much of the functionality in xstyle is still pre-alpha, but this documentation is annoted with
+Much of the functionality in xstyle is still pre-alpha, but this documentation is annotated with
 the stability of different functions. 
 
 # Why Extensible CSS with xstyle?
@@ -30,7 +30,7 @@ xstyle's <code>x.css</code> stylesheet within your stylesheet that will be using
 &lt;script src="xstyle/xstyle.js">&lt;/script>
 </pre>
 
-Or xstyle can be used with an AMD module loader, like Dojo:
+Or xstyle can be used with an AMD module loader, like RequireJS or Dojo:
 <pre>
 &lt;style>
 	@import 'xstyle/x.css';
@@ -51,6 +51,54 @@ See the AMD Plugin Loader section for more information.
 # Using Xstyle CSS
 
 Once you have loaded the xstyle script/module, you can begin to use xstyle's extensible CSS.
+
+## New Properties
+
+The key building block in xstyle is an extension for creating new properties. In traditional
+CSS, all properties are defined by the browser, and stylesheet rules are limited to specifying
+values for these predefined properties. In xstyle, new properties can be defined with 
+extensible meaning. New properties may be shims (that are standard properties
+on other browsers), they may be compositions of other properties, or entirely new concepts.
+Since properties can be constructed using JavaScript modules that can interact with
+the DOM, there is virtually no limit to the what can be created.
+
+To create a new property, we simply use the <code>=</code> operator to define the property and
+assign a new the property meaning expression. For example, xstyle provides a property
+expression will automatically add a vendor specific prefix (like '-webkit-') to a property.
+We can create such a property:
+
+	transition = prefix;
+
+New properties can be defined anywhere in a stylesheet, including at the top level (amongst
+rules), within rules (or nested rules), or even directly in property names. At the top level, a new property definition makes
+the property available for use anywhere below the definition. Defining within a rule, the 
+property is available only within that rule declaration (or nested rules or extending rules) 
+below the definition. For example, we could use this property definition in a rule, to have
+xstyle automatically generate vendor specific properties for the transition property (like -webkit-transition):
+
+	transition = prefix;
+	.content {
+		transition: color 0.5s;
+	}
+
+Since property definitions can be directly within a property name, we could inline the 
+definition to more succinctly write the same transition:
+  
+	.content {
+		transition = prefix: color 0.5s;
+	}
+
+When using property definitions for shimming properties, we generally only want to apply
+the shim (vendor prefixing in the example above) if the standard property is not available.
+We can conditionally define a new property only if the property has not already been defined
+(by the browser or a previous definition) with the =? operator. We could update the 
+example above to use the standard 'transition' without prefixing if available:
+
+	.content {
+		transition =? prefix: color 0.5s;
+	}
+
+However, shimming is only the beginning of what we can do with xstyle...
 
 ## Variables
 
@@ -285,6 +333,23 @@ variable or property changes):
 
 This functionality is implemented and has been lightly tested.
 
+## Creating Components
+
+Together these features can be used to create components with CSS. 
+
+my-component {
+	=> 
+		h1 (label),
+		p (content);
+	label = 'Default Label';
+	content = 'Default Content';
+}
+
+body {
+	=> my-component {
+		label: 'My Label';
+	}
+}
 
 ## Extensions and Shims
 
@@ -307,6 +372,39 @@ Xstyle is plugin-based so that new shims and extensions can be selected and comb
 without incurring additional CSS parsing overhead. Xstyle is designed to allow for plugins to be 
 registered to handle different CSS properties, so that the shims and extensions that are
 applied can be explicitly controlled for each stylesheet.
+
+## Property Modules
+
+While xstyles provides predefined expressions for defining new properties, we can also 
+define new properties with our own custom JavaScript modules. To define a new property
+that with a JavaScript module, we use the module(module-id) as the property definition:
+
+	my-new-property = module(package/module-id);
+	
+If you are using an AMD loader, xstyle will load the target module id and use this to handle
+the property. If you are not using an AMD module loader, you can still simply include a script
+with a define call:
+
+define('package/module-id', {
+	/* module property definition */
+});
+
+The module can return an object (or provide an object to the define call), that has
+methods that to be called when the property is used in stylesheets. The following
+methods are defined:
+
+module.put(value, rule, name) - This is called whenever the property is used within a rule. The
+<code>value</code> argument is the property value in the rule, and the <code>rule</code>
+argument is the Rule object.  
+module.receive(callback)
+module.forElement(element)
+module.get(name)
+module.call(rule, args,...)
+
+The Rule object has the following properties and methods that can be used by the module:
+
+addProperty(name, value);
+
 
 ## Defining Extensions
 
@@ -370,7 +468,7 @@ This functionality has been mostly implemented and has been lightly tested.
 
 The x.css stylesheet (referenced in the example above) includes a number of out
 of the box shims to upgrade older browsers for modern CSS properties including: opacity, box-shadow, 
-border-radius, and transform (for some of these, browsers must at least support vender-prefixed versions of the properties).
+border-radius, and transform (for some of these, browsers must at least support vendor-prefixed versions of the properties).
 
 The shims.css stylesheet also defines shims for pseudo selectors including hover and focus.
 By @import'ing shims.css into a stylesheet, these shims will be defined and we can using.
@@ -428,7 +526,7 @@ bar using dijit/ProgressBar, by defining it in a rule:
 
 # Build
 
-This functionality is not implemented yet.
+This functionality is partially implemented.
 
 Xstyle includes built tools that serve several purposes. First, they provide CSS aggregation,
 combining @import'ed stylesheets into parent stylesheets to reduce requests. Second,
@@ -439,6 +537,21 @@ with node, providing a path to a stylesheet or directory of stylesheets to proce
 a target to save the stylesheet to. For example, if we want to build app.css, we could do:
 
 node build.js app.css ../built/app.css
+
+The xstyle build tool is also capable of inline resources like images directly in the stylesheet
+with data: URLs. This can be very useful for reducing the number of requests. To mark resources for inlining, simply append a hash of #inline to the URL of the resource.
+For example, if we had a background image pointing back.png, we could write the following rule
+
+	.content {
+		background: url(back.png#inline);
+	}
+
+When the build tool runs, this URL will be transformed to a data URL, and no extra request
+will be necessary to fetch this background image. While this can reduce the number of
+requests, this is best used for images that are small and very likely to be used. Since
+the URL is inline in the stylesheet, it increases the load time of the stylesheet, and 
+if the image might not be used or is large, this may be more detrimental than the 
+improved overall load time afforded by the reduced requests.
 
 When used as an AMD plugin, xstyle can also integrate with a Dojo build, automatically
 including CSS dependencies of modules in a build. To run utilize xstyle in a Dojo build,
@@ -459,12 +572,14 @@ in the layer definition in the build profile:
 
 	layers: [
 	{
-		name: "targetModule.js",
-		targetStylesheet: "someStylesheet.js",
+		name: "path/to/targetModule.js",
+		targetStylesheet: "./someStylesheet.js", // relative to target module
 		...
 
 When the build runs, any CSS dependencies that are encountered in modules will then
-be added to someStylesheet.js, rather than inlined in the JavaScript build layer.
+be added to someStylesheet.js, rather than inlined in the JavaScript build layer. One
+can still use the #inline URL directive to inline resources in combination with the AMD
+build plugin.
 
 # AMD Plugin Loader
 
@@ -533,3 +648,10 @@ just matches IE7 with:
 Or version IE8 through IE10:
 
 	hasClass("ie-8-10");
+
+xstyle is freely available under *either* the terms of the modified BSD license *or* the
+Academic Free License version 2.1. More details can be found in the [LICENSE](LICENSE).
+The xstyle project follows the IP guidelines of Dojo foundation packages and all contributions require a Dojo CLA. 
+If you feel compelled to make a monetary contribution, consider some of the author's [favorite
+charities](http://thezyps.com/2012-giving-guide/) like [Innovations for Poverty Action](http://www.poverty-action.org/) or
+the [UNFPA](http://www.friendsofunfpa.org/).
