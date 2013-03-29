@@ -17,7 +17,7 @@
     "type":"git",
     "url":"http://github.com/kriszyp/xstyle"
   },
-  "main": "./css",
+  "main": "./main",
   "icon": "http://packages.dojofoundation.org/images/xstyle.jpg",
   "dojoBuild": "package.js"
 }
