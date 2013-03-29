@@ -220,27 +220,31 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 				// called by the parser when a new child rule is encountered 
 				return (this.rules || (this.rules = {}))[name] = new Rule();
 			},
-			newCall: function(name){
+			newCall: function(name, sequence, rule){
 				// called by the parser when a function call is encountered
 				var call = new Call(name);
-				(this.calls || (this.calls = [])).push(call);
 				return call; 
 			},
 			addSheetRule: function(selector, cssText){
 				// Used to add a new rule
 				if(cssText &&
 					selector.charAt(0) != '@'){ // for now just ignore and don't add at-rules
-					try{
-						return styleSheet.addRule(selector, cssText);
-					}catch(e){}
+					var ruleNumber = styleSheet.addRule(selector, cssText);
+					if(ruleNumber == -1){
+						ruleNumber = styleSheet.cssRules.length - 1;
+					}
+					return styleSheet.cssRules[ruleNumber];
 				}
 			},
 			onRule: function(){
 				// called by parser once a rule is finished parsing
+				this.getCssRule();
+			},
+			getCssRule: function(){
 				if(!this.cssRule){
-					this.addSheetRule(this.selector, this.cssText);
-					// TODO: set this.cssRule
+					this.cssRule =this.addSheetRule(this.selector, this.cssText);
 				}
+				return this.cssRule;
 			},
 			get: function(key){
 				// TODO: need to add inheritance? or can this be removed
@@ -250,17 +254,22 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 				// called by the parser when a variable assignment is encountered
 				if(value[0].toString().charAt(0) == '>'){
 					// this is used to indicate that generation should be triggered
-					value = generate(value, this);
 					if(!name){
+						this.generator = value;
+						value = generate(value, this);
 						xstyle.addRenderer("", value, this, value);
 						return;
 					}
 				}else{
 					// add it to the variables for this rule
-					if(!conditional || (name in testDiv.style)){
+					var propertyExists = name in testDiv.style || resolveProperty(this, name);
+					if(!conditional || !propertyExists){
 						var properties = (this.properties || (this.properties = {}));
 						properties[name] = value;
-					}	
+						if(propertyExists){
+							console.warn('Overriding existing property "' + name + '"');
+						}
+					}
 				}
 			},
 			setValue: function(name, value){
@@ -268,6 +277,16 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 				var values = (this.values || (this.values = []));
 				values.push(name);
 				values[name] = value;
+				var calls = value.calls;
+				if(calls){
+					for(var i = 0; i < calls.length; i++){
+						var call = calls[i];
+						var handler = call.ref;
+						if(handler && typeof handler.call == 'function'){
+							handler.call(call, this, name, value);
+						}
+					}
+				}
 				// called when each property is parsed, and this determines if there is a handler for it
 				//TODO: delete the property if it one that the browser actually uses
 				// this is called for each CSS property
@@ -358,17 +377,30 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			'var': {
 				put: function(value, rule, name){
 					(rule.variables || (rule.variables = {}))[name] = value;
+					// TODO: can we reuse something for this?
+					var variableListeners = rule.variableListeners;
+					variableListeners = variableListeners && variableListeners[name] || 0;
+					for(var i = 0;i < variableListeners.length;i++){
+						variableListeners[i](value);
+					}
 				},
-				call: function(rule, ref){
-					resolve;
+				call: function(call, rule, name, value){
+					this.receive(function(resolvedValue){
+						rule.addSheetRule(rule.selector, name + ': ' + value.toString().replace(/var\([^)]+\)/g, resolvedValue));
+					}, rule, call.args[0]);
 				},
 				receive: function(callback, rule, name){
 					var parentRule = rule;
 					do{
 						var target = parentRule.variables && parentRule.variables[name];
+						if(target){
+							var variableListeners = parentRule.variableListeners || (parentRule.variableListeners = {});
+							(variableListeners[name] || (variableListeners[name] = [])).push(callback);
+							return callback(target);
+						}
 						parentRule = parentRule.parent;
-					}while(!target && parentRule);
-					callback(target);
+					}while(parentRule);
+					callback();
 				}
 			},
 			on: {
@@ -386,15 +418,6 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 		function onRule(selector, rule){
 			// check for selector handler
 			rule.onRule();
-			var calls = rule.calls;
-			if(calls){
-				for(var i = 0; i < calls.length; i++){
-					var call = calls[i];
-					if(typeof call.result == 'function'){
-						call.result(rule);
-					}
-				}
-			}
 			var handlerForName = handlers.selector[selector];
 			if(handlerForName){
 				handler(handlerForName, "onRule", rule);
@@ -578,32 +601,48 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 					case '(': case '{': case '[':
 						// encountered a new contents of a rule or a function call
 						var newTarget;
+						var doExtend = false;
 						if(operator == '{'){
 							// it's a rule
 							assignNextName = true; // enter into the beginning of property mode					
 							// add this new rule to the current parent rule
-							addInSequence(newTarget = target.newRule(value), true);
+							addInSequence(newTarget = target.newRule(selector), true);
+							
+							// todo: check the type
+							if(assignmentOperator){
+								browserUnderstoodRule = false;
+								if(!assignment || assignment.charAt(1) == '>'){
+									sequence.creating = true;
+								}
+								if(assignmentOperator == '=' && value){
+									// extend the referenced target value
+									// TODO: create auto-generate class?
+									doExtend = true;
+								}
+							}
 							if(target.root && browserUnderstoodRule){
 								// we track the native CSSOM rule that we are attached to so we can add properties to the correct rule
 								newTarget.cssRule = styleSheet.cssRules[ruleIndex++];
 							}
-							// todo: check the type
-							if(assignmentOperator){
-								sequence.creating = true;
-							}
 						}else{
 							// it's a call, add it in the current sequence
 							var callParts = value.match(/(.*?)([\w-]*)$/);
-							addInSequence(newTarget = target.newCall(callParts[2]));
+							addInSequence(newTarget = target.newCall(callParts[2], sequence, target));
+							newTarget.ref = resolveProperty(target, callParts[2]);
+							(sequence.calls || (sequence.calls = [])).push(newTarget);
 						}
 						// make the parent reference
 						newTarget.parent = target;
 						if(sequence.creating){
 							// in generation, we auto-generate selectors so we can reference them
 							newTarget.selector = '.x-generated-' + nextId++;
-						}else{
+						}else{							
 							newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
 						}
+						if(doExtend){
+							extend(resolveProperty(target, value.match(/[-\w]+$/)[0], true), newTarget);
+						}
+						
 						// store the current state information so we can restore it when exiting this rule or call
 						target.currentName = name;
 						target.currentSequence = sequence;
@@ -639,7 +678,11 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 						}
 					}else{
 						// need to do an assignment
-						target[assignmentOperator == ':' ? 'setValue' : 'declareProperty'](name, sequence, conditionalAssignment);
+						try{
+							target[assignmentOperator == ':' ? 'setValue' : 'declareProperty'](name, sequence, conditionalAssignment);
+						}catch(e){
+							console.error(e);
+						}
 					}
 				}
 				switch(operator){
@@ -663,10 +706,10 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 							}*/
 							browserUnderstoodRule = true;
 							selector = '';
-						}else if(operator == ')'){
+						}/*else if(operator == ')'){
 							// call handler
 							onCall(target.caller, target);
-						}
+						}*/
 						// now pop the call or rule off the stack and restore the state
 						stack.pop();
 						target = stack[stack.length - 1];				
@@ -1053,7 +1096,10 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 									// set the item property, so the item reference will work
 									nextElement.item = item;
 								}
-								if(nextElement != lastElement){ // avoid infinite loop if it is a nop selector
+								var nextPart = generatingSelector[i + 1];
+								if(nextElement != lastElement && // avoid infinite loop if it is a nop selector
+									(!nextPart || !nextPart.eachProperty) // if the next part is a rule, than it should be extending it already, so we don't want to double apply
+									){
 									xstyle.update(nextElement);
 								}
 								lastElement = nextElement;
@@ -1256,10 +1302,11 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			}
 		} : getComputation();
 	}
-	function resolveProperty(rule, name){
+	function resolveProperty(rule, name, includeRules){
 		var parentRule = rule;
 		do{
-			var target = parentRule.properties && parentRule.properties[name];
+			var target = parentRule.properties && parentRule.properties[name]
+				|| (includeRules && parentRule.rules && parentRule.rules[name]);
 			parentRule = parentRule.parent;
 		}while(!target && parentRule);
 		return target;
@@ -1361,7 +1408,29 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 				}
 				return current;
 			}	
-	
+	function extend(base, derivative){
+		var newText = base.cssText;
+		derivative.cssText += newText;
+		'values,properties,variables,calls'.replace(/\w+/g, function(property){
+			if(base[property]){
+				derivative[property] = Object.create(base[property]);
+			}
+		});
+		var cssRule = derivative.getCssRule();
+		base.eachProperty(function(name, value){
+			derivative.setValue(name, value);
+			if(name){
+				var ruleStyle = cssRule.style;
+				if(!ruleStyle[name]){
+					ruleStyle[name] = value;
+				}
+			}
+		});
+		if(base.generator){
+			derivative.declareProperty(null, base.generator);
+		}
+		
+	}
 	var xstyle =  {
 		process: checkImports,
 		vendorPrefix: vendorPrefix,
@@ -1392,18 +1461,7 @@ define("xstyle/xstyle", ["require"], function (require, put) {
 			}
 			if(name == 'extends'){
 				var target = resolve();
-				var newText = target.cssText;
-				extendingRule.cssText += newText;
-				extendingRule.values = Object.create(target.values);
-				extendingRule.properties= Object.create(target.properties);
-				target.eachProperty(function(name, value){
-					if(name){
-						var ruleStyle = extendingRule.cssRule.style;
-						if(!ruleStyle[name]){
-							ruleStyle[name] = value;
-						}
-					}
-				});
+				extend(target, extendingRule);
 /*			}else if(name == 'bind'){
 				var result = evaluateExpression(extendingRule, null, args[0]);
 				if(result.forElement){
