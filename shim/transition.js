@@ -1,7 +1,7 @@
 /*
     Handles transitions and animations
 */
-define(["../xstyle"],function(xstyle){
+define(["../main"],function(xstyle){
 	var transitions = [];
 	function propertyChange(event){
 		if(event.propertyName != "className"){

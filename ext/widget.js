@@ -1,4 +1,4 @@
-define(['../xstyle'], function(xstyle){
+define(['../main'], function(xstyle){
 	var nextId = 0;
 	function parse(value, callback, type, rule){
 		var Class, prototype;
