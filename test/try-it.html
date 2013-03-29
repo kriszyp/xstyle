@@ -6,9 +6,7 @@
 	<style>
 	@import '../x.css';
 	/* Using XStyle to create a page to try out XStyle. */
-	x-property {
-		save-parser: require(xstyle/test/converter);
-	}
+	save-parser = require('xstyle/test/converter');
 	converter = require('xstyle/test/converter');
 	data = converter/parsed;
 	
@@ -38,6 +36,7 @@
 	}
 
 	h1, h2 {
+		opacity: 0.1;
 		font-weight: 100;
 		font-family: "Segoe UI Light", "Helvetica Neue", RobotoLight, "Segoe UI", "Segoe WP", sans-serif;
 		color: #08E;
@@ -60,7 +59,7 @@
 	
 	<script src="../../dojo/dojo.js" data-dojo-config="async:true"></script>
 	<script>
-		require(['xstyle/xstyle'], function(layout){
+		require(['xstyle'], function(layout){
 		});
 	
 	</script>

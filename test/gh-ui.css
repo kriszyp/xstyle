@@ -1,12 +1,9 @@
 @import './css/font-awesome.css';
-@import '../x.css';		
-x-property {
-	save-parser: require(xstyle/test/converter);
-}
-converter = require('xstyle/test/converter');
+
+converter = module('xstyle/test/converter');
 data = converter/parsed;
 body {
-	save-parser: true;
+	converter: true;
 }
 h1, h2 {
 	font-weight: 100;

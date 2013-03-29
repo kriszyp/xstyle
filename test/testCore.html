@@ -4,33 +4,34 @@
 <meta charset="UTF-8">
 <title>Test Core Functionality</title>
 <style>
-test-variable = var: 163px;
-test-expression = var: test;
+test-variable=var: 163px;
+test-expression=var: test;
 test-component {
 	display: block;
 }
 test-component {
 	=>
 		h1 (label) { color: red},
-		p (content) { 
+		p (content) {
 			color: green;
 			width: var(test-variable);
 		},
 		div (test-expression);
-	label = var: Label;
-	content = var: cont asdfkadskf anskldf naskldfn adsklnf dsklanfl kadsnent;
-	main-color = var: #f00;
+	label=var: Label;
+	content=var: cont asdfkadskf anskldf naskldfn adsklnf dsklanfl kadsnent;
+	main-color=var: #00f;
 	background-color: #ddd;
 	display: block;
 	width: 200px;
 	height: 200px;
 	color: var(main-color);
-	border: 1px solid var(main-color);
+	border: 4px solid var(main-color);
 }
 
 with-content = test-component{
-	background-color: #bbb;
-	main-color: #333;
+	background-color: green;
+	main-color: #aaa;
+	label: new title;
 }
 /* a mixin can extend another element, using it's tag and properties when being created */
 mixin = div {
