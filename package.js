@@ -16,10 +16,10 @@ var profile = {
 		},
 
 		amd: function(filename, mid){
-			return /\.js$/.test(filename) && !/amdLoader/.test(filename);
+			return /\.js$/.test(filename);
 		},
 		copyOnly: function(filename, mid){
-			return /build/.test(filename);
+			return /build/.test(filename) || /xstyle\.min/.test(filename) || /amdLoader/.test(filename);
 		}
 	}
 };
