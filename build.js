@@ -27,7 +27,7 @@ var pseudoDefine = function(id, deps, factory){
 		pseudoRequire.isBuild = true;
 		xstyle = factory(pseudoRequire);
 	};
-var requiredModules = [];
+var requiredModules = [], base64Module;
 
 if(typeof define == 'undefined'){
 	var fs = require('fs'),
@@ -36,8 +36,9 @@ if(typeof define == 'undefined'){
 	define = pseudoDefine; 
 	require('./main');
 }else{
-	define(['build/fs'], function(fsModule){
+	define(['build/fs', './build/base64'], function(fsModule, base64){
 		fs = fsModule;
+		base64Module = base64;
 		pathModule = {
 			resolve: function(base, target){
 				return (base.replace(/[^\/]+$/, '') + target)
@@ -94,7 +95,6 @@ var mimeTypes = {
 	png: "image/png"	
 }
 function processCss(cssText, basePath, inlineAllResources){
-	console.log("processing",basePath);
 	function insertRule(cssText){
 		//browserCss.push(cssText);
 	}
@@ -106,14 +106,34 @@ function processCss(cssText, basePath, inlineAllResources){
 		// compute the relative path from where we are to the base path where the stylesheet will go
 		var relativePath = pathModule.relative(basePath, path);
 		return cssText.replace(/url\s*\(\s*['"]?([^'"\)]*)['"]?\s*\)/g, function(t, url){
-		//console.log("relativePath", relativePath, pathModule.resolve(path, url), pathModule.join(relativePath, url));
 			if(inlineAllResources || /#inline$/.test(url)){
 				// we can inline the resource
 				suffix = url.match(/\.(\w+)(#|\?|$)/);
 				suffix = suffix && suffix[1];
 				url = url.replace(/[\?#].*/,'');
+				
+				if(base64Module){
+					// reading binary is hard in rhino
+					var file = new java.io.File(pathModule.join(path, url));
+					var length = file.length();
+					var fis = new java.io.FileInputStream(file);
+					var bytes = java.lang.reflect.Array.newInstance(java.lang.Byte.TYPE, length); 
+					fis.read(bytes, 0, length);
+					var jsBytes = new Array(length);
+					for(var i = 0; i < bytes.length;i++){
+						var singleByte = bytes[i];
+						if(singleByte < 0){
+							singleByte = 256 + singleByte;
+						}
+						jsBytes[i] = singleByte;
+					}
+					var moduleText =base64Module.encode(jsBytes);
+				}else{
+					// in node base64 encoding is easy
+					var moduleText = fs.readFileSync(pathModule.join(path, url)).toString("base64");
+				}
 				return 'url(data:' + (mimeTypes[suffix] || 'application/octet-stream') + 
-							';base64,' + fs.readFileSync(pathModule.resolve(path, url)).toString("base64") + ')';
+							';base64,' + moduleText + ')';
 			}
 			// or we adjust the URL
 			return 'url("' + pathModule.join(relativePath, url).replace(/\\/g, '/') + '")';
@@ -135,7 +155,7 @@ function processCss(cssText, basePath, inlineAllResources){
 			cssRules: []
 		}
 	};
-	var browserCss = [cssText];
+	var browserCss = [correctUrls(cssText, basePath + "placeholder.css")];
 	var xstyleCss = [];
 	var rootRule = xstyle.parse(cssText, {href:basePath || '.', cssRules:[], insertRule: insertRule});
 	var intrinsicVariables = {
