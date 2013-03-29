@@ -19,26 +19,25 @@ can interact with the DOM. Xstyle prevents the common abuse of HTML for UI, by a
 the definition of UI elements with the presentation definition, where they belong.  
 
 # Getting Started
-To start using xstyle's extensible CSS, you simply need to load the xstyle JavaScript library, <code>xstyle.js</code> and then @import
-xstyle's <code>x.css</code> stylesheet within your stylesheet that will be using CSS extensions:
+To start using xstyle's extensible CSS, you simply need to load the xstyle JavaScript library, <code>xstyle.min.js</code> 
+and you can start using xstyle's CSS extensions:
 
 <pre>
 &lt;style>
-	@import 'xstyle/x.css';
 	/* my rules */	
 &lt;/style>
-&lt;script src="xstyle/xstyle.js">&lt;/script>
+&lt;script src="xstyle/xstyle.min.js">&lt;/script>
 </pre>
 
-Or xstyle can be used with an AMD module loader, like RequireJS or Dojo:
+Or xstyle can be used with an AMD module loader, like RequireJS or Dojo, and load the 
+xstyle/main module. You will also need to make sure you include the put-selector package:
 <pre>
 &lt;style>
-	@import 'xstyle/x.css';
 	/* my rules */	
 &lt;/style>
 &lt;script src="dojo/dojo.js">&lt;/script>
 &lt;script>
-	require(['xstyle/xstyle']);
+	require(['xstyle/main']);
 &lt;/script>
 </pre>
 
@@ -85,7 +84,7 @@ Since property definitions can be directly within a property name, we could inli
 definition to more succinctly write the same transition:
   
 	.content {
-		transition = prefix: color 0.5s;
+		transition=prefix: color 0.5s;
 	}
 
 When using property definitions for shimming properties, we generally only want to apply
@@ -95,21 +94,18 @@ We can conditionally define a new property only if the property has not already 
 example above to use the standard 'transition' without prefixing if available:
 
 	.content {
-		transition =? prefix: color 0.5s;
+		transition=?prefix: color 0.5s;
 	}
 
 However, shimming is only the beginning of what we can do with xstyle...
 
 ## Variables
 
-The first key functionality in xstyle is variables. Variables can be assigned and used elsewhere
-in CSS stylesheets. For many, this concept may be very familiar from CSS preprocessors, 
+Properties can be used as variables that can be referenced from other properties in CSS stylesheets. For many, this concept may be very familiar from CSS preprocessors, 
 and the recent addition in modern browsers according to the W3C specification. 
-Xstyle goes well beyond just value-replacement,
-but we will start with the basics. First to create a variable, we use the '=' operator
-to assign a value to a variable. For example, we could create a variable:
+To create a variable property, we define our property by assigning it 'var'. For example, we could create a variable:
 
-	highlightColor = blue;
+	highlightColor=var: blue;
 
 To reference the variable and use the value in another property, xstyle uses the standard W3C
 syntax, referencing the variable with a var(variable-name) syntax:
@@ -225,7 +221,7 @@ us to create sophisticated UI elements in a single modular unit.
 
 ## Data Binding
 
-We can combine variables with element generation to create data bindings. With data
+We can combine property definitions with element generation to create data bindings. With data
 bindings, an element can be generated and the contents can be bound to a variable.
 A basic example of a data binding would be to create a variable with a string value:
 
@@ -252,7 +248,7 @@ This provides the foundation for wiring components to data sources. We can also 
 variables to modules, providing an interface between JavaScript-driven data and the UI.
 We bind a variable to a module like this:
 
-	person = require(data/person);
+	person = module('data/person');
  
 We can then bind to the object returned from the module. We use a / operator to refer
 to properties of an object:
@@ -358,7 +354,7 @@ custom components or for filling in missing functionality in browsers. Xstyle's 
 provides shims for a few commonly used properties that are missing in some older browsers,
 including box-shadow, transform, and border-radius. For example, we can write:
 
-	@import "xstyle/x.css";
+	@import "xstyle/shims.css";
 	.my-class {
 		box-shadow: 10px 10px 5px #888888;
 		transform: rotate(10deg);
@@ -403,21 +399,16 @@ module.call(rule, args,...)
 
 The Rule object has the following properties and methods that can be used by the module:
 
-addProperty(name, value);
+setValue(name, value);
 
 
 ## Defining Extensions
 
 We can also explicitly define our own properties and/or choose which CSS properties to shim 
-or extend. The Xstyle parser looks for extension rules. The first rule is x-property
-which defines how a CSS property should be handled. A rule with an 'x-property' selector
-make define properties with values indicating how the corresponding CSS property 
-should be handled. Let's look at a simplified example from shims.css to see how we 
+or extend. Again we do this with property definitions. Let's look at a simplified example from shims.css to see how we 
 could shim the 'box-shadow' property to use an IE filter:
 <pre>
-x-property {
-	box-shadow: require(xstyle/shim/ie-filter);
-}		
+box-shadow = module('xstyle/shim/ie-filter');
 </pre>
 Here we defined that the CSS property 'box-shadow' should be handled by the 'xstyle/shim/ie-filter' 
 module. The ie-filter module converts the CSS property to an MS filter property so that
@@ -431,44 +422,17 @@ However, we often want the shims to be conditional. For shims, we usually only w
 shimming module if the property is not natively supported. We can do this with the
 default and prefix property values. The rule in shims.css looks like this:
 <pre>
-x-property {
-	box-shadow: default, prefix, require(xstyle/shim/ie-filter);
-}		
+box-shadow=? prefix, module(xstyle/shim/ie-filter);
 </pre>
-This extension rule includes multiple, comma separated values. The first value is 'default'.
-This indicates that first Xstyle should check if the 'box-shadow' is natively supported
-by the browser in standard form. If it is, then no further extensions or modifications to the CSS are applied.
-The next value is 'prefix'. This indicates that first Xstyle should check if the 'box-shadow' 
+This extension rule includes multiple, comma separated values. The first value is 'prefix'.
+This indicates that first Xstyle should check if the 'box-shadow' 
 is supported by the browser with a vendor prefix (like -webkit- or -moz-). If it is, then 
 the vendor prefix is added to the CSS property to enable it. Finally, if 'box-shadow' is
 not supported in standard form or with a vendor prefix, then the ie-filter module is
 loaded to apply the MS filter.
 
 
-<h1>Creating Extension Modules</h1>
-When you define custom CSS properties you can also create your own CSS extension modules/plugins.
-An extension module that handles extension properties should return an object with an 
-onProperty function that will be called each time the extension property is encountered.
-The onProperty function has the signature:
-<pre>
-onProperty(name, value, rule);
-</pre>
-Where 'name' is the CSS property name, 'value' is the value of the property, and 'rule'
-is an object representing the whole rule. The onProperty function can return CSS properties
-in text form to easily provide substitutionary CSS.
-
-Extension modules may need to do more sophisticated interaction than just CSS replacement.
-If an extension module needs to actually interact with and manipulate the DOM, it may
-use the 'addRenderer' property from the xstyle/xstyle module that will be executed for each
-DOM element that matches the rule's selector.
-
-This functionality has been mostly implemented and has been lightly tested.
-
 ### Included Extension Stylesheets
-
-The x.css stylesheet (referenced in the example above) includes a number of out
-of the box shims to upgrade older browsers for modern CSS properties including: opacity, box-shadow, 
-border-radius, and transform (for some of these, browsers must at least support vendor-prefixed versions of the properties).
 
 The shims.css stylesheet also defines shims for pseudo selectors including hover and focus.
 By @import'ing shims.css into a stylesheet, these shims will be defined and we can using.
@@ -477,10 +441,6 @@ shims.css, both A and B stylesheets will have the shims applied. If another styl
 later independently loaded and it doesn't import any stylesheets, none of the shims
 will be applied to it.
 
-Xstyle also includes an ext.css stylesheet that enables a number of CSS extensions
-including :supported and :unsupported pseudo selectors, and an -x-widget CSS property
-for instantiated widgets.
- 
 #### Available Shims (and limitations)
 The following experimental shim modules come with Xstyle:
 * shim/transition - This provides animated CSS property changes to emulates the CSS transition property.
