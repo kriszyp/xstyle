@@ -10,7 +10,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 			var cssPlugin = bc.amdResources["xstyle/css"],
 				stylesheetInfo = bc.getSrcModuleInfo(mid, referenceModule, true),
 				cssResource = bc.resources[stylesheetInfo.url],
-				xstyleModuleInfo = bc.getSrcModuleInfo("xstyle/xstyle", referenceModule, true),
+				xstyleModuleInfo = bc.getSrcModuleInfo("xstyle/main", referenceModule, true),
 				xstyleText = fs.readFileSync(xstyleModuleInfo.url + '.js', "utf8"),
 				xstyleProcess = buildModule(xstyleText),
 				layer = referenceModule.layer,

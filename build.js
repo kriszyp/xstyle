@@ -34,7 +34,7 @@ if(typeof define == 'undefined'){
 		pathModule = require('path'),
 		xstyle;
 	define = pseudoDefine; 
-	require('./xstyle');
+	require('./main');
 }else{
 	define(['build/fs'], function(fsModule){
 		fs = fsModule;
