@@ -53,7 +53,7 @@ define(["require"], function(moduleRequire){
 				return checkForParser();
 			}
 			// use dynamic loader
-			moduleRequire(["./load-css"], function(load){
+			moduleRequire(["./core/load-css"], function(load){
 				load(url, checkForParser);
 			});
 		}

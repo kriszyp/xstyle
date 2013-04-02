@@ -3,7 +3,7 @@
 //		and provides loading of the text of any sheets. This is intended to only be loaded as needed
 // 		for development, ideally stylesheets should be flattened and inlined for finished/production
 // 		applications, and this module won't be loaded.  
-define('xstyle/load-imports', [], function(){
+define('xstyle/core/load-imports', [], function(){
 	var insertedSheets = {},
 		features = {
 			"dom-deep-import": !document.createStyleSheet // essentially test to see if it is IE, inaccurate marker, maybe should use dom-addeventlistener? 
@@ -178,18 +178,23 @@ define('xstyle/load-imports', [], function(){
 			}
 			if(sheetToDelete != sheet){
 				if(href){
-					// record the stylesheet in our hash
-					insertedSheets[href] = sheet;
-					sheet.ownerElement = link;
-					var sourceSheet = sheet;
-					loadingCount++;
-					fetchText(href, function(text){
-						sourceSheet.localSource = text;
-						finishedModule();
-					}, function(){
-						sourceSheet.localSource = '';
-						finishedModule();
-					});
+					if(/no-xstyle$/.test(href)){
+						sheet.localSource = '';
+						return;
+					}else{
+						// record the stylesheet in our hash
+						insertedSheets[href] = sheet;
+						sheet.ownerElement = link;
+						var sourceSheet = sheet;
+						loadingCount++;
+						fetchText(href, function(text){
+							sourceSheet.localSource = text;
+							finishedModule();
+						}, function(){
+							sourceSheet.localSource = '';
+							finishedModule();
+						});
+					}
 				}else{
 					sheet.localSource = link.innerHTML;
 				}

@@ -1,1 +1,1 @@
-uglifyjs ../core/amdLoader.js ../../put-selector/put.js ../main.js -o ..\xstyle.min.js --source-map ..\xstyle.min.js.map -p 2 -c -m
+uglifyjs ../core/amdLoader.js ../../put-selector/put.js ../core/elemental.js ../core/ruleModel.js ../core/parser.js ../main.js -o ..\xstyle.min.js --source-map ..\xstyle.min.js.map -p 2 -c -m

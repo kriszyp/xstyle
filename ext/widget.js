@@ -1,4 +1,4 @@
-define(['../main'], function(xstyle){
+define(['../core/elemental'], function(elemental){
 	var nextId = 0;
 	function parse(value, callback, type, rule){
 		var Class, prototype;
@@ -105,7 +105,7 @@ define(['../main'], function(xstyle){
 	Widget.widget = def.widget;
 	Widget.role = def.role;
 	return {
-		onProperty: function(name, value, rule){
+		put: function(value, rule, name){
 			// used for a widget property:
 			//	widget: {
 			//		type: 'dijit/form/Button';
@@ -114,7 +114,7 @@ define(['../main'], function(xstyle){
 			return {
 				then: function(callback){
 					parse(value[0].eachProperty ? value[0] : rule, function(renderer){
-						xstyle.addRenderer(name, value, rule, renderer);
+						elemental.addRenderer(name, value, rule, renderer);
 						callback();
 					}, typeof value == "string" && value, rule); 
 				}

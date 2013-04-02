@@ -33,12 +33,13 @@ if(typeof define == 'undefined'){
 	var fs = require('fs'),
 		pathModule = require('path'),
 		xstyle;
-	define = pseudoDefine; 
-	require('./main');
+	define = pseudoDefine;
+	require('./core/parser');
 }else{
 	define(['build/fs', './build/base64'], function(fsModule, base64){
 		fs = fsModule;
 		base64Module = base64;
+		// must create our own path module for Rhino :/
 		pathModule = {
 			resolve: function(base, target){
 				return (base.replace(/[^\/]+$/, '') + target)
