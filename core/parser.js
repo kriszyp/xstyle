@@ -1,6 +1,6 @@
 define("xstyle/core/parser", [], function(){
 	// regular expressions used to parse CSS
-	var cssScan = /\s*([^{\}\[\]\(\)\\'":=;]*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?([{\}\[\]\(\)\\'":;]|$)/g;
+	var cssScan = /\s*((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?([{\}\[\]\(\)\\'":;]|$)/g;
 									// name: value 	operator
 	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
@@ -106,8 +106,8 @@ define("xstyle/core/parser", [], function(){
 					// we are at the beginning of a new property
 					if(assignment){
 						// remember the name, so can assign to it
-						name = first;
-						selector = match[1] + assignment;
+						selector = name = first;
+						//selector = match[1] + assignment;
 						// remember the operator (could be ':' for a property assignment or '=' for a property declaration)
 						assignmentOperator = assignment.charAt(0);
 						conditionalAssignment = assignment.charAt(1) == '?';
