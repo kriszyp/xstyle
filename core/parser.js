@@ -65,7 +65,6 @@ define("xstyle/core/parser", [], function(){
 		model.parse = parseSheet;
 		parseSheet(textToParse, styleSheet);
 		function parseSheet(textToParse, styleSheet){
-			model.setStyleSheet(styleSheet);
 			// parse the CSS, finding each rule
 			function addInSequence(operand, dontAddToSelector){
 				if(!dontAddToSelector){
@@ -107,7 +106,7 @@ define("xstyle/core/parser", [], function(){
 					if(assignment){
 						// remember the name, so can assign to it
 						selector = name = first;
-						//selector = match[1] + assignment;
+						//	selector = match[1] + assignment;
 						// remember the operator (could be ':' for a property assignment or '=' for a property declaration)
 						assignmentOperator = assignment.charAt(0);
 						conditionalAssignment = assignment.charAt(1) == '?';
@@ -185,7 +184,8 @@ define("xstyle/core/parser", [], function(){
 								}
 								if(!nextRule){
 									// didn't find it
-									ruleIndex = lastRuleIndex;
+									newTarget.ruleIndex = ruleIndex = lastRuleIndex;
+									newTarget.styleSheet = styleSheet;									
 									//console.warn("Unable to find rule ", selector, "existing rule did not match", nextRule.selectorText); 
 								}
 							}
