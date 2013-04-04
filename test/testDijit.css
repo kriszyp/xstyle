@@ -23,7 +23,7 @@ button.dijit {
 	font-weight: bold;
 }
 button{
-	on-click: toggle(.highlighted);
+	on-click: content/save;
 }
 dijit-text {
 	width: 100px;

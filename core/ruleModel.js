@@ -86,9 +86,9 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			if(cssText &&
 				selector.charAt(0) != '@'){ // for now just ignore and don't add at-rules
 				try{
-					var ruleNumber = styleSheet.addRule(selector, cssText);
+					var ruleNumber = this.styleSheet.addRule(selector, cssText, this.ruleIndex);
 					if(ruleNumber == -1){
-						ruleNumber = styleSheet.cssRules.length - 1;
+						ruleNumber = this.styleSheet.cssRules.length - 1;
 					}
 					return styleSheet.cssRules[ruleNumber];
 				}catch(e){
@@ -162,7 +162,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 							target = target.splice ? target : [target];
 							for(var i = 0; i < target.length; i++){
 								var segment = target[i];
-								var returned = segment.put && segment.put(value, rule, name);
+								var returned = segment.put && segment.put(value, rule, propertyName);
 								if(returned){
 									if(returned.then){
 										returned.then(function(){
@@ -520,6 +520,8 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		}while(!target && parentRule);
 		return target;
 	}
+	var hasAddEventListener = !!doc.addEventListener;
+	var matchesSelector = testDiv.matches || testDiv.webkitMatchesSelector || testDiv.msMatchesSelector || testDiv.mozMatchesSelector;
 	
 	// we treat the stylesheet as a "root" rule; all normal rules are children of it
 	var target, root = new Rule;
@@ -597,10 +599,12 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		},
 		on: {
 			put: function(value, rule, name){
-				// TODO: implement this
-				console.log("add event listener");
-				when(evaluateExpression(rule, name, value), function(value){
-					this.on(document, name.slice(2), rule.selector, value);
+				// apply event listening
+				var on = this.on;
+				// first evaluate value as expression
+				get(evaluateExpression(rule, name, value), 0, function(value){
+					// add listener	
+					on(document, name.slice(3), rule.selector, value);
 				});
 			},
 			on: function(target, event, selector, listener){
@@ -609,9 +613,10 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					target.addEventListener(event, select, false) :
 					target.attachEvent(event, select);
 				function select(event){
+					// do event delegation
 					selector = selector || rule.fullSelector();
 					if(matchesSelector.call(event.target, selector)){
-						console.log("execute event", listener);	
+						listener(event);	
 					}
 				}
 			}
