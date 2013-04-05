@@ -13,10 +13,10 @@ presentation of the user interface. Furthermore, CSS is fundamentally built on t
 powerful paradigms of declarative, function reactive programming, providing similar types of
 expressiveness as dependency injection systems. By adding a few simple CSS constructs,
 xstyle bridges the gap to provide the capabilities for composition and modular extensions that
-allow virtually unlimited expression of user interfaces, with a familiar syntax. Xstyle goes
+allow unlimited expression of user interfaces, with a familiar syntax in encapsulated form. Xstyle goes
 beyond the capabilities of preprocessor because it runs in the browser and extensions
 can interact with the DOM. Xstyle prevents the common abuse of HTML for UI, by allowing
-the definition of UI elements with the presentation definition, where they belong.  
+the definition of UI elements with the presentation definition, where they belong.
 
 # Getting Started
 To start using xstyle's extensible CSS, you simply need to load the xstyle JavaScript library, <code>xstyle.min.js</code> 
@@ -30,10 +30,10 @@ and you can start using xstyle's CSS extensions:
 </pre>
 
 Or xstyle can be used with an AMD module loader, like RequireJS or Dojo, and load the 
-xstyle/main module. You will also need to make sure you include the put-selector package:
+xstyle/main module. You will also need to make sure you have installed the put-selector package:
 <pre>
 &lt;style>
-	/* my rules */	
+	/* my rules */
 &lt;/style>
 &lt;script src="dojo/dojo.js">&lt;/script>
 &lt;script>
@@ -51,27 +51,28 @@ See the AMD Plugin Loader section for more information.
 
 Once you have loaded the xstyle script/module, you can begin to use xstyle's extensible CSS.
 
-## New Properties
+## New Definitions
 
-The key building block in xstyle is an extension for creating new properties. In traditional
-CSS, all properties are defined by the browser, and stylesheet rules are limited to specifying
-values for these predefined properties. In xstyle, new properties can be defined with 
-extensible meaning. New properties may be shims (that are standard properties
+The key building block in xstyle is an extension for creating new definitions for things like
+user defined properties. In traditional CSS, all properties, functions, and other 
+constructs are defined by the browser, and stylesheet rules are limited to to using 
+these predefined properties. In xstyle, new properties, functions, and other elements can be defined with 
+extensible meaning. New definitions may be used as shims (to fill in for standard properties
 on other browsers), they may be compositions of other properties, or entirely new concepts.
-Since properties can be constructed using JavaScript modules that can interact with
+Since definitions can be constructed using JavaScript modules that can interact with
 the DOM, there is virtually no limit to the what can be created.
 
-To create a new property, we simply use the <code>=</code> operator to define the property and
-assign a new the property meaning expression. For example, xstyle provides a property
-expression will automatically add a vendor specific prefix (like '-webkit-') to a property.
+To create a new definition, we simply use the <code>=</code> operator to assign a name to
+our new definition and assign an expression to indicate what its meaning. For example, xstyle provides a property
+definition expression that will automatically add a vendor specific prefix (like '-webkit-') to a property.
 We can create such a property:
 
 	transition = prefix;
 
 New properties can be defined anywhere in a stylesheet, including at the top level (amongst
-rules), within rules (or nested rules), or even directly in property names. At the top level, a new property definition makes
-the property available for use anywhere below the definition. Defining within a rule, the 
-property is available only within that rule declaration (or nested rules or extending rules) 
+rules), within rules (or nested rules), or even directly in property names. At the top level, a new definition makes
+the definition or property available for use anywhere below the definition. Defining within a rule, the 
+new definition is available only within that rule declaration (or nested rules or extending rules) 
 below the definition. For example, we could use this property definition in a rule, to have
 xstyle automatically generate vendor specific properties for the transition property (like -webkit-transition):
 
@@ -97,57 +98,73 @@ example above to use the standard 'transition' without prefixing if available:
 		transition=?prefix: color 0.5s;
 	}
 
-However, shimming is only the beginning of what we can do with xstyle...
+However, shimming is only the beginning of what we can do with xstyle. We can also 
+create new definitions with custom behavior implemented in JavaScript module, which can 
+in turn create other custom rules or affect interaction with the DOM. This
+is done by using the module function:
 
-## Variables
-
-Properties can be used as variables that can be referenced from other properties in CSS stylesheets. For many, this concept may be very familiar from CSS preprocessors, 
-and the recent addition in modern browsers according to the W3C specification. 
-To create a variable property, we define our property by assigning it 'var'. For example, we could create a variable:
-
-	highlightColor=var: blue;
-
-To reference the variable and use the value in another property, xstyle uses the standard W3C
-syntax, referencing the variable with a var(variable-name) syntax:
-
-	.highlight {
-		background-color: var(highlightColor);
-	}
-
-A variable can be declared at the top level, as well inside rules. A variable can referenced
-that is within the current rule or any parent rule (see nested rules) including the top level.
-
-This functionality is implemented but only lightly tested.
-
-## Extending Rules
-
-With xstyle, you can define that a CSS rule "extends" another rule, thus inheriting all
-the properties and behavior from another rule. To extend another rule, start the rule
-text with an <code>extends()</code> call, providing the base rule as the parameter:
-
-	.base-rule {
-		color: red;
-		background-color: blue;
-	}
+	my-custom-property = module('my/module');
 	
-	.sub-rule {
-		extends(.base-rule); /* all the properties from base-rule will be inherited */
+We look at how how to implement a module in more detail later.
+
+## Rule Definitions
+
+We can also create a new definitions as composition of other properties, like a rule declaration.
+Such definitions can be used as properties or they can be referred to like elements in
+element generation (see below). For example, we could create a new definition
+based on absolute positioning:
+
+	absolutely = {
+		top: 50px;
+		left: 50px;
+		position: absolute;
 	}
 
-The rule that is extending can define its properties that override the rules inherited from the base rule, for example:
-
-	.sub-rule {
-		extends(.base-rule);
-		color: yellow; /* color is yellow, but we have inherited background-color of blue */ 
+We could then style a class, using our new definition, simply by including the definition
+in the rule:
+	
+	.my-class {
+		absolutely;
 	}
 
-This functionality is mostly implemented but only lightly tested, and may not be complete.
+We can also override properties from our definition:
+
+	.my-class {
+		absolutely;
+		top: 60px;
+	}
+
+But, we can do this shorthand, by putting values directly in the "absolutely" property. The
+values are then assigned to the composite properties in order of declaration. For example:
+  
+	.my-class {
+		absolutely: 60px 70px;
+	}
+
+Would be the same as:
+
+	.my-class {
+		absolutely;
+		top: 60px;
+		bottom: 70px;
+	}
+
+We can use the rule-based definitions within our rule definitions to effectively extend
+definitions:
+
+	absolutely-green = {
+		absolutely;
+		background-color: green;
+	}
+
+(this functionality is not fully implemented)
 
 ## Element Generation
 
 With xstyle, you can declare the creation of elements within rules, allowing for the creation
 of complex presentation components without abusing HTML for presentation. This not only 
-simplifies the creation and composition of UI components, it helps to keep cleaner semantics in HTML.
+simplifies the creation and composition of UI components, it helps to keep cleaner semantics in HTML, 
+and provides better encapsulation.
 
 To create an element, we use the => operator, followed a selector designating the 
 tag of the element to create along with class names, id, and attributes to assign to the element.
@@ -181,7 +198,7 @@ an h1 header with some text like:
 	header {
 		=> h1 'The header of the page';
 
-This functionality is implemented and has received some testing.
+This functionality is implemented and has received testing.
 
 ## Nested Rules
 
@@ -199,6 +216,8 @@ prefix. For example, suppose we want to define several rules for elements within
 }
 
 Using nesting rules can reduce typing, add better organization, and make it easier to refactor stylesheets.
+
+This functionality is implemented and has received testing.
 
 ### Nested Element Generation
 
@@ -218,6 +237,28 @@ synchronize an element identifier or selector with another CSS rule.
 
 We can nest element generation and CSS rules in any combination that we want, allowing
 us to create sophisticated UI elements in a single modular unit. 
+
+This functionality is implemented and has received testing.
+
+## Variables
+
+Properties can be used as variables that can be referenced from other properties in CSS stylesheets. For many, this concept may be very familiar from CSS preprocessors, 
+and the recent addition in modern browsers according to the W3C specification. 
+To create a variable property, we define our property by assigning it 'var'. For example, we could create a variable:
+
+	highlight-color=var: blue;
+
+To reference the variable and use the value in another property, xstyle uses the standard W3C
+syntax, referencing the variable with a var(variable-name) syntax:
+
+	.highlight {
+		background-color: var(highlight-color);
+	}
+
+A variable can be declared at the top level, as well inside rules. A variable can referenced
+that is within the current rule or any parent rule (see nested rules) including the top level.
+
+This functionality is implemented but only lightly tested.
 
 ## Data Binding
 
@@ -347,6 +388,31 @@ body {
 	}
 }
 
+
+## Extending Rules
+
+With xstyle, you can define that a CSS rule "extends" another rule, thus inheriting all
+the properties and behavior from another rule. To extend another rule, start the rule
+text with an <code>extends()</code> call, providing the base rule as the parameter:
+
+	.base-rule {
+		color: red;
+		background-color: blue;
+	}
+	
+	.sub-rule {
+		extends(.base-rule); /* all the properties from base-rule will be inherited */
+	}
+
+The rule that is extending can define its properties that override the rules inherited from the base rule, for example:
+
+	.sub-rule {
+		extends(.base-rule);
+		color: yellow; /* color is yellow, but we have inherited background-color of blue */ 
+	}
+
+This functionality is mostly implemented but only lightly tested, and may not be complete.
+
 ## Extensions and Shims
 
 Xstyle allows one to define additional extensions to CSS. These extensions can be used for creating
@@ -369,13 +435,13 @@ without incurring additional CSS parsing overhead. Xstyle is designed to allow f
 registered to handle different CSS properties, so that the shims and extensions that are
 applied can be explicitly controlled for each stylesheet.
 
-## Property Modules
+## Definition Modules
 
-While xstyles provides predefined expressions for defining new properties, we can also 
-define new properties with our own custom JavaScript modules. To define a new property
-that with a JavaScript module, we use the module(module-id) as the property definition:
+While xstyles provides predefined expressions for new definitions, we can also 
+define new definitions with our own custom JavaScript modules. To define a new property
+with a JavaScript module, we use the module('module-id') as the property definition:
 
-	my-new-property = module(package/module-id);
+	my-new-property = module('package/module-id');
 	
 If you are using an AMD loader, xstyle will load the target module id and use this to handle
 the property. If you are not using an AMD module loader, you can still simply include a script
@@ -392,20 +458,31 @@ methods are defined:
 module.put(value, rule, name) - This is called whenever the property is used within a rule. The
 <code>value</code> argument is the property value in the rule, and the <code>rule</code>
 argument is the Rule object.  
-module.receive(callback)
-module.forElement(element)
-module.get(name)
-module.call(rule, args,...)
+module.receive(callback, rule, name) - This is called when a property is accessed from a 
+binding, to receive the current value. The callback should be called wheneve the value
+is changed in the future.
+module.forElement(element) - If the value of a property is dependent on the element
+that the rule is being applied, the module object may provide a forElement(element)
+function that would return an object with the same methods as described here for the 
+module. It should be noted that there is additional processing overhead, since every
+element needs to be processed individually with this approach.  
+module.get(name) - This is called when a property is accessed using the my-new-property/sub-property
+syntax.
+module.call(rule, args,...) - This is called when the definition is used a function, like
+my-new-property()
 
 The Rule object has the following properties and methods that can be used by the module:
 
-setValue(name, value);
+setValue(name, value) - This performs the action of adding a new property value to 
+a rule. If there are any definition for the property, there are then executed.
+getCssRule() - This gets the browser CSSOM rule object for the this rule. You can
+apply additional CSS properties directly by setting properties on the style object:
 
+	getCssRule().style.color = 'red';
 
-## Defining Extensions
+## Shim Module Examples
 
-We can also explicitly define our own properties and/or choose which CSS properties to shim 
-or extend. Again we do this with property definitions. Let's look at a simplified example from shims.css to see how we 
+Let's look at a simplified example from shims.css to see how we 
 could shim the 'box-shadow' property to use an IE filter:
 <pre>
 box-shadow = module('xstyle/shim/ie-filter');
@@ -430,7 +507,6 @@ is supported by the browser with a vendor prefix (like -webkit- or -moz-). If it
 the vendor prefix is added to the CSS property to enable it. Finally, if 'box-shadow' is
 not supported in standard form or with a vendor prefix, then the ie-filter module is
 loaded to apply the MS filter.
-
 
 ### Included Extension Stylesheets
 
