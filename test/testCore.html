@@ -28,13 +28,15 @@ test-component {
 	border: 4px solid var(main-color);
 }
 
-with-content = test-component{
+with-content {
+	test-component: test;
 	background-color: yellow;
 	main-color: #aaa;
 	label: new title;
 }
 /* a mixin can extend another element, using it's tag and properties when being created */
 mixin = div{
+	div;
 	width: 200px;
 }
 hello-world = {

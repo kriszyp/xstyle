@@ -15,8 +15,17 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		'[': ']',
 		'(': ')'
 	}
+	var supportedTags = {};
 	var doc = document, styleSheet;
 	var undef, testDiv = doc.createElement("div");
+	function isTagSupported(tag){
+		// test to see if a tag is supported by the browser
+		if(tag in supportedTags){
+			return supportedTags[tag];
+		}
+		var elementString = (element = document.createElement(tag)).toString();
+		return supportedTags[tag] = !(elementString == "[object HTMLUnknownElement]" || elementString == "[object]");
+	}
 	// some utility functions
 	function when(value, callback){
 		return value && value.then ? 
@@ -86,13 +95,14 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			if(cssText &&
 				selector.charAt(0) != '@'){ // for now just ignore and don't add at-rules
 				try{
-					var ruleNumber = this.styleSheet.addRule(selector, cssText, this.ruleIndex);
+					var styleSheet = this.styleSheet;
+					var ruleNumber = styleSheet.addRule(selector, cssText, this.ruleIndex > -1 ? this.ruleIndex :styleSheet.cssRules.length);
 					if(ruleNumber == -1){
-						ruleNumber = this.styleSheet.cssRules.length - 1;
+						ruleNumber = styleSheet.cssRules.length - 1;
 					}
 					return styleSheet.cssRules[ruleNumber];
 				}catch(e){
-					console.warn("Unable to add rule", e);
+					console.warn("Unable to add rule", e.message);
 				}
 			}
 		},
@@ -121,11 +131,11 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					return;
 				}
 			}else{
-				// add it to the properties for this rule
-				var propertyExists = name in testDiv.style || resolveProperty(this, name);
+				// add it to the definitions for this rule
+				var propertyExists = name in testDiv.style || this.getDefinition(name, true);
 				if(!conditional || !propertyExists){
-					var properties = (this.properties || (this.properties = {}));
-					properties[name] = evaluateExpression(this, name, value);
+					var definitions = (this.definitions || (this.definitions = {}));
+					definitions[name] = evaluateExpression(this, name, value);
 					if(propertyExists){
 						console.warn('Overriding existing property "' + name + '"');
 					}
@@ -154,7 +164,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				var propertyName = name;
 				do{
 					// check for the handler
-					var target = resolveProperty(this, name);
+					var target = this.getDefinition(name, true);
 					if(target){
 						var rule = this;
 						// call the handler to handle this rule
@@ -183,6 +193,64 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				}while(name);
 			}
 		},
+		put: function(value, rule){
+			// rules can be used as properties, in which case they act as mixins
+			// first extend
+			this.extend(rule);
+			if(value && typeof value == 'string' && this.values){
+				// then apply properties with space delimiting
+				var parts = value.toString().split(' ');
+				for(var i = 0; i < parts.length; i++){
+					// TODO: take the last part and don't split on spaces\
+					var name = this.values[i];
+					name && rule.setValue(name, parts[i]);
+				}
+			}
+		},
+		extend: function(derivative){
+			console.log("extending ", derivative);
+			// we might consider removing this if it is only used from put
+			var base = this;
+			var newText = base.cssText;
+			derivative.cssText += newText;
+			'values,definitions,variables,calls'.replace(/\w+/g, function(property){
+				if(base[property]){
+					derivative[property] = Object.create(base[property]);
+				}
+			});
+	//		var ruleStyle = derivative.getCssRule().style;
+			base.eachProperty(function(name, value){
+				derivative.setValue(name, value);
+		/*		if(name){
+					name = convertCssNameToJs(name);
+					if(!ruleStyle[name]){
+						ruleStyle[name] = value;
+					}
+				}*/
+			});
+			if(base.generator){
+				derivative.declareProperty(null, base.generator);
+			}
+			
+		},
+		getDefinition: function(name, includeRules){
+			// lookup a definition by name, which used for handling properties and other thingsss
+			var parentRule = this;
+			do{
+				var target = parentRule.definitions && parentRule.definitions[name]
+					|| (includeRules && parentRule.rules && parentRule.rules[name]);
+				parentRule = parentRule.parent;
+			}while(!target && parentRule);
+			if(!target && includeRules && name && /^\w[\w-]*$/.test(name)){
+				if(isTagSupported(name)){
+					target = new Rule();
+					target.selector = name;
+				}
+			}
+			console.log('resolving',name,target);
+			return target;
+		},
+		
 		cssText: ""
 	};
 	// a class representing function calls
@@ -326,6 +394,9 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			return lastElement;
 		}
 	}
+	var jsKeywords = {
+		'true': 1, 'false': 1, 'null': 1, 'typeof': 1
+	};
 	function evaluateExpression(rule, name, value){
 		// evaluate a binding
 		var binding = rule["var-expr-" + name];
@@ -341,7 +412,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		// deal with an array, converting strings to JS-eval'able strings
 			// find all the variables in the expression
 		expression = expression.replace(/("[^\"]*")|([\w_$\.\/-]+)/g, function(t, string, variable){
-			if(variable){
+			if(variable && !(variable in jsKeywords)){
 				// for each reference, we break apart into variable reference and property references after each dot				
 				attributeParts = variable.split('/');
 				var parameterName = attributeParts.join('_');
@@ -349,7 +420,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				variables.push(attributeParts);
 				// first find the rule that is being referenced
 				var firstReference = attributeParts[0];
-				var target = resolveProperty(rule, firstReference);
+				var target = rule.getDefinition(firstReference);
 				if(typeof target == 'string' || target instanceof Array){
 					target = evaluateExpression(rule, firstReference, target);
 				}else if(!target){
@@ -421,7 +492,9 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				var variable = variables[0];
 				var value = {
 					then: function(callback){
-						callbacks.push(callback);
+						callbacks ? 
+							callbacks.push(callback) :
+							callback(value); // immediately available
 					}
 				}
 				when(variable[0], function(resolved){
@@ -444,6 +517,8 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					for(var j = 0; j < callbacks.length; j++){
 						callbacks[j](value);
 					}
+					// accept no more callbacks, since we have resolved
+					callbacks = null;
 				});
 				return value;
 				if(first && first.then){
@@ -511,15 +586,6 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			}
 		} : getComputation();
 	}
-	function resolveProperty(rule, name, includeRules){
-		var parentRule = rule;
-		do{
-			var target = parentRule.properties && parentRule.properties[name]
-				|| (includeRules && parentRule.rules && parentRule.rules[name]);
-			parentRule = parentRule.parent;
-		}while(!target && parentRule);
-		return target;
-	}
 	var hasAddEventListener = !!doc.addEventListener;
 	var matchesSelector = testDiv.matches || testDiv.webkitMatchesSelector || testDiv.msMatchesSelector || testDiv.mozMatchesSelector;
 	
@@ -527,7 +593,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 	var target, root = new Rule;
 	root.root = true;
 	// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
-	root.properties = {
+	root.definitions = {
 		Math: Math, // just useful
 		module: function(mid){
 			// require calls can be used to load in data in
@@ -632,9 +698,5 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		// if it is a comma separated list of values, return them as an array
 		return [].slice.call(arguments);
 	};
-	root.setStyleSheet = function(nextStyleSheet){
-		styleSheet = nextStyleSheet;
-	};
-	root.resolveProperty = resolveProperty;
 	return root;	
 });
