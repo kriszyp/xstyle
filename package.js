@@ -5,8 +5,9 @@ var miniExcludes = {
 	},
 	copyOnlyRe = [
 		/\/build/, // contents of build folder and build.js
-		/\/core\//, // contents of core folder
-		/\/xstyle\.min/ // xstyle.min.*
+		/\/core\/amdLoader/, // contents of core folder
+		/\/core\/put/, // contents of core folder
+		/\/xstyle(\.min)?$/ // xstyle.min.*
 	],
 	isTestRe = /\/test\//;
 
