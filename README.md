@@ -26,7 +26,7 @@ and you can start using xstyle's CSS extensions:
 &lt;style>
 	/* my rules */	
 &lt;/style>
-&lt;script src="xstyle/xstyle.min.js">&lt;/script>
+&lt;script src="xstyle/xstyle.js">&lt;/script> <!-- or use the minified xstyle.min.js -->
 </pre>
 
 Or xstyle can be used with an AMD module loader, like RequireJS or Dojo, and load the 
