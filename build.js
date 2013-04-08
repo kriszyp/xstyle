@@ -3,6 +3,12 @@
  * pre-processing extensions for faster run-time execution. This module is also
  * used by the AMD build process.
  */
+var operatorMatch = {
+	'{': '}',
+	'[': ']',
+	'(': ')'
+};
+var nextId = 1;
 
 document = {
 	createElement: function(){
@@ -72,9 +78,9 @@ function main(source, target){
 	var processed = processCss(cssText, basePath);
 	var output = processed.standardCss;
 	if(processed.xstyleCss){
-		output = 'x-xstyle{content:"' + 
+		output += 'x-xstyle{content:"' + 
 				processed.xstyleCss.replace(/["\\\n\r]/g, '\\$&') + 
-					'";}' + output;
+					'";}';
 	}
 	if(target){
 		fs.writeFileSync(target, output);
@@ -100,14 +106,14 @@ function processCss(cssText, basePath, inlineAllResources){
 		
 	}
 	XRule.prototype = {
-		newCall: function(){
-			return new XRule;
+		newCall: function(name){
+			return new Call(name);
 		},
 		newRule: function(){
 			return new XRule();
 		},
-		resolveProperty: function(rule, name, includeRules){
-			var parentRule = rule;
+		getDefinition: function(name, includeRules){
+			var parentRule = this;
 			do{
 				var target = parentRule.properties && parentRule.properties[name]
 					|| (includeRules && parentRule.rules && parentRule.rules[name]);
@@ -117,12 +123,12 @@ function processCss(cssText, basePath, inlineAllResources){
 		},
 		declareProperty: function(name, value, conditional){
 			// TODO: access staticHasFeatures to check conditional
-			xstyleCss.push(name, '=', value);
+			xstyleCss.push(name + '=' + value);
 			var properties = (this.properties || (this.properties = {}));
 			properties[name] = true;
 		},
 		setValue: function(name, value){
-			var target = this.resolveProperty(this, name);
+			var target = this.getDefinition(name);
 			if(!target || !this.xstyleStarted){
 				if(!this.ruleStarted){
 					this.ruleStarted = true;
@@ -136,10 +142,11 @@ function processCss(cssText, basePath, inlineAllResources){
 			if(target){
 				if(!this.xstyleStarted){
 					this.xstyleStarted = true;
-					xstyleCss.push('/', this.id = nextId++, '{');
+					var starter = '/' + (this.id = nextId++) + '{';
 					browserCss[this.selectorIndex] += ',#' + this.id;
 				}
-				xstyleCss.push(name, ':', value, '}');
+				
+				xstyleCss.push((starter || '') + name + ':' + value, '}');
 			}
 		},
 		onRule: function(){
@@ -148,7 +155,23 @@ function processCss(cssText, basePath, inlineAllResources){
 				xstyleCss.push('}')
 			}
 		}
+	};
+	// a class representing function calls
+	function Call(value){
+		// we store the caller and the arguments
+		this.caller = value;
+		this.args = [];
 	}
+	var CallPrototype = Call.prototype = new XRule;
+	CallPrototype.declareProperty = CallPrototype.setValue = function(name, value){
+		// handle these both as addition of arguments
+		this.args.push(value);
+	};
+	CallPrototype.toString = function(){
+		var operator = this.operator;
+		return operator + this.args + operatorMatch[operator]; 
+	};
+	
 	function insertRule(cssText){
 		//browserCss.push(cssText);
 	}
@@ -209,7 +232,7 @@ function processCss(cssText, basePath, inlineAllResources){
 			cssRules: []
 		}
 	};
-	var browserCss = [correctUrls(cssText, basePath + "placeholder.css")];
+	var browserCss = [];//[correctUrls(cssText, basePath + "placeholder.css")];
 	var xstyleCss = [];
 	var rootRule = new XRule;
 	rootRule.root = true;
