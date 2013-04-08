@@ -1,4 +1,5 @@
 define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
+	var targetStylesheet, inLayer, targetStylesheetContents = '';
 	return {
 		start:function(
 			mid,
@@ -13,28 +14,40 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 				xstyleModuleInfo = bc.getSrcModuleInfo("xstyle/core/parser", referenceModule, true),
 				xstyleText = fs.readFileSync(xstyleModuleInfo.url + '.js', "utf8"),
 				xstyleProcess = buildModule(xstyleText),
-				layer = referenceModule.layer,
-				targetStylesheet = layer && layer.targetStylesheet,
-				targetStylesheetContents = layer && layer.targetStylesheetContents;
-			if(targetStylesheet){
-				// we want to calculate the target stylesheet relative to the layer
-				var layerModule = bc.getSrcModuleInfo(referenceModule.layer.name, referenceModule, true);
-				var targetStylesheetUrl = bc.getSrcModuleInfo(targetStylesheet, layerModule, true).url;
-				// create a replacement function, to replace the stylesheet with combined stylesheet
-				bc.replacements[targetStylesheetUrl] = [[function(){
-					return targetStylesheetContents;
-				}]];
-				if(!targetStylesheetContents){
-					// initialize the target stylesheet
-					var targetStylesheetContents = '';
-					try{
-						var targetStylesheetContents = fs.readFileSync(targetStylesheetUrl, 'utf8');
-					}catch(e){
-						console.error(e);
-					}
-					// one target stylesheet per layer
-					referenceModule.layer.targetStylesheetContents = targetStylesheetContents;
+				targetStylesheetUrl;				
+				
+			if(!bc.fixedUpLayersToDetect){
+				bc.fixedUpLayersToDetect = true;
+				for(var i in bc.layers){
+					var layer = bc.layers[i];
+					(function(layer){ 
+						var oldInclude = layer.include;
+						layer.include = {
+							forEach: function(callback){
+								// we want to calculate the target stylesheet relative to the layer
+								inLayer = true;
+								targetStylesheet = layer.targetStylesheet;
+								if(targetStylesheet){
+									var targetStylesheetModule = bc.getSrcModuleInfo(targetStylesheet, null, true);
+									targetStylesheetModule.getText = function(){
+										return targetStylesheetContents;
+									};
+									targetStylesheetUrl = targetStylesheetModule.url;
+									// initialize the target stylesheet
+									targetStylesheetContents = '';
+									try{
+										targetStylesheetContents = fs.readFileSync(targetStylesheetUrl, 'utf8');
+									}catch(e){
+										console.error(e);
+									}
+								}
+								oldInclude.forEach(callback);
+							}
+						};
+					})(bc.layers[i]);
 				}
+			}
+			if(targetStylesheet){
 			}else{
 				// there is no targe stylesheet, so
 				// we will be directly inlining the stylesheet in the layer, so we need the createStyleSheet module
@@ -55,13 +68,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 				// if we are inlining the stylesheet, we need the functionality to insert a stylesheet from text 
 				result.push(bc.amdResources['xstyle/util/createStyleSheet']);
 			}
-			if(targetStylesheetUrl){
-				// accumulate all the stylesheets in our target stylesheet
-				var processed = processCss(cssResource);//, targetStylesheetUrl);
-				targetStylesheetContents += processed.standardCss;
-				referenceModule.layer.targetStylesheetContents = targetStylesheetContents;
-			}
-			else if(bc.internStrings && !bc.internSkip(stylesheetInfo.mid, referenceModule)){
+			if(bc.internStrings && !bc.internSkip(stylesheetInfo.mid, referenceModule)){
 				// or inline it
 				result.push({
 					module:cssResource,
@@ -78,11 +85,19 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 							json.stringify(processed.standardCss +"");
 					},
 					internStrings:function(){
-						if(!this.processed){
-							return ["url:" + this.mid, this.getText()];
-						}else{
-							return '';
+						if(targetStylesheet){
+							// accumulate all the stylesheets in our target stylesheet
+							var processed = processCss(this.module);//, targetStylesheetUrl);
+							targetStylesheetContents += processed.standardCss;
+							// in case the file doesn't exist
+							var targetDestStylesheetModule = bc.getDestModuleInfo(targetStylesheet, null, true);
+							fs.writeFileSync(targetDestStylesheetModule.url, targetStylesheetContents);
+							return ['','0'];
 						}
+						if(inLayer){
+							return ["url:" + this.mid, this.getText()];
+						}
+						return ['','0'];
 					}
 				});
 			}
