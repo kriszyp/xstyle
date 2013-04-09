@@ -13,12 +13,14 @@ presentation of the user interface. Furthermore, CSS is fundamentally built on t
 powerful paradigms of declarative, function reactive programming, providing similar types of
 expressiveness as dependency injection systems. By adding a few simple CSS constructs,
 xstyle bridges the gap to provide the capabilities for composition and modular extensions that
-allow unlimited expression of user interfaces, with a familiar syntax in encapsulated form. Xstyle goes
-beyond the capabilities of preprocessor because it runs in the browser and extensions
+allow virtually unlimited expression of user interfaces, with a familiar syntax in encapsulated form. 
+Xstyle goes beyond the capabilities of preprocessor because it runs in the browser and extensions
 can interact with the DOM. Xstyle prevents the common abuse of HTML for UI, by allowing
-the definition of UI elements with the presentation definition, where they belong.
+the definition of UI elements with the presentation definition, where they belong, encouraging
+both encapsulation and separation of concerns with intelligent organization.
 
 # Getting Started
+
 To start using xstyle's extensible CSS, you simply need to load the xstyle JavaScript library, <code>xstyle.min.js</code> 
 and you can start using xstyle's CSS extensions:
 
@@ -29,8 +31,8 @@ and you can start using xstyle's CSS extensions:
 &lt;script src="xstyle/xstyle.js">&lt;/script> <!-- or use the minified xstyle.min.js -->
 </pre>
 
-Or xstyle can be used with an AMD module loader, like RequireJS or Dojo, and load the 
-xstyle/main module. You will also need to make sure you have installed the put-selector package:
+Or xstyle can be used with an AMD module loader, like RequireJS or Dojo. Simply load the 
+xstyle/main module to initiate the css extension parsing:
 <pre>
 &lt;style>
 	/* my rules */
@@ -41,6 +43,9 @@ xstyle/main module. You will also need to make sure you have installed the put-s
 &lt;/script>
 </pre>
 
+You will also need to make sure you have installed the put-selector package, as xstyle
+depends on it.
+
 Using a module loader is beneficial, as it provides for automatic loading of extension
 modules when they are used in CSS.
 
@@ -49,13 +54,14 @@ See the AMD Plugin Loader section for more information.
 
 # Using Xstyle CSS
 
-Once you have loaded the xstyle script/module, you can begin to use xstyle's extensible CSS.
+Once you have loaded the xstyle script/module, you can begin to use xstyle's extensible CSS,
+making use of new definitions to develop your application within CSS.
 
 ## New Definitions
 
-The key building block in xstyle is an extension for creating new definitions for things like
+The key building block in xstyle is an extension for creating new definitions for features like
 user defined properties. In traditional CSS, all properties, functions, and other 
-constructs are defined by the browser, and stylesheet rules are limited to to using 
+constructs are defined by the browser, and stylesheet rules are limited to using 
 these predefined properties. In xstyle, new properties, functions, and other elements can be defined with 
 extensible meaning. New definitions may be used as shims (to fill in for standard properties
 on other browsers), they may be compositions of other properties, or entirely new concepts.
@@ -63,7 +69,7 @@ Since definitions can be constructed using JavaScript modules that can interact 
 the DOM, there is virtually no limit to the what can be created.
 
 To create a new definition, we simply use the <code>=</code> operator to assign a name to
-our new definition and assign an expression to indicate what its meaning. For example, xstyle provides a property
+our new definition and assign an expression to indicate its meaning. For example, xstyle provides a property
 definition expression that will automatically add a vendor specific prefix (like '-webkit-') to a property.
 We can create such a property:
 
@@ -71,17 +77,18 @@ We can create such a property:
 
 New properties can be defined anywhere in a stylesheet, including at the top level (amongst
 rules), within rules (or nested rules), or even directly in property names. At the top level, a new definition makes
-the definition or property available for use anywhere below the definition. Defining within a rule, the 
+the definition or property available for use anywhere below the definition. Defined within a rule, the 
 new definition is available only within that rule declaration (or nested rules or extending rules) 
 below the definition. For example, we could use this property definition in a rule, to have
-xstyle automatically generate vendor specific properties for the transition property (like -webkit-transition):
+xstyle automatically generate vendor specific properties for the transition property 
+(including -webkit-transition, -moz-transition, etc.):
 
 	transition = prefix;
 	.content {
 		transition: color 0.5s;
 	}
 
-Since property definitions can be directly within a property name, we could inline the 
+Since property definitions can be used directly within a property name, we could inline the 
 definition to more succinctly write the same transition:
   
 	.content {
@@ -100,8 +107,8 @@ example above to use the standard 'transition' without prefixing if available:
 
 However, shimming is only the beginning of what we can do with xstyle. We can also 
 create new definitions with custom behavior implemented in JavaScript module, which can 
-in turn create other custom rules or affect interaction with the DOM. This
-is done by using the module function:
+in turn create other custom rules or affect interaction with the DOM. We can use
+rules as a definitions or JavaScript modules for more customized behavior:
 
 	my-custom-property = module('my/module');
 	
@@ -111,7 +118,7 @@ We look at how how to implement a module in more detail later.
 
 We can also create a new definitions as composition of other properties, like a rule declaration.
 Such definitions can be used as properties, to mix in their properties, they can
-be used to base rules for extension, or they can be referred to like elements in
+be used as base rules for extension, or they can be referred to like elements in
 element generation (see below). For example, we could create a new definition
 based on absolute positioning:
 
@@ -123,7 +130,7 @@ based on absolute positioning:
 
 We could then style a class by mixing in our new definition. We do this simply by including 
 the using the definition as a property in our rule. If we want to simply mix in the properties
-as defined in the base class, we set the value to "default":
+as defined in the base definition, we set the value to "default":
 	
 	.my-class {
 		absolutely: default;
@@ -136,7 +143,7 @@ We can also override properties from our definition:
 		top: 60px;
 	}
 
-But, we can do this shorthand, by putting values directly in the "absolutely" property. The
+And, we can do this shorthand, by putting values directly in the "absolutely" property. The
 values are then assigned to the composite properties in order of declaration. For example:
   
 	.my-class {
@@ -151,7 +158,7 @@ Would be the same as:
 		bottom: 70px;
 	}
 
-Extending Rules
+## Extending Rules
 
 We can also create rule definitions that extend other rule definitions. We do this simply
 by referencing the base definition after the '=' and before the rule declaration:
@@ -502,6 +509,22 @@ apply additional CSS properties directly by setting properties on the style obje
 
 	getCssRule().style.color = 'red';
 
+## Pseudo Definitions
+
+We can create new definitions for pseudo selectors. Pseudo selector definitions begin
+with a colon. For example, we can could create a custom pseudo selector:
+
+	:custom = module('my-package/custom');  
+
+The module's returned object should have a pseudo method that will be called for handling
+rule's with the defined pseudo selector.
+
+Again, we can use a conditional operator if we only want to implement the pseudo if it
+has not already been provided by the browser. For example, if wanted to shim support
+for the :enabled pseudo, we could implement a shim module and conditionally load it:
+
+	:enabled =? module('my-package/enabled');
+
 ### Included Shim Stylesheets
 
 The shims.css stylesheet also defines shims for pseudo selectors including hover and focus.
@@ -518,6 +541,7 @@ The following experimental shim modules come with Xstyle:
 bottom and right CSS properties.
 
 #### Available Extensions
+
 The following (mostly experimental) extension modules come with Xstyle:
 * ext/pseudo - This modules provides emulation of hover, focus and other pseudos that
 are not present in older versions of IE.
