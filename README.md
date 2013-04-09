@@ -107,10 +107,11 @@ is done by using the module function:
 	
 We look at how how to implement a module in more detail later.
 
-## Rule Definitions
+## Rule Definitions and Mixins
 
 We can also create a new definitions as composition of other properties, like a rule declaration.
-Such definitions can be used as properties or they can be referred to like elements in
+Such definitions can be used as properties, to mix in their properties, they can
+be used to base rules for extension, or they can be referred to like elements in
 element generation (see below). For example, we could create a new definition
 based on absolute positioning:
 
@@ -120,17 +121,18 @@ based on absolute positioning:
 		position: absolute;
 	}
 
-We could then style a class, using our new definition, simply by including the definition
-in the rule:
+We could then style a class by mixing in our new definition. We do this simply by including 
+the using the definition as a property in our rule. If we want to simply mix in the properties
+as defined in the base class, we set the value to "default":
 	
 	.my-class {
-		absolutely;
+		absolutely: default;
 	}
 
 We can also override properties from our definition:
 
 	.my-class {
-		absolutely;
+		absolutely: default;
 		top: 60px;
 	}
 
@@ -144,17 +146,43 @@ values are then assigned to the composite properties in order of declaration. Fo
 Would be the same as:
 
 	.my-class {
-		absolutely;
+		absolutely: default;
 		top: 60px;
 		bottom: 70px;
 	}
 
-We can use the rule-based definitions within our rule definitions to effectively extend
-definitions:
+Extending Rules
 
-	absolutely-green = {
-		absolutely;
+We can also create rule definitions that extend other rule definitions. We do this simply
+by referencing the base definition after the '=' and before the rule declaration:
+
+	absolutely-green = absolutely {
 		background-color: green;
+	}
+
+We can also extend from multiple base definitions. We do this by comma delimiting
+all the base definitions we want to inherit from. For example, we could alternately create our
+absolutely positioned element with green background from two other definitions:
+
+	green-background = {
+		background-color: green;
+	}
+	absolutely-green = absolutely, green-background {}
+
+This provides similar functionality as using the base definition as a property, but there 
+are a couple of important distinctions. First, extensions will inherit all the definitions within
+the base definition, whereas property mixins only inherit the property values (and their
+meaning according to their own definitions). This means that if you have assigned
+a new definition within a base rule definition, you can reference that definition in your
+property definitions or element references.
+
+The second capability that extending rules provides (that is not a part of property mixins),
+is that you can refer to any tag or class selector as the base definition, and that tag or class will be used
+when the definition is referenced in element generation (see next section). For example,
+we can create our own big-header definition that inherits from an h1:
+  
+	big-header = h1 {
+		font-size: 4em;
 	}
 
 (this functionality is not fully implemented)
@@ -198,7 +226,24 @@ an h1 header with some text like:
 	header {
 		=> h1 'The header of the page';
 
-This functionality is implemented and has received testing.
+Xstyle will automatically handle applying any previously done element generation rules
+within the generation of other elements. For example, if we were to create a 
+table.two-row element, with the element generation definition above, we can also
+use this in another element generation. For example:
+
+	.content {
+		=> table.two-row; /* <- this will be expanded to create two rows */ 
+
+As mentioned in the rule definition section, we can also reference any rule definitions
+within our element generation. For example, we could reference the "big-header"
+definition we created above, which will generate an &lt;h1> element with a font-size
+of 4em:
+	
+	.content {
+		=> big-header;
+	}
+
+This functionality is partly implemented and has received testing.
 
 ## Nested Rules
 
@@ -227,10 +272,10 @@ synchronize an element identifier or selector with another CSS rule.
 
 	.content {
 		=> 
-			h1 'Green Header' {
+			h1{
 				color: green;
 			},
-			p 'Blue Paragraph {
+			p 'Blue Paragraph' {
 				color: blue;
 			};
 	}
@@ -242,9 +287,11 @@ This functionality is implemented and has received testing.
 
 ## Variables
 
-Properties can be used as variables that can be referenced from other properties in CSS stylesheets. For many, this concept may be very familiar from CSS preprocessors, 
+Properties can be used as variables that can be referenced from other properties in CSS stylesheets. 
+For many, this concept may be very familiar from CSS preprocessors, 
 and the recent addition in modern browsers according to the W3C specification. 
-To create a variable property, we define our property by assigning it 'var'. For example, we could create a variable:
+To create a variable property, we define our property by assigning it 'var'. For 
+example, we could create a variable:
 
 	highlight-color=var: blue;
 
@@ -307,7 +354,7 @@ to properties of an object:
 All elements have default binding. For input elements, bindings are bound to the input's 
 "value" attribute, for other elements, to the text content of the element. However,
 you can also bind to specific attributes of an element as well. This accomplished
-by placing the paranthesis embedded binding reference in an attribute selector generator.
+by placing the parenthesis embedded binding reference in an attribute selector generator.
 For example, we could bind the href of an anchor element to a variable:
 
 	targetUrl = 'http://target/';
@@ -372,51 +419,31 @@ This functionality is implemented and has been lightly tested.
 
 ## Creating Components
 
-Together these features can be used to create components with CSS. 
+By combining the ability to create new definitions, bindings, and variables, we can create 
+new encapsulated components with CSS. For example, here we create a component
+that renders an h1 and p element with content, as defined by the component.
 
-my-component {
-	=> 
-		h1 (label),
-		p (content);
-	label = 'Default Label';
-	content = 'Default Content';
-}
-
-body {
-	=> my-component {
-		label: 'My Label';
-	}
-}
-
-
-## Extending Rules
-
-With xstyle, you can define that a CSS rule "extends" another rule, thus inheriting all
-the properties and behavior from another rule. To extend another rule, start the rule
-text with an <code>extends()</code> call, providing the base rule as the parameter:
-
-	.base-rule {
-		color: red;
-		background-color: blue;
-	}
-	
-	.sub-rule {
-		extends(.base-rule); /* all the properties from base-rule will be inherited */
+	my-component {
+		=> 
+			h1 (label),
+			p (content);
+		label=var: 'Default Label';
+		content=var: 'Default Content';
+		background-color: #ddf;
 	}
 
-The rule that is extending can define its properties that override the rules inherited from the base rule, for example:
+We can then use this component as building block in our application:
 
-	.sub-rule {
-		extends(.base-rule);
-		color: yellow; /* color is yellow, but we have inherited background-color of blue */ 
+	body {
+		=> my-component {
+			label: 'My Label';
+		}
 	}
 
-This functionality is mostly implemented but only lightly tested, and may not be complete.
 
-## Extensions and Shims
+## Shims
 
-Xstyle allows one to define additional extensions to CSS. These extensions can be used for creating
-custom components or for filling in missing functionality in browsers. Xstyle's default stylesheet
+Xstyle can also be used to define extensions can be used for filling in missing functionality in browsers. Xstyle's default stylesheet
 provides shims for a few commonly used properties that are missing in some older browsers,
 including box-shadow, transform, and border-radius. For example, we can write:
 
@@ -429,11 +456,6 @@ including box-shadow, transform, and border-radius. For example, we can write:
 Here, we can use newer CSS properties like 'box-shadow' and 'transform' and Xstyle
 will shim (or "polyfill" or "fix") older browsers for you, transforming these to 
 MS filters for older versions of Internet Explorer. 
-
-Xstyle is plugin-based so that new shims and extensions can be selected and combined
-without incurring additional CSS parsing overhead. Xstyle is designed to allow for plugins to be 
-registered to handle different CSS properties, so that the shims and extensions that are
-applied can be explicitly controlled for each stylesheet.
 
 ## Definition Modules
 
@@ -480,35 +502,7 @@ apply additional CSS properties directly by setting properties on the style obje
 
 	getCssRule().style.color = 'red';
 
-## Shim Module Examples
-
-Let's look at a simplified example from shims.css to see how we 
-could shim the 'box-shadow' property to use an IE filter:
-<pre>
-box-shadow = module('xstyle/shim/ie-filter');
-</pre>
-Here we defined that the CSS property 'box-shadow' should be handled by the 'xstyle/shim/ie-filter' 
-module. The ie-filter module converts the CSS property to an MS filter property so that
-we can enable a box shadow in IE. Now, we could later create a rule that uses this property:
-<pre>
-.my-box: {
-	box-shadow: 10px 10px 5px #888888;
-}
-</pre>
-However, we often want the shims to be conditional. For shims, we usually only want to apply the 
-shimming module if the property is not natively supported. We can do this with the
-default and prefix property values. The rule in shims.css looks like this:
-<pre>
-box-shadow=? prefix, module(xstyle/shim/ie-filter);
-</pre>
-This extension rule includes multiple, comma separated values. The first value is 'prefix'.
-This indicates that first Xstyle should check if the 'box-shadow' 
-is supported by the browser with a vendor prefix (like -webkit- or -moz-). If it is, then 
-the vendor prefix is added to the CSS property to enable it. Finally, if 'box-shadow' is
-not supported in standard form or with a vendor prefix, then the ie-filter module is
-loaded to apply the MS filter.
-
-### Included Extension Stylesheets
+### Included Shim Stylesheets
 
 The shims.css stylesheet also defines shims for pseudo selectors including hover and focus.
 By @import'ing shims.css into a stylesheet, these shims will be defined and we can using.
@@ -545,12 +539,19 @@ and can be used to instantiate Dojo's Dijit widgets.
 ## Widgets
 
 One of the extensions included in xstyle is a property for declaring
-widgets that follow the Dojo widget API (like Dijit widgets). In xstyle/ext.css this is
-defined as the "widget" property. The value of the "widget" property should be a
-nested rule with property definitions corresponding to the properties that should
+widgets that follow the Dojo widget API (like Dijit widgets). This extension module is
+available in the xstyle/ext/widget module. This can assigned as a new property definition 
+and then the property can be used with a 
+nested rule with sub-property definitions corresponding to the properties that should
 be passed to the widget. There should also be a "type" property that indicates
-the id of the module with the widget to load. For example, we could create progress
-bar using dijit/ProgressBar, by defining it in a rule:
+the id of the module with the widget to load. For example, we could add a "widget"
+property definition:
+
+	widget = module('xstyle/ext/widget');
+
+And then we could create progress bar using dijit/ProgressBar, using the "widget" property
+in a rule:
+
 
 	.my-progress-bar {
 		widget: {
@@ -568,7 +569,7 @@ Xstyle includes built tools that serve several purposes. First, they provide CSS
 combining @import'ed stylesheets into parent stylesheets to reduce requests. Second,
 it will perform CSS minification, eliminating unnecessary whitespace and comments.
 Xstyle will also isolate extensions into a special property that allows the xstyle parser
-to run signficantly faster with built stylesheet. To run the build tool, run the build.js
+to run signficantly faster with a built stylesheet. To run the build tool, run the build.js
 with node, providing a path to a stylesheet or directory of stylesheets to process, and 
 a target to save the stylesheet to. For example, if we want to build app.css, we could do:
 
@@ -588,6 +589,24 @@ requests, this is best used for images that are small and very likely to be used
 the URL is inline in the stylesheet, it increases the load time of the stylesheet, and 
 if the image might not be used or is large, this may be more detrimental than the 
 improved overall load time afforded by the reduced requests.
+
+# AMD Plugin Loader
+
+You can also use Xstyle as a CSS loader plugin for AMD loaders like Dojo and RequireJS. 
+To use the CSS loader, use the AMD plugin syntax, with xstyle/css as the plugin loader
+and the path to the stylesheet afterwards:
+
+	require(['xstyle/css!path/to/stylesheet.css'], function(){
+		// after after css is loaded
+	});
+
+Note, that simply using the plugin loader will not load xstyle, and trigger parsing of the stylesheet,
+so you will not be able to use the extensions, unless you have specifically included
+the xstyle module as well.
+
+This functionality is implemented and has been well tested.
+
+# Building with AMD Plugin
 
 When used as an AMD plugin, xstyle can also integrate with a Dojo build, automatically
 including CSS dependencies of modules in a build. To run utilize xstyle in a Dojo build,
@@ -609,31 +628,16 @@ in the layer definition in the build profile:
 	layers: [
 	{
 		name: "path/to/targetModule.js",
-		targetStylesheet: "./someStylesheet.js", // relative to target module
+		targetStylesheet: "my-package/css/main-stylesheet.css", // relative to target module
 		...
 
 When the build runs, any CSS dependencies that are encountered in modules will then
-be added to someStylesheet.js, rather than inlined in the JavaScript build layer. One
+be added to main-stylesheet.js (which will be created if it does not already exist), rather 
+than inlined in the JavaScript build layer. One
 can still use the #inline URL directive to inline resources in combination with the AMD
 build plugin.
-
-# AMD Plugin Loader
-
-You can also use Xstyle as a CSS loader plugin for AMD loaders like Dojo and RequireJS. 
-To use the CSS loader, use the AMD plugin syntax, with xstyle/css as the plugin loader
-and the path to the stylesheet afterwards:
-
-	require(['xstyle/css!path/to/stylesheet.css'], function(){
-		// after after css is loaded
-	});
-
-Note, that simply using the plugin loader will not load xstyle, and trigger parsing of the stylesheet,
-so you will not be able to use the extensions, unless you have specifically included
-the xstyle module as well.
-
-This functionality is implemented and has been well tested.
  
-# Import Fixing
+## Import Fixing
 
 Another feature Xstyle provides is reliable @import behavior. Internet Explorer is not
 capable of loading multiples levels deep @imports. Xstyle provides @import "flattening"
@@ -645,7 +649,9 @@ stylesheet) and the second @import is removed. This is a powerful feature becaus
 it allows stylesheets to @import another stylesheet without worrying about overriding
 another stylesheet that expected to come after the target sheet due to it's @import statement.
 
-# has-class
+# Additional Modules
+
+## has-class
 
 The has-class module provides decoration of the root &lt;html> element with class names
 based on feature detection. The has-class module works in conjunction with the has()
