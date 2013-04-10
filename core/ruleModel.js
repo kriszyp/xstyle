@@ -15,17 +15,8 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		'[': ']',
 		'(': ')'
 	}
-	var supportedTags = {};
 	var doc = document, styleSheet;
 	var undef, testDiv = doc.createElement("div");
-	function isTagSupported(tag){
-		// test to see if a tag is supported by the browser
-		if(tag in supportedTags){
-			return supportedTags[tag];
-		}
-		var elementString = (element = document.createElement(tag)).toString();
-		return supportedTags[tag] = !(elementString == "[object HTMLUnknownElement]" || elementString == "[object]");
-	}
 	// some utility functions
 	function when(value, callback){
 		return value && value.then ? 
@@ -122,24 +113,29 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		},
 		declareProperty: function(name, value, conditional){
 			// called by the parser when a variable assignment is encountered
-			if(value[0].toString().charAt(0) == '>'){
-				// this is used to indicate that generation should be triggered
-				if(!name){
-					this.generator = value;
-					value = generate(value, this);
-					elemental.addRenderer("", value, this, value);
-					return;
-				}
-			}else{
-				// add it to the definitions for this rule
-				var propertyExists = name in testDiv.style || this.getDefinition(name, true);
-				if(!conditional || !propertyExists){
-					var definitions = (this.definitions || (this.definitions = {}));
-					definitions[name] = evaluateExpression(this, name, value);
-					if(propertyExists){
-						console.warn('Overriding existing property "' + name + '"');
+			if(value.length){
+				if(value[0].toString().charAt(0) == '>'){
+					// this is used to indicate that generation should be triggered
+					if(!name){
+						this.generator = value;
+						value = generate(value, this);
+						elemental.addRenderer("", value, this, value);
+						return;
+					}
+				}else{
+					// add it to the definitions for this rule
+					var propertyExists = name in testDiv.style || this.getDefinition(name, true);
+					if(!conditional || !propertyExists){
+						var definitions = (this.definitions || (this.definitions = {}));
+						definitions[name] = evaluateExpression(this, name, value);
+						if(propertyExists){
+							console.warn('Overriding existing property "' + name + '"');
+						}
 					}
 				}
+			}else{
+				var definitions = (this.definitions || (this.definitions = {}));
+				definitions[name] = value;
 			}
 		},
 		setValue: function(name, value){
@@ -197,27 +193,39 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			// rules can be used as properties, in which case they act as mixins
 			// first extend
 			this.extend(rule);
+			if(value == 'default'){
+				// this indicates that we should leave the mixin properties as is.
+				return;
+			}
 			if(value && typeof value == 'string' && this.values){
 				// then apply properties with space delimiting
 				var parts = value.toString().split(' ');
 				for(var i = 0; i < parts.length; i++){
-					// TODO: take the last part and don't split on spaces\
+					// TODO: take the last part and don't split on spaces
 					var name = this.values[i];
 					name && rule.setValue(name, parts[i]);
 				}
 			}
 		},
-		extend: function(derivative){
+		extend: function(derivative, fullExtension){
 			console.log("extending ", derivative);
 			// we might consider removing this if it is only used from put
 			var base = this;
 			var newText = base.cssText;
 			derivative.cssText += newText;
-			'values,definitions,variables,calls'.replace(/\w+/g, function(property){
-				if(base[property]){
-					derivative[property] = Object.create(base[property]);
+			'values,variables,calls'.replace(/\w+/g, function(property){
+				var set = base[property];
+				if(set){
+					derivative[property] = Object.create(set);
 				}
 			});
+			if(fullExtension){
+				var definitions = base.definitions;
+				if(definitions){
+					derivative.definitions = Object.create(definitions);
+				}
+				derivative.createSelector = base.createSelector || base.selector;
+			}			
 	//		var ruleStyle = derivative.getCssRule().style;
 			base.eachProperty(function(name, value){
 				derivative.setValue(name, value);
@@ -233,21 +241,13 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			}
 			
 		},
-		getDefinition: function(name, includeRules){
+		getDefinition: function(name){
 			// lookup a definition by name, which used for handling properties and other thingsss
 			var parentRule = this;
 			do{
-				var target = parentRule.definitions && parentRule.definitions[name]
-					|| (includeRules && parentRule.rules && parentRule.rules[name]);
+				var target = parentRule.definitions && parentRule.definitions[name];
 				parentRule = parentRule.parent;
 			}while(!target && parentRule);
-			if(!target && includeRules && name && /^\w[\w-]*$/.test(name)){
-				if(isTagSupported(name)){
-					target = new Rule();
-					target.selector = name;
-				}
-			}
-			console.log('resolving',name,target);
 			return target;
 		},
 		
@@ -368,6 +368,10 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 								child = child.replace(/\([^)]*\)/, function(expression){
 									reference = expression;
 								});
+								if(!/^\w/.test(child)){
+									// if it could be interpreted as a modifier, make sure we change it to really create a new element
+									child = '>' + child;  
+								}
 								var nextElement = put(j == 0 ? lastElement : element, child);
 								if(item){
 									// set the item property, so the item reference will work
