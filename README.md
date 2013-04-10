@@ -21,14 +21,14 @@ both encapsulation and separation of concerns with intelligent organization.
 
 # Getting Started
 
-To start using xstyle's extensible CSS, you simply need to load the xstyle JavaScript library, <code>xstyle.min.js</code> 
-and you can start using xstyle's CSS extensions:
+To start using xstyle's extensible CSS, you simply need to load the xstyle JavaScript library, <code>xstyle.js</code> 
+or <code>xstyle.min.js</code> (minified) and you can start using xstyle's CSS extensions:
 
 <pre>
 &lt;style>
 	/* my rules */	
 &lt;/style>
-&lt;script src="xstyle/xstyle.js">&lt;/script> <!-- or use the minified xstyle.min.js -->
+&lt;script src="xstyle/xstyle.js">&lt;/script> &lt;!-- or use the minified xstyle.min.js -->
 </pre>
 
 Or xstyle can be used with an AMD module loader, like RequireJS or Dojo. Simply load the 
@@ -43,8 +43,8 @@ xstyle/main module to initiate the css extension parsing:
 &lt;/script>
 </pre>
 
-You will also need to make sure you have installed the put-selector package, as xstyle
-depends on it.
+You will also need to make sure you have installed the [put-selector](https://github.com/kriszyp/put-selector)
+package, as xstyle depends on it.
 
 Using a module loader is beneficial, as it provides for automatic loading of extension
 modules when they are used in CSS.
@@ -54,7 +54,7 @@ See the AMD Plugin Loader section for more information.
 
 # Using Xstyle CSS
 
-Once you have loaded the xstyle script/module, you can begin to use xstyle's extensible CSS,
+Once you have loaded the xstyle script or module, you can begin to use xstyle's extensible CSS,
 making use of new definitions to develop your application within CSS.
 
 ## New Definitions
@@ -64,13 +64,13 @@ user defined properties. In traditional CSS, all properties, functions, and othe
 constructs are defined by the browser, and stylesheet rules are limited to using 
 these predefined properties. In xstyle, new properties, functions, and other elements can be defined with 
 extensible meaning. New definitions may be used as shims (to fill in for standard properties
-on other browsers), they may be compositions of other properties, or entirely new concepts.
+on other browsers), they may be compositions of other properties, or provide entirely new concepts.
 Since definitions can be constructed using JavaScript modules that can interact with
 the DOM, there is virtually no limit to the what can be created.
 
 To create a new definition, we simply use the <code>=</code> operator to assign a name to
 our new definition and assign an expression to indicate its meaning. For example, xstyle provides a property
-definition expression that will automatically add a vendor specific prefix (like '-webkit-') to a property.
+definition expression that will automatically add a vendor specific prefix (like <code>-webkit-</code>) to a property.
 We can create such a property:
 
 	transition = prefix;
@@ -116,7 +116,7 @@ We look at how how to implement a module in more detail later.
 
 ## Rule Definitions and Mixins
 
-We can also create a new definitions as composition of other properties, like a rule declaration.
+We can also create a new definitions as a composition of other properties, like a rule declaration.
 Such definitions can be used as properties, to mix in their properties, they can
 be used as base rules for extension, or they can be referred to like elements in
 element generation (see below). For example, we could create a new definition
@@ -258,14 +258,14 @@ With xstyle, you can nest CSS rules, allowing for multiple definitions using a g
 prefix. For example, suppose we want to define several rules for elements within
 .my-form. We can do so with nested rules:
 
-.my-form {
-	input {
-		/* this rule's selector is equivalent to .my-form input */ 
+	.my-form {
+		input {
+			/* this rule's selector is equivalent to .my-form input */ 
+		}
+		selector {
+			/* this rule's selector is equivalent to .my-form select */ 
+		}
 	}
-	selector {
-		/* this rule's selector is equivalent to .my-form select */ 
-	}
-}
 
 Using nesting rules can reduce typing, add better organization, and make it easier to refactor stylesheets.
 
@@ -279,7 +279,7 @@ synchronize an element identifier or selector with another CSS rule.
 
 	.content {
 		=> 
-			h1{
+			h1 {
 				color: green;
 			},
 			p 'Blue Paragraph' {
@@ -301,21 +301,21 @@ few sections describe these provided definitions.
 One feature of the application of property definitions in xstyle is that when a property
 with dashes in it, is encountered in a rule, xstyle will first look for a definition that 
 matches the full name, and then progressively remove the dash-delimited tokens from the 
-right to apply. For example, if we defined a property "custom", than it our definition
-would be applied for "custom-foo" as well as "custom".    
+right to apply. For example, if we defined a property <code>custom</code>, than it our definition
+would be applied for <code>custom-foo</code> as well as <code>custom</code>.    
 
 ### var - Variables
 
 Properties can be used as variables that can be referenced from other properties in CSS stylesheets. 
 For many, this concept may be very familiar from CSS preprocessors, 
 and the recent addition in modern browsers according to the W3C specification. 
-To create a variable property, we define our property by assigning it 'var'. For 
+To create a variable property, we define our property by assigning it <code>var</code>. For 
 example, we could create a variable:
 
 	highlight-color=var: blue;
 
 To reference the variable and use the value in another property, xstyle uses the standard W3C
-syntax, referencing the variable with a var(variable-name) syntax:
+syntax, referencing the variable with a <code>var(variable-name)</code> syntax:
 
 	.highlight {
 		background-color: var(highlight-color);
@@ -342,10 +342,10 @@ WebKit browsers, -moz- for Firefox, and -ms- for IE. A typical usage is:
 
 The "on" definition makes it possible to register handlers directly from rules. This property
 definition does not need to be assigned to a new name. It utilizes sub-property names
-to specify the event to listen for. The property name should be the form of on-<event-name>.
+to specify the event to listen for. The property name should be the form of <code>on-&lt;event-name></code>.
 The value of the property should be a definition (or an expression) pointing to a function,
 that should be executed in response to the event. For example, to register 
-a "click" handler, we could write a property:
+a <code>click</code> handler, we could write a property:
 
 	on-click: click-handler;
 
@@ -373,10 +373,10 @@ We can combine property definitions with element generation to create data bindi
 bindings, an element can be generated and the contents can be bound to a variable.
 A basic example of a data binding would be to create a variable with a string value:
 
-	firstName = 'John';
+	first-name = 'John';
 	
 	div.content {
-		=> span(firstName);
+		=> span(first-name);
 	}
 
 The contents of the span that was created would then be set to the value of firstName. Changes in the
@@ -386,10 +386,10 @@ We can also bind variables to inputs, and then the binding will work two ways, n
 changes in the variable be reflected in the input, but user edits to the value will be updated
 to the variable. For example:
 
-	firstName = 'John';
+	first-name = 'John';
 	
 	div.content {
-		=> input[type=text](firstName);
+		=> input[type=text](first-name);
 	}
 
 This provides the foundation for wiring components to data sources. We can also assign
@@ -536,27 +536,27 @@ The module can return an object (or provide an object to the define call), that 
 methods that to be called when the property is used in stylesheets. The following
 methods are defined:
 
-module.put(value, rule, name) - This is called whenever the property is used within a rule. The
+* <code>module.put(value, rule, name)</code> - This is called whenever the property is used within a rule. The
 <code>value</code> argument is the property value in the rule, and the <code>rule</code>
 argument is the Rule object.  
-module.receive(callback, rule, name) - This is called when a property is accessed from a 
+* <code>module.receive(callback, rule, name)</code> - This is called when a property is accessed from a 
 binding, to receive the current value. The callback should be called wheneve the value
 is changed in the future.
-module.forElement(element) - If the value of a property is dependent on the element
+* <code>module.forElement(element)</code> - If the value of a property is dependent on the element
 that the rule is being applied, the module object may provide a forElement(element)
 function that would return an object with the same methods as described here for the 
 module. It should be noted that there is additional processing overhead, since every
 element needs to be processed individually with this approach.  
-module.get(name) - This is called when a property is accessed using the my-new-property/sub-property
+* <code>module.get(name)</code> - This is called when a property is accessed using the my-new-property/sub-property
 syntax.
-module.call(rule, args,...) - This is called when the definition is used a function, like
+* <code>module.call(rule, args,...)</code> - This is called when the definition is used a function, like
 my-new-property()
 
 The Rule object has the following properties and methods that can be used by the module:
 
-setValue(name, value) - This performs the action of adding a new property value to 
+* <code>setValue(name, value)</code> - This performs the action of adding a new property value to 
 a rule. If there are any definition for the property, there are then executed.
-getCssRule() - This gets the browser CSSOM rule object for the this rule. You can
+* <code>getCssRule()</code> - This gets the browser CSSOM rule object for the this rule. You can
 apply additional CSS properties directly by setting properties on the style object:
 
 	getCssRule().style.color = 'red';
@@ -649,7 +649,7 @@ to run signficantly faster with a built stylesheet. To run the build tool, run t
 with node, providing a path to a stylesheet or directory of stylesheets to process, and 
 a target to save the stylesheet to. For example, if we want to build app.css, we could do:
 
-node build.js app.css ../built/app.css
+	node build.js app.css ../built/app.css
 
 The xstyle build tool is also capable of inline resources like images directly in the stylesheet
 with data: URLs. This can be very useful for reducing the number of requests. To mark resources for inlining, simply append a hash of #inline to the URL of the resource.
@@ -704,7 +704,7 @@ in the layer definition in the build profile:
 	layers: [
 	{
 		name: "path/to/targetModule.js",
-		targetStylesheet: "my-package/css/main-stylesheet.css", // relative to target module
+		targetStylesheet: "my-package/css/main-stylesheet.css",
 		...
 
 When the build runs, any CSS dependencies that are encountered in modules will then
