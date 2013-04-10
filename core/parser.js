@@ -35,6 +35,15 @@ define("xstyle/core/parser", [], function(){
 			return firstLetter.toUpperCase();
 		});
 	}
+	var supportedTags = {};
+	function isTagSupported(tag){
+		// test to see if a tag is supported by the browser
+		if(tag in supportedTags){
+			return supportedTags[tag];
+		}
+		var elementString = (element = document.createElement(tag)).toString();
+		return supportedTags[tag] = !(elementString == "[object HTMLUnknownElement]" || elementString == "[object]");
+	}
 	
 	function parse(model, textToParse, styleSheet){
 		// tracks the stack of rules as they get nested
@@ -184,9 +193,15 @@ define("xstyle/core/parser", [], function(){
 						// make the parent reference
 						newTarget.parent = target;
 						if(doExtend){
-							var ref = target.getDefinition(value.match(/[^\s]+$/)[0], true);
+							value = value.match(/[^\s]+$/)[0];
+							var ref = target.getDefinition(value);
 							if(ref){
-								ref.extend(newTarget);
+								ref.extend(newTarget, true);
+							}else if(isTagSupported(value)){
+								// extending a native element
+								newTarget.createSelector = value;
+							}else{
+								error("Extending undefined definition " + value);
 							}
 						}
 						
@@ -288,6 +303,14 @@ define("xstyle/core/parser", [], function(){
 						assignmentOperator = target.assignmentOperator;
 						if(target.root && operator == '}'){
 							// CSS ASI
+							if(assignmentOperator){
+								// may still need to do an assignment
+								try{
+									target[assignmentOperator == ':' ? 'setValue' : 'declareProperty'](name, sequence[1] || sequence[0], conditionalAssignment);
+								}catch(e){
+									error(e);
+								}
+							}
 							assignNextName = true;
 							assignmentOperator = false;
 						}
@@ -307,7 +330,7 @@ define("xstyle/core/parser", [], function(){
 			}
 		}
 		function error(e){
-			console.error(e.message || e, "line " + textToParse.slice(0, cssScan.lastIndex).split('\n').length + " in " + styleSheet.href);
+			console.error(e.message || e, "line " + textToParse.slice(0, cssScan.lastIndex).split('\n').length + " in " + (styleSheet.href || "in-page stylesheet"));
 			if(e.stack){
 				console.error(e.stack);
 			}			
