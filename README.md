@@ -292,7 +292,19 @@ us to create sophisticated UI elements in a single modular unit.
 
 This functionality is implemented and has received testing.
 
-## Variables
+## Predefined Property Definitions
+
+Xstyle includes several predefined, or intrinsic definitions for properties. These can and usually
+are assigned to other names to create property definitions for use in rules. The next 
+few sections describe these provided definitions.
+
+One feature of the application of property definitions in xstyle is that when a property
+with dashes in it, is encountered in a rule, xstyle will first look for a definition that 
+matches the full name, and then progressively remove the dash-delimited tokens from the 
+right to apply. For example, if we defined a property "custom", than it our definition
+would be applied for "custom-foo" as well as "custom".    
+
+### var - Variables
 
 Properties can be used as variables that can be referenced from other properties in CSS stylesheets. 
 For many, this concept may be very familiar from CSS preprocessors, 
@@ -313,6 +325,47 @@ A variable can be declared at the top level, as well inside rules. A variable ca
 that is within the current rule or any parent rule (see nested rules) including the top level.
 
 This functionality is implemented but only lightly tested.
+
+### prefix - Vendor Prefixing
+
+This definition will create a property like the declared property, except a vendor prefix
+will be added that corresponds to the browser's vendor. The prefixes are -webkit- for
+WebKit browsers, -moz- for Firefox, and -ms- for IE. A typical usage is:
+
+	border-radius = prefix;
+	
+	border-radius: 5px;
+
+(functionality has been implemented)
+
+### on - Event Handling
+
+The "on" definition makes it possible to register handlers directly from rules. This property
+definition does not need to be assigned to a new name. It utilizes sub-property names
+to specify the event to listen for. The property name should be the form of on-<event-name>.
+The value of the property should be a definition (or an expression) pointing to a function,
+that should be executed in response to the event. For example, to register 
+a "click" handler, we could write a property:
+
+	on-click: click-handler;
+
+See the Data Bindings section below, as you will probably want to access sub-properties of
+definitions for your event handlers.
+
+(implemented, lightly tested)
+
+### margin, padding, border, etc. - Nested Definitions
+
+Xstyle extends the margin, padding, and other properties to support nested rules to
+specify the individual sides, or sub-properties of these properties. For example,
+we could specify the margin-left and margin-right by writing:
+
+	margin: {
+		left: 10px;
+		right: 20px;
+	};
+
+(not implemented)
 
 ## Data Binding
 
@@ -379,7 +432,7 @@ arrays just like we do scalar values. For example, we could easily output an arr
 of strings as a list like:
 
 	.content {
-		=> ul(arrayOfItems);
+		=> ul(array-of-items);
 	}
 
 Xstyle will iterate through the array, outputting a &lt;li/> element for each item, with the contents
@@ -394,7 +447,7 @@ The item for each iteration in the array can be referenced with the "item" refer
 For example, we could generate a paragraph tag for each item:
 
 	.content {
-		=> div(arrayOfItems) {
+		=> div(array-of-items) {
 			each: p(item);
 		}
 	}
@@ -404,7 +457,7 @@ a table of objects, where the first column corresponds to the "name" property of
 items in the array, and the second column corresponds to the "age" property:
 
 	.content {
-		=> table(arrayOfPeople) {
+		=> table(array-of-people) {
 			each: tr {
 				=> td(item/name), td(item/age);
 			};
@@ -446,7 +499,6 @@ We can then use this component as building block in our application:
 			label: 'My Label';
 		}
 	}
-
 
 ## Shims
 
