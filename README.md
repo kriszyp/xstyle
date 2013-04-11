@@ -37,10 +37,7 @@ xstyle/main module to initiate the css extension parsing:
 &lt;style>
 	/* my rules */
 &lt;/style>
-&lt;script src="dojo/dojo.js">&lt;/script>
-&lt;script>
-	require(['xstyle/main']);
-&lt;/script>
+&lt;script src="dojo/dojo.js" data-dojo-config="async: true, deps: ['xstyle/main']">&lt;/script>
 </pre>
 
 You will also need to make sure you have installed the [put-selector](https://github.com/kriszyp/put-selector)
