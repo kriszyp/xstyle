@@ -152,7 +152,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				definitions[name] = value;
 			}
 		},
-		setValue: function(name, value){
+		setValue: function(name, value, scopeRule){
 			// called by the parser when a property is encountered
 			var values = (this.values || (this.values = []));
 			values.push(name);
@@ -174,7 +174,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				var propertyName = name;
 				do{
 					// check for the handler
-					var target = this.getDefinition(name, true);
+					var target = (scopeRule || this).getDefinition(name, true);
 					if(target){
 						var rule = this;
 						// call the handler to handle this rule
@@ -217,7 +217,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				for(var i = 0; i < parts.length; i++){
 					// TODO: take the last part and don't split on spaces
 					var name = this.values[i];
-					name && rule.setValue(name, parts[i]);
+					name && rule.setValue(name, parts[i], this);
 				}
 			}
 		},
