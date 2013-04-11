@@ -149,16 +149,13 @@ define("xstyle/core/parser", [], function(){
 							// todo: check the type
 							if(assignmentOperator == '='){
 								browserUnderstoodRule = false;
-								if(!assignment || assignment.charAt(1) == '>'){
-									sequence.creating = true;
-								}
+								sequence.creating = true;
 								if(value){
 									// extend the referenced target value
-									// TODO: create auto-generate class?
 									doExtend = true;
 								}
 							}
-							var nextRule;
+							var nextRule = null;
 							var lastRuleIndex = ruleIndex;
 							if(target.root && browserUnderstoodRule){
 								// we track the native CSSOM rule that we are attached to so we can add properties to the correct rule
@@ -199,7 +196,7 @@ define("xstyle/core/parser", [], function(){
 								ref.extend(newTarget, true);
 							}else if(isTagSupported(value)){
 								// extending a native element
-								newTarget.createSelector = value;
+								newTarget.tagName = value;
 							}else{
 								error("Extending undefined definition " + value);
 							}
