@@ -31,8 +31,10 @@ test-component = section {
 	background-color: yellow;
 	label: Should not show up;
 }
-
-hello-world = test-component {
+pink-background = {
+	background-color: #faa;
+}
+hello-world = test-component, pink-background {
 	label: Hello world;
 	main-color: #888;
 }
