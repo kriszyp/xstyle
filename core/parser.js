@@ -190,7 +190,7 @@ define("xstyle/core/parser", [], function(){
 						// make the parent reference
 						newTarget.parent = target;
 						if(doExtend){
-							value.replace(/[\w-]+/g, function(base){
+							value.replace(/(?:^|,|>)\s*([\w-]+)/g, function(t, base){
 								var ref = target.getDefinition(base);
 								if(ref){
 									ref.extend(newTarget, true);

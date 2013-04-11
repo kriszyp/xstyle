@@ -299,7 +299,8 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			var subId = 0;
 			for(var i = 0, l = generatingSelector.length;i < l; i++){
 				// go through each part in the selector/generation sequence
-				var part = generatingSelector[i];
+				var lastPart = part,
+					part = generatingSelector[i];
 				try{
 					if(part.eachProperty){
 						// it's a rule or call
@@ -394,7 +395,10 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 								// parse for the sections of the selector
 								child.replace(/(\.|#)?([-\w%$|\.\#]+)(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g, function(t, prefix, value, attrName, attrValue){
 									if(prefix){// we don't want to modify the current element, we need to create a new one
-										nextElement = put(nextElement, 'span' + prefix + value);
+										nextElement = put(nextElement, 
+											(lastPart && lastPart.args ?
+												'' : // if the last part was brackets or a call, we can continue modifying the same element
+												'span') + prefix + value);
 									}else{
 										var target = rule.getDefinition(value);
 										// see if we have a definition for the element
