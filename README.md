@@ -553,10 +553,10 @@ The Rule object has the following properties and methods that can be used by the
 
 * <code>setValue(name, value)</code> - This performs the action of adding a new property value to 
 a rule. If there are any definition for the property, there are then executed.
-* <code>getCssRule()</code> - This gets the browser CSSOM rule object for the this rule. You can
-apply additional CSS properties directly by setting properties on the style object:
+* <code>setStyle(name, value)</code> - This sets a style on the native CSSOM rule object for the this rule. You can
+apply additional native CSS properties directly by setting properties on the style object:
 
-	getCssRule().style.color = 'red';
+	rule.setStyle('color', 'red');
 
 ## Pseudo Definitions
 
