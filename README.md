@@ -3,8 +3,8 @@ can define data bindings, UI elements, variables, extensions, and shims to creat
 web applications with an elegantly simple, stylesheet driven approach. Xstyle also includes
 tools for loading CSS and building and minifying CSS-driven applications.
 
-Much of the functionality in xstyle is still pre-alpha, but this documentation is annotated with
-the stability of different functions. 
+Much of the functionality in xstyle is still pre-alpha, but this documentation is annotated 
+where implementation is incomplete. 
 
 # Why Extensible CSS with xstyle?
 
@@ -189,8 +189,6 @@ we can create our own big-header definition that inherits from an h1:
 		font-size: 4em;
 	}
 
-(this functionality is not fully implemented)
-
 ## Element Generation
 
 With xstyle, you can declare the creation of elements within rules, allowing for the creation
@@ -247,8 +245,6 @@ of 4em:
 		=> big-header;
 	}
 
-This functionality is partly implemented and has received testing.
-
 ## Nested Rules
 
 With xstyle, you can nest CSS rules, allowing for multiple definitions using a given selector
@@ -265,8 +261,6 @@ prefix. For example, suppose we want to define several rules for elements within
 	}
 
 Using nesting rules can reduce typing, add better organization, and make it easier to refactor stylesheets.
-
-This functionality is implemented and has received testing.
 
 ### Nested Element Generation
 
@@ -286,8 +280,6 @@ synchronize an element identifier or selector with another CSS rule.
 
 We can nest element generation and CSS rules in any combination that we want, allowing
 us to create sophisticated UI elements in a single modular unit. 
-
-This functionality is implemented and has received testing.
 
 ## Predefined Property Definitions
 
@@ -320,8 +312,6 @@ syntax, referencing the variable with a <code>var(variable-name)</code> syntax:
 
 A variable can be declared at the top level, as well inside rules. A variable can referenced
 that is within the current rule or any parent rule (see nested rules) including the top level.
-
-This functionality is implemented but only lightly tested.
 
 ### prefix - Vendor Prefixing
 
