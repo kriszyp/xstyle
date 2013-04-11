@@ -230,15 +230,17 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			'values,variables,calls'.replace(/\w+/g, function(property){
 				var set = base[property];
 				if(set){
+					// TODO: need to mixin this in, if it already exists
 					derivative[property] = Object.create(set);
 				}
 			});
 			if(fullExtension){
 				var definitions = base.definitions;
 				if(definitions){
+					// TODO: need to mixin this in, if it already exists
 					derivative.definitions = Object.create(definitions);
 				}
-				derivative.tagName = base.tagName;
+				derivative.tagName = base.tagName || derivative.tagName;
 			}			
 	//		var ruleStyle = derivative.getCssRule().style;
 			base.eachProperty(function(name, value){

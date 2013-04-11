@@ -190,16 +190,17 @@ define("xstyle/core/parser", [], function(){
 						// make the parent reference
 						newTarget.parent = target;
 						if(doExtend){
-							value = value.match(/[^\s]+$/)[0];
-							var ref = target.getDefinition(value);
-							if(ref){
-								ref.extend(newTarget, true);
-							}else if(isTagSupported(value)){
-								// extending a native element
-								newTarget.tagName = value;
-							}else{
-								error("Extending undefined definition " + value);
-							}
+							value.replace(/[\w-]+/g, function(base){
+								var ref = target.getDefinition(base);
+								if(ref){
+									ref.extend(newTarget, true);
+								}else if(isTagSupported(base)){
+									// extending a native element
+									newTarget.tagName = base;
+								}else{
+									error("Extending undefined definition " + base);
+								}
+							});
 						}
 						
 						// store the current state information so we can restore it when exiting this rule or call
@@ -303,7 +304,7 @@ define("xstyle/core/parser", [], function(){
 							if(assignmentOperator){
 								// may still need to do an assignment
 								try{
-									target[assignmentOperator == ':' ? 'setValue' : 'declareProperty'](name, sequence[1] || sequence[0], conditionalAssignment);
+									target[assignmentOperator == ':' ? 'setValue' : 'declareProperty'](name, sequence[1] || sequence, conditionalAssignment);
 								}catch(e){
 									error(e);
 								}
