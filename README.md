@@ -49,6 +49,10 @@ modules when they are used in CSS.
 Xstyle also includes a CSS loader, for dynamically loading CSS as a dependency of modules.
 See the AMD Plugin Loader section for more information.
 
+Xstyle supports all modern browsers, and Internet Explorer back to version 8 
+(although in IE8, it is not possible to use xstyle CSS directly in style tags, all xstyle CSS
+must exist in CSS files). 
+
 # Using Xstyle CSS
 
 Once you have loaded the xstyle script or module, you can begin to use xstyle's extensible CSS,
