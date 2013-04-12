@@ -47,10 +47,10 @@ define("xstyle/main", ["require", "xstyle/core/parser", "xstyle/core/ruleModel",
 			}
 		}
 		// ok, determined that CSS extensions are in the CSS, need to get the source and really parse it
-		parse(sheet.localSource || (sheet.ownerNode || sheet.ownerElement).innerHTML, sheet, callback);
+		parse(sheet.localSource || (sheet.ownerNode || sheet.owningElement).innerHTML, sheet, callback);
 	}
 	parser.getStyleSheet = function(importRule, sequence){
-		return importRule.styleSheet;
+		return importRule.styleSheet || importRule;
 	};
 	function parse(textToParse, styleSheet, callback) {
 		// this function is responsible for parsing a stylesheet with all of xstyle's syntax rules

@@ -159,7 +159,8 @@ define("xstyle/core/parser", [], function(){
 							var lastRuleIndex = ruleIndex;
 							if(target.root && browserUnderstoodRule){
 								// we track the native CSSOM rule that we are attached to so we can add properties to the correct rule
-								while((nextRule = styleSheet.cssRules[ruleIndex++])){									
+								var cssRules = styleSheet.cssRules || styleSheet.rules;
+								while((nextRule = cssRules[ruleIndex++])){									
 									if(nextRule.selectorText == selector){
 										// found it
 										newTarget.cssRule = nextRule;
@@ -194,11 +195,12 @@ define("xstyle/core/parser", [], function(){
 								var ref = target.getDefinition(base);
 								if(ref){
 									ref.extend(newTarget, true);
-								}else if(isTagSupported(base)){
+								}else{
 									// extending a native element
 									newTarget.tagName = base;
-								}else{
-									error("Extending undefined definition " + base);
+									if(!isTagSupported(base)){
+										error("Extending undefined definition " + base);
+									}
 								}
 							});
 						}
@@ -226,12 +228,12 @@ define("xstyle/core/parser", [], function(){
 				}
 				if(sequence){
 					// now see if we need to process an assignment or directive
-					var first = sequence[0];
+					var first = sequence[0] || sequence;
 					if(first.charAt && first.charAt(0) == "@"){
 						// it's a directive
 						if(sequence[0].slice(1,7) == "import"){
 							// get the stylesheet
-							var importedSheet = parse.getStyleSheet(styleSheet.cssRules[ruleIndex++], sequence, styleSheet);
+							var importedSheet = parse.getStyleSheet((styleSheet.cssRules || styleSheet.imports)[ruleIndex++], sequence, styleSheet);
 							//waiting++;
 							// preserve the current index, as we are using a single regex to be shared by all parsing executions
 							var currentIndex = cssScan.lastIndex;

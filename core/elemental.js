@@ -2,7 +2,9 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 	// using delegation, listen for any input changes in the document and "put" the value  
 	// TODO: add a hook so one could add support for IE8, or maybe this event delegation isn't really that useful
 	var doc = document;
-	doc.addEventListener('change', function(event){
+	var nextId = 1;
+	var hasAddEventListener = !!doc.addEventListener;
+	on(doc, 'change', null, function(event){
 		var element = event.target;
 		// get the variable computation so we can put the value
 		var variable = element['-x-variable'];
@@ -10,7 +12,18 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 			variable.put(element.value);
 		}
 	});
-
+	function on(target, event, selector, listener){
+		// this function can be overriden to provide better event handling
+		hasAddEventListener ? 
+			target.addEventListener(event, select, false) :
+			target.attachEvent(event, select);
+		function select(event){
+			// do event delegation
+			if(!selector || matchesSelector.call(event.target, selector)){
+				listener(event);	
+			}
+		}
+	}
 
 	// elemental section, this code is for property handlers that need to mutate the DOM for elements
 	// that match it's rule
@@ -137,20 +150,23 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 					// use matchesSelector if available
 					matchesSelector.call(element, renderer.selector) : // TODO: determine if it is higher specificity that other  same name properties
 					// else use IE's custom css property inheritance mechanism
-					element.currentStyle[renderer.name] == renderer.propertyValue)){
+					element.currentStyle[renderer.id])){
 				renderer.render(element);
 			}
 		}
 	}
 	return {
 		ready: domReady,
-		addRenderer: function(propertyName, propertyValue, rule, handler){
+		on: on,
+		addRenderer: function(rule, handler){
 			var renderer = {
 				selector: rule.selector,
-				propertyValue: propertyValue,
-				name: propertyName,
 				render: handler
 			};
+			if(!matchesSelector){
+				// so we can match this rule by checking inherited styles
+				rule.setStyle(renderer.id = ('x' + nextId++), 'true'); 
+			}
 			// the main entry point for adding elemental handlers for a selector. The handler
 			// will be called for each element that is created that matches a given selector
 			selectorRenderers.push(renderer);

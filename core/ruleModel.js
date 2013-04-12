@@ -50,7 +50,12 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				target[property] = value;
 		});
 	}
-
+	var create = Object.create || function(base){
+		function Base(){}
+		Base.prototype = base;
+		return new Base;
+	}
+	
 	var ua = navigator.userAgent;
 	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
 		ua.indexOf("Firefox") > -1 ? "-moz-" :
@@ -87,9 +92,10 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				selector.charAt(0) != '@'){ // for now just ignore and don't add at-rules
 				try{
 					var styleSheet = this.styleSheet;
-					var ruleNumber = this.ruleIndex > -1 ? this.ruleIndex :styleSheet.cssRules.length;
+					var cssRules = styleSheet.cssRules || styleSheet.rules;
+					var ruleNumber = this.ruleIndex > -1 ? this.ruleIndex : cssRules.length;
 					styleSheet.addRule(selector, cssText, ruleNumber);
-					return styleSheet.cssRules[ruleNumber];
+					return cssRules[ruleNumber];
 				}catch(e){
 					console.warn("Unable to add rule", e.message);
 				}
@@ -133,7 +139,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					if(!name){
 						this.generator = value;
 						value = generate(value, this);
-						elemental.addRenderer("", value, this, value);
+						elemental.addRenderer(this, value);
 						return;
 					}
 				}else{
@@ -231,14 +237,14 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				var set = base[property];
 				if(set){
 					// TODO: need to mixin this in, if it already exists
-					derivative[property] = Object.create(set);
+					derivative[property] = create(set);
 				}
 			});
 			if(fullExtension){
 				var definitions = base.definitions;
 				if(definitions){
 					// TODO: need to mixin this in, if it already exists
-					derivative.definitions = Object.create(definitions);
+					derivative.definitions = create(definitions);
 				}
 				derivative.tagName = base.tagName || derivative.tagName;
 			}			
@@ -377,56 +383,51 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 						if(part.charAt(0) == '='){
 							part = part.slice(1); // remove the '=' at the beginning					
 						}
-						
-						var children = part.split(/\s*,\s*/);
-						for(var j = 0, cl = children.length;j < cl; j++){
-							var child = children[j];
-							var reference = null;
-							if(child){
-								// TODO: inline our own put-selector code, and handle bindings
-								child = child.replace(/\([^)]*\)/, function(expression){
+				
+						// TODO: inline our own put-selector code, and handle bindings
+/*								child = child.replace(/\([^)]*\)/, function(expression){
 									reference = expression;
 								});
 								/*if(!/^\w/.test(child)){
 									// if it could be interpreted as a modifier, make sure we change it to really create a new element
 									child = '>' + child;
 								}*/
-								var nextElement = j == 0 ? lastElement : element;
-								// parse for the sections of the selector
-								child.replace(/(\.|#)?([-\w%$|\.\#]+)(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g, function(t, prefix, value, attrName, attrValue){
-									if(prefix){// we don't want to modify the current element, we need to create a new one
-										nextElement = put(nextElement, 
-											(lastPart && lastPart.args ?
-												'' : // if the last part was brackets or a call, we can continue modifying the same element
-												'span') + prefix + value);
-									}else{
-										var target = rule.getDefinition(value);
-										// see if we have a definition for the element
-										if(target){
-											nextElement = target.appendTo(nextElement);
-										}else{
-											nextElement = put(nextElement, value);
-										}
-									}
-									if(attrName){
-										attrValue = attrValue === '' ? attrName : attrValue;
-										nextElement.setAttribute(attrName, attrValue);
-									}
-								});
-								//var nextElement = put(j == 0 ? lastElement : element, child);
-								if(item){
-									// set the item property, so the item reference will work
-									nextElement.item = item;
-								}
-								var nextPart = generatingSelector[i + 1];
-								if(nextElement != lastElement && nextElement != element &&// avoid infinite loop if it is a nop selector
-									(!nextPart || !nextPart.eachProperty) // if the next part is a rule, than it should be extending it already, so we don't want to double apply
-									){
-									elemental.update(nextElement);
-								}
-								lastElement = nextElement;
+						var nextElement = lastElement;
+						var nextPart = generatingSelector[i + 1];
+						// parse for the sections of the selector
+						part.replace(/(,\s*)?(\.|#)?([-\w%$|\.\#]+)(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g, function(t, commaOperator, prefix, value, attrName, attrValue){
+							if(commaOperator){
+								nextElement = element;
 							}
-						}
+							if(prefix){// we don't want to modify the current element, we need to create a new one
+								nextElement = put(nextElement, 
+									(lastPart && lastPart.args ?
+										'' : // if the last part was brackets or a call, we can continue modifying the same element
+										'span') + prefix + value);
+							}else{
+								var target = rule.getDefinition(value);
+								// see if we have a definition for the element
+								if(target){
+									nextElement = target.appendTo(nextElement);
+								}else{
+									nextElement = put(nextElement, value);
+								}
+							}
+							if(attrName){
+								attrValue = attrValue === '' ? attrName : attrValue;
+								nextElement.setAttribute(attrName, attrValue);
+							}
+							if(item){
+								// set the item property, so the item reference will work
+								nextElement.item = item;
+							}
+							if(nextElement != lastElement && nextElement != element &&// avoid infinite loop if it is a nop selector
+								(!nextPart || !nextPart.eachProperty) // if the next part is a rule, than it should be extending it already, so we don't want to double apply
+								){
+								elemental.update(nextElement);
+							}
+							lastElement = nextElement;
+						});
 					}else{
 						// a string literal
 						lastElement.appendChild(doc.createTextNode(part.value));
@@ -631,7 +632,6 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			}
 		} : getComputation();
 	}
-	var hasAddEventListener = !!doc.addEventListener;
 	var matchesSelector = testDiv.matches || testDiv.webkitMatchesSelector || testDiv.msMatchesSelector || testDiv.mozMatchesSelector;
 	
 	// we treat the stylesheet as a "root" rule; all normal rules are children of it
@@ -710,28 +710,12 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		},
 		on: {
 			put: function(value, rule, name){
-				// apply event listening
-				var on = this.on;
 				// first evaluate value as expression
 				get(evaluateExpression(rule, name, value), 0, function(value){
 					// add listener	
-					on(document, name.slice(3), rule.selector, value);
+					elemental.on(document, name.slice(3), rule.selector, value);
 				});
-			},
-			on: function(target, event, selector, listener){
-				// this function can be overriden to provide better event handling
-				hasAddEventListener ? 
-					target.addEventListener(event, select, false) :
-					target.attachEvent(event, select);
-				function select(event){
-					// do event delegation
-					selector = selector || rule.fullSelector();
-					if(matchesSelector.call(event.target, selector)){
-						listener(event);	
-					}
-				}
 			}
-			
 		}
 	};
 	xstyleReturn = function(first){
