@@ -147,7 +147,15 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					var propertyExists = name in testDiv.style || this.getDefinition(name, true);
 					if(!conditional || !propertyExists){
 						var definitions = (this.definitions || (this.definitions = {}));
-						definitions[name] = evaluateExpression(this, name, value);
+						if(value[0].indexOf(',') > -1){
+							// handle multiple values
+							var parts = value.join('').split(/\s*,\s*/);
+							var definition = [];
+							for(var i = 0;i < parts.length; i++){
+								definition[i] = evaluateExpression(this, name, parts[i]);
+							}
+						}
+						definitions[name] = definition || evaluateExpression(this, name, value);
 						if(propertyExists){
 							console.warn('Overriding existing property "' + name + '"');
 						}
@@ -184,21 +192,22 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					if(target){
 						var rule = this;
 						// call the handler to handle this rule
-						when(target, function(target){
-							target = target.splice ? target : [target];
-							for(var i = 0; i < target.length; i++){
-								var segment = target[i];
-								var returned = segment.put && segment.put(value, rule, propertyName);
-								if(returned){
-									if(returned.then){
-										returned.then(function(){
-											// TODO: anything we want to do after loading?
-										});
-									}
-									break;
+						target = target.splice ? target : [target];
+						for(var i = 0; i < target.length; i++){
+							var segment = target[i];
+							var returned;
+							when(segment, function(segment){
+								returned = segment.put && segment.put(value, rule, propertyName);
+							});
+							if(returned){
+								if(returned.then){
+									returned.then(function(){
+										// TODO: anything we want to do after loading?
+									});
 								}
+								break;
 							}
-						});
+						}
 						break;
 					}
 					// we progressively go through parent property names. For example if the 
@@ -441,7 +450,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		}
 	}
 	var jsKeywords = {
-		'true': 1, 'false': 1, 'null': 1, 'typeof': 1
+		'true': true, 'false': false, 'null': 'null', 'typeof': 'typeof', or: '||', and: '&&'
 	};
 	function evaluateExpression(rule, name, value){
 		// evaluate a binding
@@ -458,7 +467,10 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		// deal with an array, converting strings to JS-eval'able strings
 			// find all the variables in the expression
 		expression = expression.replace(/("[^\"]*")|([\w_$\.\/-]+)/g, function(t, string, variable){
-			if(variable && !(variable in jsKeywords)){
+			if(variable){
+				if(jsKeywords.hasOwnProperty(variable)){
+					return jsKeywords[variable];
+				}
 				// for each reference, we break apart into variable reference and property references after each dot				
 				attributeParts = variable.split('/');
 				var parameterName = attributeParts.join('_');
@@ -508,7 +520,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			}
 		}else{
 			// it's a full expression, so we create a time-varying bound function with the expression
-			var reactiveFunction = Function.apply(this, parameters.concat(['return xstyleReturn(' + expression + ')']));
+			var reactiveFunction = Function.apply(this, parameters.concat(['return (' + expression + ')']));
 		}
 		variables.func = reactiveFunction;
 		rule["var-expr-" + name] = variables;
@@ -671,7 +683,8 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				if(typeof testDiv.style[vendorPrefix + name] == "string"){
 					// if so, handle the prefixing right here
 					// TODO: switch to using getCssRule, but make sure we have it fixed first
-					return rule.setStyle(vendorPrefix + name, value);
+					rule.setStyle(vendorPrefix + name, value);
+					return true;
 				}
 			}
 		},
@@ -717,15 +730,6 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				});
 			}
 		}
-	};
-	xstyleReturn = function(first){
-		// global function used by the reactive functions to separate out comma-separated expressions into an array
-		if(arguments.length == 1){
-			// one arg, just return that
-			return first;
-		}
-		// if it is a comma separated list of values, return them as an array
-		return [].slice.call(arguments);
 	};
 	return root;	
 });

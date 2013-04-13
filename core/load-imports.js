@@ -35,7 +35,7 @@ define('xstyle/core/load-imports', [], function(){
 			}
 			return sheet.source = source + sheet.localSource;
 		}
-		if(!has("dom-deep-import")){
+		if(false && !has("dom-deep-import")){
 			// in IE, so we flatten the imports due to IE's lack of support for deeply nested @imports
 			// and fix the computation of URLs (IE calculates them wrong)
 			var computeImportUrls = function(sheet, baseUrl){
