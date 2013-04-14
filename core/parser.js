@@ -139,6 +139,9 @@ define("xstyle/core/parser", [], function(){
 							// it's a rule
 							assignNextName = true; // enter into the beginning of property mode
 							// normalize the selector
+							if(assignmentOperator == ':'){
+								first =+ assignment;
+							}
 							selector = trim((selector + first).replace(/\s+/g, ' ').replace(/([\.#:])\S+|\w+/g,function(t, operator){
 								// make tag names be lower case 
 								return operator ? t : t.toLowerCase();
