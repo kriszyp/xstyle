@@ -102,7 +102,7 @@ define("xstyle/core/parser", [], function(){
 					assignNextName = false;
 				}else{
 					// subsequent part of a property
-					value = value ? first + assignment : first;
+					value = assignment ? first + assignment : first;
 					// add to the current sequence
 					addInSequence(value);	
 				}
@@ -140,7 +140,7 @@ define("xstyle/core/parser", [], function(){
 							assignNextName = true; // enter into the beginning of property mode
 							// normalize the selector
 							if(assignmentOperator == ':'){
-								first =+ assignment;
+								first += assignment;
 							}
 							selector = trim((selector + first).replace(/\s+/g, ' ').replace(/([\.#:])\S+|\w+/g,function(t, operator){
 								// make tag names be lower case 
@@ -157,6 +157,10 @@ define("xstyle/core/parser", [], function(){
 									// extend the referenced target value
 									doExtend = true;
 								}
+							}
+							if(assignmentOperator == ':' && !target.root){
+								// we will assume that we are in a property in this case. We will need to do some adjustments to support nested pseudo selectors
+								sequence.creating = true;
 							}
 							var nextRule = null;
 							var lastRuleIndex = ruleIndex;
@@ -179,7 +183,7 @@ define("xstyle/core/parser", [], function(){
 							}
 							if(sequence.creating){
 								// in generation, we auto-generate selectors so we can reference them
-								newTarget.selector = '.x-generated-' + nextId++;
+								newTarget.selector = '.' + (assignmentOperator == '=' ? first : '') + '-x-' + nextId++;
 							}else{							
 								newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
 							}

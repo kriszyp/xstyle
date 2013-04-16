@@ -25,7 +25,7 @@ define("xstyle/main", ["require", "xstyle/core/parser", "xstyle/core/ruleModel",
 				});
 			});
 		}
-		if(sheet.imports && !fixedImports && sheet.imports.length){
+		if((sheet.href || (sheet.imports && sheet.imports.length)) && !fixedImports){
 			// this is how we check for imports in IE
 			return fixImports();
 		}

@@ -14,7 +14,17 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		'{': '}',
 		'[': ']',
 		'(': ')'
-	}
+	};
+	var styleSubstitutes = {
+		display: ['none',''],
+		visibility: ['hidden', 'visible'],
+		'float': ['none', 'left']
+	};
+	var truthyConversion = {
+		'': 0,
+		'false': 0,
+		'true': 1
+	};
 	var doc = document, styleSheet;
 	var undef, testDiv = doc.createElement("div");
 	// some utility functions
@@ -147,7 +157,8 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					var propertyExists = name in testDiv.style || this.getDefinition(name, true);
 					if(!conditional || !propertyExists){
 						var definitions = (this.definitions || (this.definitions = {}));
-						if(value[0].indexOf(',') > -1){
+						var first = value[0];
+						if(first.indexOf && first.indexOf(',') > -1){
 							// handle multiple values
 							var parts = value.join('').split(/\s*,\s*/);
 							var definition = [];
@@ -328,12 +339,12 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 								}
 								// TODO: make sure we only do this only once
 								var expression = part.args.toString();
-								var apply = evaluateExpression(part, 0, expression);
-								(function(element, lastElement){
+								var apply = evaluateExpression(part.parent, 0, expression);
+								(function(element){
 									when(apply, function(apply){
 										// TODO: assess how we could propagate changes categorically
 										if(apply.forElement){
-											apply = apply.forElement(lastElement);
+											apply = apply.forElement(element);
 											// now apply.element should indicate the element that it is actually keying or varying on
 										}
 										var textNode = element.appendChild(doc.createTextNode("Loading"));
@@ -377,7 +388,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 											}
 										}, rule, expression);
 									});
-								})(lastElement, element);
+								})(lastElement);
 							}else{// brackets
 								put(lastElement, part.toString());
 							}
@@ -703,15 +714,28 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			// referencing variables
 			call: function(call, rule, name, value){
 				this.receive(function(resolvedValue){
-					rule.setStyle(name, value.toString().replace(/var\([^)]+\)/g, resolvedValue));
+					var resolved = value.toString().replace(/var\([^)]+\)/g, resolvedValue);
+					// now check if the value if we should do subsitution for truthy values
+					var truthy = truthyConversion[resolved];
+					if(truthy > -1){
+						var substitutes = styleSubstitutes[name];
+						if(substitutes){
+							resolved = substitutes[truthy];
+						}
+					}					rule.setStyle(name, resolved);
 				}, rule, call.args[0]);
 			},
 			// variable properties can also be referenced in property expressions
 			receive: function(callback, rule, name){
 				var parentRule = rule;
 				do{
-					var target = parentRule.variables && parentRule.variables[name];
+					var target = parentRule.variables && parentRule.variables[name] || 
+						(parentRule.definitions && parentRule.definitions[name]); // we can reference definitions as well
 					if(target){
+						if(target.receive){
+							// if it has its own receive capabilities, use that
+							return target.receive(callback, rule, name);
+						}
 						var variableListeners = parentRule.variableListeners || (parentRule.variableListeners = {});
 						(variableListeners[name] || (variableListeners[name] = [])).push(callback);
 						return callback(target);
