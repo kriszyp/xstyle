@@ -329,6 +329,26 @@ WebKit browsers, -moz- for Firefox, and -ms- for IE. A typical usage is:
 
 (functionality has been implemented)
 
+### contents - Insertion Point
+
+This definition represents a reference to the contents of node prior to element generation.
+This can be used within element generation to bring in the contents of the target.
+For example:
+
+	.greeting {
+		=> h1 'Welcome:', contents;
+	}
+
+We could then have some HTML that starts as:
+
+	&lt;div class="greeting">John Doe&lt;/div>
+
+And then xstyle would convert this to:
+
+	&lt;div class="greeting">&lt;h1>Welcome:&lt;/h1>John Doe&lt;/div>
+
+(not fully implemented)
+
 ### on - Event Handling
 
 The "on" definition makes it possible to register handlers directly from rules. This property
