@@ -183,7 +183,7 @@ define("xstyle/core/parser", [], function(){
 							}
 							if(sequence.creating){
 								// in generation, we auto-generate selectors so we can reference them
-								newTarget.selector = '.' + (assignmentOperator == '=' ? first : '') + '-x-' + nextId++;
+								newTarget.selector = '.' + (assignmentOperator == '=' ? first.replace(/[^\w-]/g,'') : '') + '-x-' + nextId++;
 							}else{							
 								newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
 							}
