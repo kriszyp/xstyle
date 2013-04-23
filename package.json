@@ -22,5 +22,8 @@
   "dependencies": {
     "put-selector": "0.3.2"
   },
-  "dojoBuild": "package.js"
+  "dojoBuild": "package.js",
+  "volo": {
+    "type": "directory"
+  }
 }
