@@ -25,7 +25,12 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		'false': 0,
 		'true': 1
 	};
+	var inputs = {
+		"INPUT": 1,
+		"SELECT": 1
+	};
 	var doc = document, styleSheet;
+	var currentEvent;
 	var undef, testDiv = doc.createElement("div");
 	// some utility functions
 	function when(value, callback){
@@ -59,6 +64,13 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				target.set(property, value) :
 				target[property] = value;
 		});
+	}
+	function receive(target, callback, rule, name){
+		if(target && target.receive){
+			target.receive(callback, rule, name);
+		}else{
+			callback(target);
+		}
 	}
 	var create = Object.create || function(base){
 		function Base(){}
@@ -238,8 +250,8 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				return;
 			}
 			if(value && typeof value == 'string' && this.values){
-				// then apply properties with space delimiting
-				var parts = value.toString().split(' ');
+				// then apply properties with comma delimiting
+				var parts = value.toString().split(/,\s*/);
 				for(var i = 0; i < parts.length; i++){
 					// TODO: take the last part and don't split on spaces
 					var name = this.values[i];
@@ -314,7 +326,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 	};
 
 
-	function generate(generatingSelector, rule){
+	function generate(generatingSelector, rule, append){
 		// this is responsible for generation of DOM elements for elements matching generative rules
 		var id = nextId++;
 		// normalize to array
@@ -323,6 +335,20 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		return function(element, item){
 			var lastElement = element;
 			var subId = 0;
+			if(!append){
+				var childNodes = element.childNodes;
+				var childNode = childNodes[0], contentFragment;
+				// move the children out and record the contents in a fragment
+				if(childNode){
+					contentFragment = document.createDocumentFragment();
+					do{
+						contentFragment.appendChild(childNode);
+					}while(childNode = childNodes[0]);
+				}
+			}
+			// temporarily store it on the element, so it can be accessed as an element-property
+			// TODO: remove it after completion
+			element.content = contentFragment;
 			for(var i = 0, l = generatingSelector.length;i < l; i++){
 				// go through each part in the selector/generation sequence
 				var lastPart = part,
@@ -340,7 +366,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 								// TODO: make sure we only do this only once
 								var expression = part.args.toString();
 								var apply = evaluateExpression(part.parent, 0, expression);
-								(function(element){
+								(function(element, nextPart){
 									when(apply, function(apply){
 										// TODO: assess how we could propagate changes categorically
 										if(apply.forElement){
@@ -348,7 +374,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 											// now apply.element should indicate the element that it is actually keying or varying on
 										}
 										var textNode = element.appendChild(doc.createTextNode("Loading"));
-										apply.receive(function(value){
+										receive(apply, function(value){
 											if(value && value.sort){
 												// if it is an array, we do iterative rendering
 												if(textNode){
@@ -356,22 +382,31 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 													textNode.parentNode.removeChild(textNode);
 													textNode = null;
 												}
-												var eachHandler = nextPart && nextPart.eachProperty && nextPart.get('each');
+												var eachHandler = nextPart && nextPart.eachProperty && nextPart.each;
 												// if "each" is defined, we will use it render each item 
 												if(eachHandler){
-													eachHandler = generate(eachHandler, nextPart);
+													eachHandler = generate(eachHandler, nextPart, true);
 												}
-												value.forEach(eachHandler ?
+												var rows = value.map(eachHandler ?
 													function(value){
 														// TODO: do this inside generate
-														eachHandler(element, value);
+														return eachHandler(element, value);
 													} :
 													function(value){
 														// if there no each handler, we use the default tag name for the parent 
-														put(element, childTagForParent[element.tagName] || 'div', value);
+														return put(element, childTagForParent[element.tagName] || 'div', value);
 													});
+												if(value.observe){
+													value.observe(function(object, previousIndex, newIndex){
+														if(previousIndex > -1){
+															var oldElement = rows[previousIndex];
+															oldElement.parentNode.removeChild(oldElement);
+														}
+														eachHandler(element, object);
+													}, true);
+												}
 											}else{
-												if("value" in element){
+												if(element.tagName in inputs){
 													// add the text
 													element.value= value;
 													// we are going to store the variable computation on the element
@@ -388,7 +423,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 											}
 										}, rule, expression);
 									});
-								})(lastElement);
+								})(lastElement, nextPart);
 							}else{// brackets
 								put(lastElement, part.toString());
 							}
@@ -622,27 +657,25 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				var mostSpecificElement;
 				var elementVariables = [];
 				// now find the element that matches that rule, in case we are dealing with a child
-				var parentElement = element;
-				while(!matchesSelector.call(element, rule.selector)){
-					element = element.parentNode;
-				}
+				var parentElement;
 				for(var i = 0; i < variables.length; i++){
 					var variable = variables[i];
 					var target = variable[0];
 					// now find the element that is keyed on
 					if(target.forElement){
-						target = variable[0] = target.forElement(parentElement);
+						target = variable[0] = target.forElement(element);
 					}
 					// we need to find the most parent element that we need to vary on for this computation 
-					var varyOnElement = target.element;
-					if(parentElement != mostSpecificElement){
-						while(parentElement != varyOnElement){
-							if(parentElement == mostSpecificElement){
-								return;
-							}
+					var varyOnElement = parentElement = target.element;
+					if(mostSpecificElement){
+						// check to see if one its parent is the mostSpecificElement
+						while(parentElement && parentElement != mostSpecificElement){
 							parentElement = parentElement.parentNode;
 						}
-						mostSpecificElement = parentElement;
+						// if so, we have a new most specific
+					}	
+					if(parentElement){
+						mostSpecificElement = varyOnElement;
 					}
 				}
 				// make sure we indicate the store we are keying off of
@@ -660,6 +693,27 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 	// we treat the stylesheet as a "root" rule; all normal rules are children of it
 	var target, root = new Rule;
 	root.root = true;
+	function elementProperty(property, appendTo){
+		// definition bound to an element's property
+		return {
+			forElement: function(element){
+				// we find the parent element with an item property, and key off of that 
+				while(!element[property]){
+					element = element.parentNode;
+					if(!element){
+						throw new Error(property + " not found");
+					}
+				}
+				return {
+					element: element, // indicates the key element
+					receive: function(callback){// handle requests for the data
+						callback(element[property]);
+					},
+					appendTo: appendTo
+				};
+			}
+		};
+	}
 	// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
 	root.definitions = {
 		Math: Math, // just useful
@@ -672,19 +726,34 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			};
 		},
 		// TODO: add url()
-		item: {
-			// adds support for referencing each item in a list of items when rendering arrays 
+		// adds support for referencing each item in a list of items when rendering arrays 
+		item: elementProperty('item'),
+		// adds referencing to the prior contents of an element
+		contents: elementProperty('contents', function(target){
+			target.appendChild(this.element);
+		}),
+		element: {
+			// definition to reference the actual element
 			forElement: function(element){
-				// we find the parent element with an item property, and key off of that 
-				while(!element.item){
-					element = element.parentNode;
-				}
 				return {
 					element: element, // indicates the key element
 					receive: function(callback){// handle requests for the data
-						callback(element.item);
+						callback(element);
+					},
+					get: function(property){
+						return this.element[property];
 					}
-				}
+				};				
+			}
+		},
+		event: {
+			receive: function(callback){
+				callback(currentEvent);
+			}
+		},
+		each: {
+			put: function(value, rule, name){
+				rule.each = value;
 			}
 		},
 		prefix: {
@@ -747,10 +816,20 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		},
 		on: {
 			put: function(value, rule, name){
-				// first evaluate value as expression
-				get(evaluateExpression(rule, name, value), 0, function(value){
-					// add listener	
-					elemental.on(document, name.slice(3), rule.selector, value);
+				// add listener
+				elemental.on(document, name.slice(3), rule.selector, function(event){
+					currentEvent = event;
+					get(evaluateExpression(rule, name, value), 0, function(value){
+						if(value){
+							if(value.forElement){
+								value = value.forElement(event.target);
+							}
+							if(typeof value == 'function'){
+								value(event);
+							}
+						}
+					});
+					currentEvent = null;
 				});
 			}
 		}
