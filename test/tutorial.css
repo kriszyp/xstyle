@@ -1,0 +1,30 @@
+contacts = module('xstyle/test/contacts');
+body {
+    =>
+        h1 'Hello, world of my contacts',
+        ul.contacts-list (contacts/list) {
+            each: li (item/firstName + ' ' + item/lastName) {
+                on-click: contacts/select(item);
+            };
+            border: 1px solid #aaa;
+        },
+        div {
+            selected = contacts/selected;
+            =>
+                label.start-row 'First Name:',
+                input[type=text] (selected/firstName),
+                label.start-row 'Last Name:',
+                input[type=text] (selected/lastName),
+                label.start-row 'Email:',
+                input[type=email] (selected/email),
+                button.start-row 'New Contact' {
+                	on-click: contacts/create();
+                },
+                button.start-row 'Save' {
+                	on-click: contacts/save(selected);
+                };
+        };
+}
+.start-row {
+	display: block;
+}
