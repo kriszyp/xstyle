@@ -27,11 +27,12 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 	};
 	var inputs = {
 		"INPUT": 1,
+		"TEXTAREA": 1,
 		"SELECT": 1
 	};
 	var doc = document, styleSheet;
 	var currentEvent;
-	var undef, testDiv = doc.createElement("div");
+	var undefined, testDiv = doc.createElement("div");
 	// some utility functions
 	function when(value, callback){
 		return value && value.then ? 
@@ -54,7 +55,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			if(name){
 				return get(target[name], path.slice(1), callback);
 			}
-			callback(target);
+			return callback(target);
 		});
 	}
 	function set(target, path, value){
@@ -304,8 +305,8 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			}while(!target && parentRule);
 			return target;
 		},
-		appendTo: function(target){
-			return put(target, (this.tagName || '') + this.selector);
+		appendTo: function(target, beforeElement){
+			return put(beforeElement || target, (beforeElement ? '-' : '') + (this.tagName || '') + this.selector);
 		},
 		cssText: ""
 	};
@@ -326,16 +327,16 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 	};
 
 
-	function generate(generatingSelector, rule, append){
+	function generate(generatingSelector, rule){
 		// this is responsible for generation of DOM elements for elements matching generative rules
 		var id = nextId++;
 		// normalize to array
 		generatingSelector = generatingSelector.sort ? generatingSelector : [generatingSelector];
 		// return a function that can do the generation for each element that matches
-		return function(element, item){
+		return function(element, item, beforeElement){
 			var lastElement = element;
 			var subId = 0;
-			if(!append){
+			if(beforeElement === undefined){
 				var childNodes = element.childNodes;
 				var childNode = childNodes[0], contentFragment;
 				// move the children out and record the contents in a fragment
@@ -385,24 +386,27 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 												var eachHandler = nextPart && nextPart.eachProperty && nextPart.each;
 												// if "each" is defined, we will use it render each item 
 												if(eachHandler){
-													eachHandler = generate(eachHandler, nextPart, true);
-												}
-												var rows = value.map(eachHandler ?
-													function(value){
-														// TODO: do this inside generate
-														return eachHandler(element, value);
-													} :
-													function(value){
+													eachHandler = generate(eachHandler, nextPart);
+												}else{
+													eachHandler = function(element, value, beforeElement){
 														// if there no each handler, we use the default tag name for the parent 
-														return put(element, childTagForParent[element.tagName] || 'div', value);
-													});
+														return put(beforeElement || element, (beforeElement ? '-' : '') + childTagForParent[element.tagName] || 'div', value);
+													}
+												}
+												var rows = value.map(function(value){
+													// TODO: do this inside generate
+													return eachHandler(element, value, null);
+												});
 												if(value.observe){
 													value.observe(function(object, previousIndex, newIndex){
 														if(previousIndex > -1){
 															var oldElement = rows[previousIndex];
 															oldElement.parentNode.removeChild(oldElement);
+															rows.splice(previousIndex, 1);
 														}
-														eachHandler(element, object);
+														if(newIndex > -1){
+															rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
+														}
 													}, true);
 												}
 											}else{
@@ -454,20 +458,24 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 							if(commaOperator){
 								nextElement = element;
 							}
+							var selector;
 							if(prefix){// we don't want to modify the current element, we need to create a new one
-								nextElement = put(nextElement, 
-									(lastPart && lastPart.args ?
+									selector = (lastPart && lastPart.args ?
 										'' : // if the last part was brackets or a call, we can continue modifying the same element
-										'span') + prefix + value);
+										'span') + prefix + value;
 							}else{
 								var target = rule.getDefinition(value);
 								// see if we have a definition for the element
 								if(target){
-									nextElement = target.appendTo(nextElement);
+									nextElement = target.appendTo(nextElement, beforeElement);
 								}else{
-									nextElement = put(nextElement, value);
+									selector = value;
 								}
 							}
+							if(selector){
+								nextElement = put(beforeElement || nextElement, (beforeElement ? '-' : '') + selector);
+							}
+							beforeElement = null;
 							if(attrName){
 								attrValue = attrValue === '' ? attrName : attrValue;
 								nextElement.setAttribute(attrName, attrValue);
@@ -573,9 +581,12 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		function getComputation(){
 			var waiting = variables.length + 1;
 			var values = [], callbacks = [];
-			var result, isResolved;
+			var result, isResolved, stopped;
 			var done = function(i){
 				return function(value){
+					if(stopped){
+						return;
+					}
 					values[i] = value;
 					waiting--;
 					if(waiting <= 0){
@@ -647,6 +658,11 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					if(isResolved){
 						callback(result);
 					}
+				},
+				stop: function(){
+					// TODO: this is not the right way to do this, we need to remove
+					// all the variable listeners and properly destroy this
+					stopped = true;
 				}
 			}
 		}
@@ -819,16 +835,11 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				// add listener
 				elemental.on(document, name.slice(3), rule.selector, function(event){
 					currentEvent = event;
-					get(evaluateExpression(rule, name, value), 0, function(value){
-						if(value){
-							if(value.forElement){
-								value = value.forElement(event.target);
-							}
-							if(typeof value == 'function'){
-								value(event);
-							}
-						}
-					});
+					var computation = evaluateExpression(rule, name, value);
+					if(computation.forElement){
+						computation = computation.forElement(event.target);
+					}
+					computation.stop();
 					currentEvent = null;
 				});
 			}
