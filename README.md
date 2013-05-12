@@ -588,6 +588,31 @@ for the :enabled pseudo, we could implement a shim module and conditionally load
 
 	:enabled =? module('my-package/enabled');
 
+## Scoped Blocks Xstyle and Disabling Parsing
+
+With xstyle, you can define blocks of CSS that have their own nested scope (without
+a nested rule), to declare definitions without affecting other stylesheets. A new scope
+can be started by using the <code>@xstyle start</code> directive to start a scoped block
+and the <code>@xstyle end</code> to end a scoped block:
+
+	@xstyle start;
+	box-shadow = prefix;
+	/* box-shadow will have vendor-prefixing applied */
+	@xstyle end;
+	/* box-shadow will be ignored again */
+
+Also, you may wish to completely disable xstyle, or import a stylesheet that should not be parsed
+by xstyle. This may be due to conflicts with properties, or other issues. Xstyle parsing can be
+turned off by using:
+
+	@xstyle off;
+
+And it can be turned back on with:
+
+	@xstyle on;
+
+(not fully implemented)
+
 ### Included Shim Stylesheets
 
 The shims.css stylesheet also defines shims for pseudo selectors including hover and focus.

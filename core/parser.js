@@ -1,7 +1,5 @@
 define("xstyle/core/parser", [], function(){
 	// regular expressions used to parse CSS
-	var cssScan = /\s*((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?([{\}\[\]\(\)\\'":;]|$)/g;
-									// name: value 	operator
 	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
 	var commentScan = /\/\*[\w\W]*?\*\//g; // preserve carriage returns to retain line numbering once we do line based error reporting 
@@ -46,6 +44,9 @@ define("xstyle/core/parser", [], function(){
 	}
 	
 	function parse(model, textToParse, styleSheet){
+		var mainScan;
+		var cssScan = mainScan = /\s*((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?([{\}\[\]\(\)\\'":;]|$)/g;
+									// name: value 	operator
 		// tracks the stack of rules as they get nested
 		var stack = [model];
 		model.parse = parseSheet;
@@ -238,7 +239,8 @@ define("xstyle/core/parser", [], function(){
 					var first = sequence[0] || sequence;
 					if(first.charAt && first.charAt(0) == "@"){
 						// it's a directive
-						if(sequence[0].slice(1,7) == "import"){
+						var directiveFirst6 = sequence[0].slice(1,7);
+						if(directiveFirst6 == "import"){
 							// get the stylesheet
 							var importedSheet = parse.getStyleSheet((styleSheet.cssRules || styleSheet.imports)[ruleIndex++], sequence, styleSheet);
 							//waiting++;
@@ -248,6 +250,9 @@ define("xstyle/core/parser", [], function(){
 							parseSheet(importedSheet.localSource, importedSheet);
 							// now restore our state
 							cssScan.lastIndex = currentIndex;
+						}else if(directiveFirst6 == 'xstyle'){
+							cssScan = sequence[0].slice(8,10) == 'on' ? 
+								mainScan : /(@[\w\s])/g;
 						}
 					}else if(assignmentOperator){
 						// need to do an assignment
