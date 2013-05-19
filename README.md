@@ -131,10 +131,10 @@ based on absolute positioning:
 
 We could then style a class by mixing in our new definition. We do this simply by including 
 the using the definition as a property in our rule. If we want to simply mix in the properties
-as defined in the base definition, we set the value to "default":
+as defined in the base definition, we set the value to "defaults":
 	
 	.my-class {
-		absolutely: default;
+		absolutely: defaults;
 	}
 
 We can also override properties from our definition:
@@ -329,14 +329,14 @@ WebKit browsers, -moz- for Firefox, and -ms- for IE. A typical usage is:
 
 (functionality has been implemented)
 
-### contents - Insertion Point
+### content - Insertion Point
 
 This definition represents a reference to the contents of node prior to element generation.
 This can be used within element generation to bring in the contents of the target.
 For example:
 
 	.greeting {
-		=> h1 'Welcome:', contents;
+		=> h1 'Welcome:', content;
 	}
 
 We could then have some HTML that starts as:

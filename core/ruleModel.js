@@ -246,7 +246,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 			// rules can be used as properties, in which case they act as mixins
 			// first extend
 			this.extend(rule);
-			if(value == 'default'){
+			if(value == 'defaults'){
 				// this indicates that we should leave the mixin properties as is.
 				return;
 			}
@@ -280,7 +280,9 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					derivative.definitions = create(definitions);
 				}
 				derivative.tagName = base.tagName || derivative.tagName;
-			}			
+			}
+			derivative.base = base;
+			
 	//		var ruleStyle = derivative.getCssRule().style;
 			base.eachProperty(function(name, value){
 				derivative.setValue(name, value);
@@ -390,7 +392,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 												}else{
 													eachHandler = function(element, value, beforeElement){
 														// if there no each handler, we use the default tag name for the parent 
-														return put(beforeElement || element, (beforeElement ? '-' : '') + childTagForParent[element.tagName] || 'div', value);
+														return put(beforeElement || element, (beforeElement ? '-' : '') + (childTagForParent[element.tagName] || 'span'), value);
 													}
 												}
 												var rows = value.map(function(value){
@@ -409,10 +411,18 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 														}
 													}, true);
 												}
+											}else if(value && value.nodeType){
+												if(textNode){
+													// remove the loading node
+													textNode.parentNode.removeChild(textNode);
+													textNode = null;
+												}
+												element.appendChild(value);
 											}else{
+												value = value === undefined ? '' : value;
 												if(element.tagName in inputs){
 													// add the text
-													element.value= value;
+													element.value = value;
 													// we are going to store the variable computation on the element
 													// so that on a change we can quickly do a put on it
 													// we might want to consider changing that in the future, to
@@ -485,7 +495,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 								nextElement.item = item;
 							}
 							if(nextElement != lastElement && nextElement != element &&// avoid infinite loop if it is a nop selector
-								(!nextPart || !nextPart.eachProperty) // if the next part is a rule, than it should be extending it already, so we don't want to double apply
+								(!nextPart || !nextPart.base) // if the next part is a rule, than it should be extending it already, so we don't want to double apply
 								){
 								elemental.update(nextElement);
 							}
@@ -713,8 +723,9 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		// definition bound to an element's property
 		return {
 			forElement: function(element){
+				var rule = this;			
 				// we find the parent element with an item property, and key off of that 
-				while(!element[property]){
+				while(!(property in element)){
 					element = element.parentNode;
 					if(!element){
 						throw new Error(property + " not found");
@@ -723,10 +734,13 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 				return {
 					element: element, // indicates the key element
 					receive: function(callback){// handle requests for the data
-						callback(element[property]);
+						callback(element[property] || rule[property]);
 					},
 					appendTo: appendTo
 				};
+			},
+			put: function(value){
+				this[property] = value;
 			}
 		};
 	}
@@ -745,7 +759,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 		// adds support for referencing each item in a list of items when rendering arrays 
 		item: elementProperty('item'),
 		// adds referencing to the prior contents of an element
-		contents: elementProperty('contents', function(target){
+		content: elementProperty('content', function(target){
 			target.appendChild(this.element);
 		}),
 		element: {
@@ -839,7 +853,7 @@ define("xstyle/core/ruleModel", ["xstyle/core/elemental", "put-selector/put"], f
 					if(computation.forElement){
 						computation = computation.forElement(event.target);
 					}
-					computation.stop();
+					computation && computation.stop && computation.stop();
 					currentEvent = null;
 				});
 			}
