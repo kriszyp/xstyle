@@ -6,12 +6,15 @@ body {
 			each: li (item/firstName + ' ' + item/lastName) {
 				on-click: contacts/select(item);
 			};
-			border: 1px solid #aaa;
+			border-right: 1px solid #aaa;
+			float: left;
+			width: 150px;
+			height: 220px;
 		},
 		div {
 			selected = contacts/selected;
 			=>
-				h1 (selected/firstName + ' ' + selected/lastName),
+				h2 (selected/firstName + ' ' + selected/lastName),
 				label.start-row 'First Name:',
 				input[type=text] (selected/firstName),
 				label.start-row 'Last Name:',
@@ -24,8 +27,14 @@ body {
 				button.start-row 'Save' {
 					on-click: contacts/save(selected);
 				};
+			float: left;
+			margin: 20px;
 		};
+	font-family: "Segoe UI", "Segoe WP", "Helvetica Neue", Roboto, sans-serif;
 }
 .start-row {
 	display: block;
+}
+h2 {
+	margin-top: 0;
 }
