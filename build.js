@@ -27,11 +27,12 @@ navigator = {
 };
 
 var pseudoDefine = function(id, deps, factory){
-		function pseudoRequire(deps){
-			[].push.apply(requiredModules, deps);
-		}
-		pseudoRequire.isBuild = true;
-		parse = factory(pseudoRequire);
+		parse = factory({
+				isBuild: true,
+				isTagSupported: function(){
+					return true;					
+				}
+		});
 	};
 var requiredModules = [], base64Module;
 
@@ -115,7 +116,7 @@ function processCss(cssText, basePath, inlineAllResources){
 		getDefinition: function(name, includeRules){
 			var parentRule = this;
 			do{
-				var target = parentRule.properties && parentRule.properties[name]
+				var target = parentRule.definitions && parentRule.definitions[name]
 					|| (includeRules && parentRule.rules && parentRule.rules[name]);
 				parentRule = parentRule.parent;
 			}while(!target && parentRule);
@@ -124,8 +125,8 @@ function processCss(cssText, basePath, inlineAllResources){
 		declareProperty: function(name, value, conditional){
 			// TODO: access staticHasFeatures to check conditional
 			xstyleCss.push(name + '=' + value);
-			var properties = (this.properties || (this.properties = {}));
-			properties[name] = true;
+			var definitions = (this.definitions || (this.definitions = {}));
+			definitions[name] = new XRule;
 		},
 		setValue: function(name, value){
 			var target = this.getDefinition(name);
@@ -154,6 +155,9 @@ function processCss(cssText, basePath, inlineAllResources){
 			if(this.xstyleStarted){
 				xstyleCss.push('}')
 			}
+		},
+		extend: function(){
+			
 		}
 	};
 	// a class representing function calls
@@ -237,7 +241,7 @@ function processCss(cssText, basePath, inlineAllResources){
 	var rootRule = new XRule;
 	rootRule.root = true;
 	parse(rootRule, cssText, {href:basePath || '.', cssRules:[], insertRule: insertRule});
-	rootRule.properties = {
+	rootRule.definitions = {
 		Math:1,
 		require:1,
 		item: 1,

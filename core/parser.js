@@ -1,4 +1,4 @@
-define("xstyle/core/parser", [], function(){
+define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 	// regular expressions used to parse CSS
 	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
@@ -28,20 +28,6 @@ define("xstyle/core/parser", [], function(){
 		return '"' + this.value.replace(/["\\\n\r]/g, '\\$&') + '"';
 	}
 	
-	function convertCssNameToJs(name){
-		return name.replace(/-(\w)/g, function(t, firstLetter){
-			return firstLetter.toUpperCase();
-		});
-	}
-	var supportedTags = {};
-	function isTagSupported(tag){
-		// test to see if a tag is supported by the browser
-		if(tag in supportedTags){
-			return supportedTags[tag];
-		}
-		var elementString = (element = document.createElement(tag)).toString();
-		return supportedTags[tag] = !(elementString == "[object HTMLUnknownElement]" || elementString == "[object]");
-	}
 	
 	function parse(model, textToParse, styleSheet){
 		var mainScan;
@@ -200,13 +186,13 @@ define("xstyle/core/parser", [], function(){
 						newTarget.parent = target;
 						if(doExtend){
 							value.replace(/(?:^|,|>)\s*([\w-]+)/g, function(t, base){
-								var ref = target.getDefinition(base);
+								var ref = target.getDefinition(base, true);
 								if(ref){
 									ref.extend(newTarget, true);
 								}else{
 									// extending a native element
 									newTarget.tagName = base;
-									if(!isTagSupported(base)){
+									if(!utils.isTagSupported(base)){
 										error("Extending undefined definition " + base);
 									}
 								}
@@ -217,12 +203,14 @@ define("xstyle/core/parser", [], function(){
 						target.currentName = name;
 						target.currentSequence = sequence;
 						target.assignmentOperator = assignmentOperator;
-						// if it has a pseudo, call the pseudo handler
-						if(assignmentOperator == ':' && operator == '{'){
+						var selectorTrigger;
+						// if it has a pseudo or directive, call the handler
+						if(operator == '{' && (selectorTrigger = newTarget.selector.match(/[@:]\w+/))){
 							// TODO: use when()
-							var pseudoHandler = target.getDefinition(':' + value);
-							if(pseudoHandler && pseudoHandler.pseudo){
-								pseudoHandler.pseudo(target, value);
+							selectorTrigger = selectorTrigger[0];
+							var selectorHandler = target.getDefinition(selectorTrigger);
+							if(selectorHandler && selectorHandler.selector){
+								selectorHandler.selector(newTarget);
 							}
 						}
 
@@ -239,8 +227,8 @@ define("xstyle/core/parser", [], function(){
 					var first = sequence[0] || sequence;
 					if(first.charAt && first.charAt(0) == "@"){
 						// it's a directive
-						var directiveFirst6 = sequence[0].slice(1,7);
-						if(directiveFirst6 == "import"){
+						var directive = sequence[0].match(/\w+/)[0];
+						if(directive == "import"){
 							// get the stylesheet
 							var importedSheet = parse.getStyleSheet((styleSheet.cssRules || styleSheet.imports)[ruleIndex++], sequence, styleSheet);
 							//waiting++;
@@ -250,9 +238,11 @@ define("xstyle/core/parser", [], function(){
 							parseSheet(importedSheet.localSource, importedSheet);
 							// now restore our state
 							cssScan.lastIndex = currentIndex;
-						}else if(directiveFirst6 == 'xstyle'){
+						}else if(directive == 'xstyle'){
 							cssScan = sequence[0].slice(8,10) == 'on' ? 
 								mainScan : /(@[\w\s])/g;
+						}else if(directive == 'supports'){
+							// TODO: implement this
 						}
 					}else if(assignmentOperator){
 						// need to do an assignment

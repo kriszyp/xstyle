@@ -1,4 +1,4 @@
-define("xstyle/main", ["require", "xstyle/core/parser", "xstyle/core/ruleModel", "xstyle/core/elemental"], function (require, parser, ruleModel, elemental) {
+define("xstyle/main", ["require", "xstyle/core/parser", "xstyle/core/base", "xstyle/core/elemental"], function (require, parser, ruleModel, elemental) {
 	"use strict";
 	function search(tag){
 		// used to search for link and style tags
