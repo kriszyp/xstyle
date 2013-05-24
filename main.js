@@ -56,10 +56,8 @@ define("xstyle/main", ["require", "xstyle/core/parser", "xstyle/core/base", "xst
 				}
 			}
 		}
-		if(needsParsing){
-			// ok, determined that CSS extensions are in the CSS, need to get the source and really parse it
-			parse(sheet.localSource || (sheet.ownerNode || sheet.owningElement).innerHTML, sheet, callback);
-		}
+		// ok, determined that CSS extensions are in the CSS, need to get the source and really parse it
+		parse(sheet.localSource || (sheet.ownerNode || sheet.owningElement).innerHTML, sheet, callback);
 	}
 	parser.getStyleSheet = function(importRule, sequence){
 		return importRule.styleSheet || importRule;

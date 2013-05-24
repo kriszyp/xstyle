@@ -204,7 +204,25 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			// we might consider removing this if it is only used from put
 			var base = this;
 			var newText = base.cssText;
-			derivative.cssText += newText;
+			if(derivative.cssRule){
+				// already have a rule, we use a different mechanism here
+				var baseStyle = base.cssRule.style;
+				var derivativeStyle = derivative.cssRule.style;
+				var inheritedStyles = derivative.inheritedStyles || (derivative.inheritedStyles = {});
+				// now we iterate through the defined style properties, and copy them to the derivitative
+				for(var i = 0; i < baseStyle.length; i++){
+					var name = baseStyle[i];
+					// if the derivative has a style, we assume it is set in the derivative rule. If we 
+					// inherit a rule, we have to mark it as inherited so higher precedence rules
+					// can override it without thinking it came from the derivative. 
+					if(!derivativeStyle[name] || inheritedStyles[name]){
+						derivativeStyle[name] = baseStyle[name];
+						inheritedStyles[name] = true;
+					}
+				}
+			}else{
+				derivative.cssText += newText;
+			}
 			'values,variables,calls'.replace(/\w+/g, function(property){
 				var set = base[property];
 				if(set){
@@ -248,7 +266,7 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			return target;
 		},
 		appendTo: function(target, beforeElement){
-			return put(beforeElement || target, (beforeElement ? '-' : '') + (this.tagName || '') + this.selector);
+			return put(beforeElement || target, (beforeElement ? '-' : '') + (this.tagName || 'span') + this.selector);
 		},
 		cssText: ""
 	};

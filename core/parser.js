@@ -154,6 +154,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 							var nextRule = null;
 							var lastRuleIndex = ruleIndex;
 							if(match[5]){
+								// when we are using built stylesheets, we make numeric references to the rules, by index
 								var cssRules = styleSheet.cssRules || styleSheet.rules;
 								if(newTarget.cssRule = nextRule = cssRules[match[5].slice(1)]){
 									selector = nextRule.selectorText;
@@ -179,7 +180,8 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 							if(sequence.creating){
 								// in generation, we auto-generate selectors so we can reference them
 								newTarget.selector = '.' + (assignmentOperator == '=' ? first.replace(/[^\w-]/g,'') : '') + '-x-' + nextId++;
-							}else{							
+								newTarget.creating = true;
+							}else{						
 								newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
 							}
 							selector = '';
