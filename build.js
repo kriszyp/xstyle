@@ -104,14 +104,17 @@ var mimeTypes = {
 }
 function processCss(cssText, basePath, inlineAllResources){
 	function XRule(){
-		
 	}
+	var ruleCount = 0;
 	XRule.prototype = {
 		newCall: function(name){
 			return new Call(name);
 		},
-		newRule: function(){
-			return new XRule();
+		childRules: 0,
+		newRule: function(name){
+			var rule = (this.rules || (this.rules = {}))[name] = new XRule();
+			rule.ruleIndex = this.childRules++;
+			return rule;
 		},
 		getDefinition: function(name, includeRules){
 			var parentRule = this;
@@ -120,44 +123,70 @@ function processCss(cssText, basePath, inlineAllResources){
 					|| (includeRules && parentRule.rules && parentRule.rules[name]);
 				parentRule = parentRule.parent;
 			}while(!target && parentRule);
+			if(target){
+				target.name = name;
+			}
 			return target;
 		},
 		declareProperty: function(name, value, conditional){
 			// TODO: access staticHasFeatures to check conditional
-			xstyleCss.push(name + '=' + value);
+			var valueString = ('' + value).replace(/\s+/g, ' ');
+			(this.xstyleCss = this.xstyleCss || []).push(name + '=' + valueString + ';');
 			var definitions = (this.definitions || (this.definitions = {}));
 			definitions[name] = new XRule;
 		},
 		setValue: function(name, value){
 			var target = this.getDefinition(name);
-			if(!target || !this.xstyleStarted){
-				if(!this.ruleStarted){
-					this.ruleStarted = true;
-					this.selectorIndex = browserCss.push(this.selector);
-					browserCss.push('{');
-				}
-				if(!target){
-					browserCss.push(name, ':', value, ';');
+			var browserCss = this.browserCss = this.browserCss || [];
+			if(!this.ruleStarted){
+				this.ruleStarted = true;
+				browserCss.push(this.selector) - 1;
+				browserCss.push('{');
+				ruleCount++;
+			}
+			if(!target){
+				browserCss.push(name, ':', value, ';');
+			}
+			if(target || !this.cssRule){
+				if(!this.xstyleStarted){
+					this.xstyleStarted = true;
+					this.xstyleCss = this.xstyleCss || [];
+					this.ref=  '/' + (ruleCount-1);
 				}
 			}
 			if(target){
-				if(!this.xstyleStarted){
-					this.xstyleStarted = true;
-					var starter = '/' + (this.id = nextId++) + '{';
-					browserCss[this.selectorIndex] += ',#' + this.id;
-				}
-				
-				xstyleCss.push((starter || '') + name + ':' + value, '}');
+				this.xstyleCss.push(name + ':' + value + ';');
 			}
+		},
+		toString: function(){
+			var str = ''
+			if(!this.root){
+				str = (this.tagName || this.name || '') + '{' + this.ref; 
+			}
+			str += this.xstyleCss ? this.xstyleCss.join('') : '';
+			for(var i in this.rules){
+				var rule = this.rules[i];
+				if(rule.ref){
+					str += rule.toString();
+				}
+			}
+			if(!this.root){
+				str += '}';
+			}
+			return str;
 		},
 		onRule: function(){
-			browserCss.push('}');
-			if(this.xstyleStarted){
-				xstyleCss.push('}')
+			if(this.browserCss){
+				this.browserCss.push('}');
+				browserCss.push(this.browserCss.join(''));
 			}
 		},
-		extend: function(){
-			
+		extend: function(derivative, fullExtension){
+			var definitions = this.definitions;
+			if(definitions && fullExtension){
+				// TODO: need to mixin this in, if it already exists
+				derivative.definitions = Object.create(definitions);
+			}			
 		}
 	};
 	// a class representing function calls
@@ -237,7 +266,6 @@ function processCss(cssText, basePath, inlineAllResources){
 		}
 	};
 	var browserCss = [];//[correctUrls(cssText, basePath + "placeholder.css")];
-	var xstyleCss = [];
 	var rootRule = new XRule;
 	rootRule.root = true;
 	parse(rootRule, cssText, {href:basePath || '.', cssRules:[], insertRule: insertRule});
@@ -260,7 +288,7 @@ function processCss(cssText, basePath, inlineAllResources){
 	//console.log('browserCss', browserCss);
 	return {
 		standardCss: minify(browserCss.join('')),
-		xstyleCss: xstyleCss.join(';'),
+		xstyleCss: rootRule.toString(),
 		requiredModules: requiredModules
 	};
 }

@@ -31,10 +31,11 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 	
 	function parse(model, textToParse, styleSheet){
 		var mainScan;
-		var cssScan = mainScan = /\s*((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?([{\}\[\]\(\)\\'":;]|$)/g;
+		var cssScan = mainScan = /\s*((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?(?:([{\}\[\]\(\)\\'":;])(\/\d+)?|$)/g;
 									// name: value 	operator
 		// tracks the stack of rules as they get nested
 		var stack = [model];
+		var ruleMap = {};
 		model.parse = parseSheet;
 		parseSheet(textToParse, styleSheet);
 		function parseSheet(textToParse, styleSheet){
@@ -132,7 +133,8 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 							selector = trim((selector + first).replace(/\s+/g, ' ').replace(/([\.#:])\S+|\w+/g,function(t, operator){
 								// make tag names be lower case 
 								return operator ? t : t.toLowerCase();
-							}));	
+							}));
+							// check to see if it is a correlator rule, from the build process
 							// add this new rule to the current parent rule
 							addInSequence(newTarget = target.newRule(selector));
 							
@@ -151,6 +153,12 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 							}
 							var nextRule = null;
 							var lastRuleIndex = ruleIndex;
+							if(match[5]){
+								var cssRules = styleSheet.cssRules || styleSheet.rules;
+								if(newTarget.cssRule = nextRule = cssRules[match[5].slice(1)]){
+									selector = nextRule.selectorText;
+								}
+							}
 							if(target.root && browserUnderstoodRule){
 								// we track the native CSSOM rule that we are attached to so we can add properties to the correct rule
 								var cssRules = styleSheet.cssRules || styleSheet.rules;
@@ -285,6 +293,9 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 									error("A nested rule must end with a semicolon");
 								}
 							}
+							if(target.root){
+								error("Unmatched " + operator);
+							}
 							// if it is rule, call the rule handler 
 							target.onRule(target.selector, target);
 							// TODO: remove this conditional, now that we use assignment
@@ -317,7 +328,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 							assignmentOperator = false;
 						}
 						break;
-					case "":
+					case "": case undefined:
 						// no operator means we have reached the end of the text to parse
 						return;
 					case ';':
