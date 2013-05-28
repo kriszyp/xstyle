@@ -1,5 +1,5 @@
 define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
-	var targetStylesheet, inLayer, targetStylesheetContents = '';
+	var targetStylesheet, inLayer, targetDestStylesheetUrl, targetStylesheetContents = '';
 	return {
 		start:function(
 			mid,
@@ -14,7 +14,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 				xstyleModuleInfo = bc.getSrcModuleInfo("xstyle/core/parser", referenceModule, true),
 				xstyleText = fs.readFileSync(xstyleModuleInfo.url + '.js', "utf8"),
 				xstyleProcess = buildModule(xstyleText),
-				targetStylesheetUrl;				
+				targetStylesheetUrl;		
 				
 			if(!bc.fixedUpLayersToDetect){
 				bc.fixedUpLayersToDetect = true;
@@ -28,11 +28,14 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 								inLayer = true;
 								targetStylesheet = layer.targetStylesheet;
 								if(targetStylesheet){
-									var targetStylesheetModule = bc.getSrcModuleInfo(targetStylesheet, null, true);
+									var layerModule = bc.getSrcModuleInfo(layer.name);
+									var targetStylesheetModule = bc.getSrcModuleInfo(targetStylesheet, layerModule, true);
+									var targetDestStylesheetModule = bc.getDestModuleInfo(targetStylesheet, null, true);
 									targetStylesheetModule.getText = function(){
 										return targetStylesheetContents;
 									};
 									targetStylesheetUrl = targetStylesheetModule.url;
+									targetDestStylesheetUrl = targetDestStylesheetModule.url;
 									// initialize the target stylesheet
 									targetStylesheetContents = '';
 									try{
@@ -90,8 +93,12 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 							var processed = processCss(this.module);//, targetStylesheetUrl);
 							targetStylesheetContents += processed.standardCss;
 							// in case the file doesn't exist
-							var targetDestStylesheetModule = bc.getDestModuleInfo(targetStylesheet, null, true);
-							fs.writeFileSync(targetDestStylesheetModule.url, targetStylesheetContents);
+							//var targetDestStylesheetModule = bc.getDestModuleInfo(targetStylesheet, null, true);
+							// the dojo buildcontrol module has a bug where it will leave the /x on the end of the string, have to remove it
+							var url = targetDestStylesheetUrl.replace(/\/x$/,'');
+							bc.log('writing stylesheet ' + url);
+							
+							fs.writeFileSync(url, targetStylesheetContents);
 							return ['','0'];
 						}
 						if(inLayer){
