@@ -31,7 +31,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 	
 	function parse(model, textToParse, styleSheet){
 		var mainScan;
-		var cssScan = mainScan = /\s*((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?(?:([{\}\[\]\(\)\\'":;])(\/\d+)?|$)/g;
+		var cssScan = mainScan = /(\s*)((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?(?:([{\}\[\]\(\)\\'":;])(\/\d+)?|$)/g;
 									// name: value 	operator
 		// tracks the stack of rules as they get nested
 		var stack = [model];
@@ -41,6 +41,9 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 		function parseSheet(textToParse, styleSheet){
 			// parse the CSS, finding each rule
 			function addInSequence(operand){
+				if(typeof operand == 'string' && whitespace){
+					operand = whitespace + operand; 
+				}
 				if(sequence){
 					// we had a string so we are accumulated sequences now
 					sequence.push ?
@@ -54,7 +57,10 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 					sequence = operand;
 				}
 			}
-			textToParse = textToParse.replace(commentScan, '');
+			textToParse = textToParse.replace(commentScan, function(comment){
+				// keep the line returns for proper line attribution in errors
+				return comment.replace(/[^\n]/g, '');
+			});
 			target = model; // start at root
 			cssScan.lastIndex = 0; // start at zero
 			var ruleIndex = 0, browserUnderstoodRule = true, selector = '', assignNextName = true;
@@ -63,10 +69,11 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 				// we could perhaps use a simplified regex when we are in a property value 
 				var match = cssScan.exec(textToParse);
 				// the next block is parsed into several parts that comprise some operands and an operator
-				var operator = match[4],
-					first = match[1],
-					assignment = match[2],
-					value = match[3],
+				var operator = match[5],
+					whitespace = match[1],
+					first = match[2],
+					assignment = match[3],
+					value = match[4],
 					assignmentOperator, name, sequence,
 					conditionalAssignment;
 				value = value && trim(value);
@@ -81,6 +88,10 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 						// remember the operator (could be ':' for a property assignment or '=' for a property declaration)
 						assignmentOperator = assignment.charAt(0);
 						conditionalAssignment = assignment.charAt(1) == '?';
+						if(assignment.indexOf('\n') > -1){
+							// need to preserve whitespace if there is a return
+							value = assignment.slice(1);
+						}
 					}else{
 						value = first;
 					}
@@ -153,10 +164,10 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 							}
 							var nextRule = null;
 							var lastRuleIndex = ruleIndex;
-							if(match[5]){
+							if(match[6]){
 								// when we are using built stylesheets, we make numeric references to the rules, by index
 								var cssRules = styleSheet.cssRules || styleSheet.rules;
-								if(newTarget.cssRule = nextRule = cssRules[match[5].slice(1)]){
+								if(newTarget.cssRule = nextRule = cssRules[match[6].slice(1)]){
 									selector = nextRule.selectorText;
 								}
 							}
@@ -196,7 +207,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 						newTarget.parent = target;
 						if(doExtend){
 //							value.replace(/(?:^|,|>)\s*([\w-]+)/g, function(t, base){
-							value.replace(/([\w-]+)$/g, function(t, base){
+							value.replace(/^\s*([\w-]+)$/g, function(t, base){
 								var ref = target.getDefinition(base, true);
 								if(ref){
 									ref.extend(newTarget, true);
@@ -298,14 +309,15 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 							}
 							if(target.root){
 								error("Unmatched " + operator);
+							}else{
+								// if it is rule, call the rule handler 
+								target.onRule(target.selector, target);
+								// TODO: remove this conditional, now that we use assignment
+								/*if(target.selector.slice(0,2) != "x-"){// don't trigger the property for the property registration
+									target.eachProperty(onProperty);
+								}*/
+								browserUnderstoodRule = true;
 							}
-							// if it is rule, call the rule handler 
-							target.onRule(target.selector, target);
-							// TODO: remove this conditional, now that we use assignment
-							/*if(target.selector.slice(0,2) != "x-"){// don't trigger the property for the property registration
-								target.eachProperty(onProperty);
-							}*/
-							browserUnderstoodRule = true;
 							selector = '';
 						}/*else if(operator == ')'){
 							// call handler
@@ -344,12 +356,12 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 				}
 				var lastOperator = operator;
 			}
-		}
-		function error(e){
-			console.error(e.message || e, "line " + textToParse.slice(0, cssScan.lastIndex).split('\n').length + " in " + (styleSheet.href || "in-page stylesheet"));
-			if(e.stack){
-				console.error(e.stack);
-			}			
+			function error(e){
+				console.error(e.message || e, "line " + textToParse.slice(0, cssScan.lastIndex).split('\n').length + " in " + (styleSheet.href || "in-page stylesheet"));
+				if(e.stack){
+					console.error(e.stack);
+				}			
+			}
 		}
 	}
 	return parse;
