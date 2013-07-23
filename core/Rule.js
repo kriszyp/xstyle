@@ -42,15 +42,11 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			// Used to add a new rule
 			if(cssText &&
 				selector.charAt(0) != '@'){ // for now just ignore and don't add at-rules
-				try{
-					var styleSheet = this.styleSheet;
-					var cssRules = styleSheet.cssRules || styleSheet.rules;
-					var ruleNumber = this.ruleIndex > -1 ? this.ruleIndex : cssRules.length;
-					styleSheet.addRule(selector, cssText, ruleNumber);
-					return cssRules[ruleNumber];
-				}catch(e){
-					console.warn("Unable to add rule", e.message);
-				}
+				var styleSheet = this.styleSheet;
+				var cssRules = styleSheet.cssRules || styleSheet.rules;
+				var ruleNumber = this.ruleIndex > -1 ? this.ruleIndex : cssRules.length;
+				styleSheet.addRule(selector, cssText, ruleNumber);
+				return cssRules[ruleNumber];
 			}
 		},
 		onRule: function(){
@@ -138,6 +134,12 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 				definitions[name] = value;
 			}
 		},
+		onCall: function(call, name, value){
+			var handler = call.ref;
+			if(handler && typeof handler.call == 'function'){
+				return handler.call(call, this, name, value);
+			}
+		},
 		setValue: function(name, value, scopeRule){
 			// called by the parser when a property is encountered
 			if(this.disabled){
@@ -151,10 +153,7 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			if(calls){
 				for(var i = 0; i < calls.length; i++){
 					var call = calls[i];
-					var handler = call.ref;
-					if(handler && typeof handler.call == 'function'){
-						handler.call(call, this, name, value);
-					}
+					this.onCall(calls[i], name, value);
 				}
 			}
 			// called when each property is parsed, and this determines if there is a handler for it
@@ -209,7 +208,6 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			}
 		},
 		extend: function(derivative, fullExtension){
-			console.log("extending ", derivative);
 			// we might consider removing this if it is only used from put
 			var base = this;
 			var newText = base.cssText;

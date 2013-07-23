@@ -14,20 +14,21 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 	} : function(str){
 		return str.replace(/^\s+|\s+$/g, '');
 	};
-	function toStringWithoutCommas(){
+	
+	function Sequence(){
+		this.push.apply(this, arguments);
+	}
+	var SequencePrototype = Sequence.prototype = [];
+	SequencePrototype.toString = function(){
 		return this.join('');
-	}
-	function arrayWithoutCommas(array){
-		array.toString = toStringWithoutCommas;
-		return array;
-	}
+	};
+	SequencePrototype.isSequence = true;
 	function LiteralString(string){
 		this.value = string;
 	}
 	LiteralString.prototype.toString = function(){
 		return '"' + this.value.replace(/["\\\n\r]/g, '\\$&') + '"';
 	}
-	
 	
 	function parse(model, textToParse, styleSheet){
 		var mainScan;
@@ -56,7 +57,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 				});
 				var nextTurn = true;
 			}
-			target = model; // start at root
+			var target = model; // start at root
 			cssScan.lastIndex = 0; // start at zero
 			var continuing;
 			var ruleIndex = 0, browserUnderstoodRule = true, selector = '', assignNextName = true;
@@ -74,7 +75,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 								operand && sequence.push(operand) : // add to the sequence
 							typeof sequence == 'string' && typeof operand == 'string' ?
 								sequence += operand : // keep appending to the string
-								sequence = arrayWithoutCommas([sequence, operand]); // start a new sequence array
+								sequence = new Sequence(sequence, operand); // start a new sequence array
 					}else{
 						sequence = operand;
 					}
@@ -94,7 +95,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 						conditionalAssignment;
 					value = value && trim(value);
 					
-					first = trim(first);
+					first = first && trim(first);
 					if(assignNextName){
 						// we are at the beginning of a new property
 						if(assignment){
@@ -256,10 +257,10 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 					}
 					if(sequence){
 						// now see if we need to process an assignment or directive
-						var first = sequence[0] || sequence;
+						var first = typeof sequence == 'string' ? sequence: sequence[0];
 						if(first.charAt && first.charAt(0) == "@"){
 							// it's a directive
-							var directive = sequence[0].match(/\w+/)[0];
+							var directive = first.match(/\w+/)[0];
 							if(directive == "import"){
 								// get the stylesheet
 								var importedSheet = parse.getStyleSheet((styleSheet.cssRules || styleSheet.imports)[ruleIndex++], sequence, styleSheet);
@@ -271,8 +272,17 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 								// now restore our state
 								cssScan.lastIndex = currentIndex;
 							}else if(directive == 'xstyle'){
-								cssScan = sequence[0].slice(8,10) == 'on' ? 
-									mainScan : /(@[\w\s])/g;
+								if(first.slice(8,13) == 'start'){
+									var newTarget = target ? target.newRule('') : lastRootTarget;
+									newTarget.root = target.root;
+									newTarget.parent = target;
+									stack.push(target = newTarget);
+								}else{
+									var lastRootTarget = target;
+									stack.pop();
+									target = stack[stack.length - 1];
+								}
+								cssScan = target ? mainScan : /(@[\w\s])/g;
 							}else if(directive == 'supports'){
 								// TODO: implement this
 							}
@@ -323,8 +333,13 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 								if(target.root){
 									error("Unmatched " + operator);
 								}else{
-									// if it is rule, call the rule handler 
-									target.onRule(target.selector, target);
+									// if it is rule, call the rule handler
+									try{ 
+										target.onRule(target.selector, target);
+									}catch(e){
+										error(e);
+									}
+									
 									// TODO: remove this conditional, now that we use assignment
 									/*if(target.selector.slice(0,2) != "x-"){// don't trigger the property for the property registration
 										target.eachProperty(onProperty);
@@ -332,11 +347,17 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 									browserUnderstoodRule = true;
 								}
 								selector = '';
-							}/*else if(operator == ')'){
-								// call handler
-								onCall(target.caller, target);
-							}*/
+							}
 							// now pop the call or rule off the stack and restore the state
+							if(operator == ')' && !assignmentOperator){
+								// call handler
+								// immediately call this, since it isn't a part of a property
+								target.args = sequence.isSequence ? sequence : [sequence];
+								var result = stack[stack.length - 2].onCall(target);
+								if(result && result.then){
+									resumeOnComplete(result);
+								}
+							}
 							stack.pop();
 							target = stack[stack.length - 1];				
 							sequence = target.currentSequence;

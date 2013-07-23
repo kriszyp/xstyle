@@ -22,9 +22,10 @@ function(elemental, evaluateExpression, utils, put, Rule){
 	root.root = true;
 	function elementProperty(property, appendTo){
 		// definition bound to an element's property
+		// TODO: allow it be bound to other names, and use prefixing to not collide with element names
 		return {
 			forElement: function(element){
-				var rule = this;			
+				var contentElement = element;
 				// we find the parent element with an item property, and key off of that 
 				while(!(property in element)){
 					element = element.parentNode;
@@ -32,16 +33,19 @@ function(elemental, evaluateExpression, utils, put, Rule){
 						throw new Error(property + " not found");
 					}
 				}
+				// provide a means for being able to reference the target node,
+				// this primarily used by the generate model to nest content properly
+				element['_' + property + 'Node'] = contentElement; 
 				return {
 					element: element, // indicates the key element
-					receive: function(callback){// handle requests for the data
+					receive: function(callback, rule){// handle requests for the data
 						callback(element[property] || rule[property]);
 					},
 					appendTo: appendTo
 				};
 			},
-			put: function(value){
-				this[property] = value;
+			put: function(value, rule){
+				rule[property] = value;
 			}
 		};
 	}
@@ -146,10 +150,15 @@ function(elemental, evaluateExpression, utils, put, Rule){
 				callback();
 			}
 		},
-		// TODO: 
-		/*'extends': {
-			
-		}*/
+		'extends': {
+			call: function(call, rule){
+				// TODO: this is duplicated in the parser, should consolidate
+				var args = call.args;
+				for(var i = 0; i < args.length; i++){ // TODO: merge possible promises
+					return utils.extend(rule, args[i], console.error);
+				}
+			}
+		},
 		on: {
 			put: function(value, rule, name){
 				// add listener

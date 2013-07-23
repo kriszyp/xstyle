@@ -34,20 +34,26 @@ define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xs
 		return function(element, item, beforeElement){
 			var lastElement = element;
 			var subId = 0;
-			if(beforeElement === undefined){
-				var childNodes = element.childNodes;
-				var childNode = childNodes[0], contentFragment;
-				// move the children out and record the contents in a fragment
-				if(childNode){
-					contentFragment = doc.createDocumentFragment();
-					do{
-						contentFragment.appendChild(childNode);
-					}while(childNode = childNodes[0]);
+			if(element._contentNode){
+				// if we are rendering on a node that has already been rendered with a content
+				// node, we need to nest inside that
+				element = element._contentNode;
+			}else{
+				if(beforeElement === undefined){
+					var childNodes = element.childNodes;
+					var childNode = childNodes[0], contentFragment;
+					// move the children out and record the contents in a fragment
+					if(childNode){
+						contentFragment = doc.createDocumentFragment();
+						do{
+							contentFragment.appendChild(childNode);
+						}while(childNode = childNodes[0]);
+					}
 				}
+				// temporarily store it on the element, so it can be accessed as an element-property
+				// TODO: remove it after completion
+				element.content = contentFragment;
 			}
-			// temporarily store it on the element, so it can be accessed as an element-property
-			// TODO: remove it after completion
-			element.content = contentFragment;
 			var indentationLevel = 0;
 			var indentationLevels = [element];
 			for(var i = 0, l = generatingSelector.length;i < l; i++){
@@ -77,37 +83,42 @@ define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xs
 										var textNode = element.appendChild(doc.createTextNode("Loading"));
 										receive(apply, function(value){
 											if(value && value.sort){
-												// if it is an array, we do iterative rendering
 												if(textNode){
 													// remove the loading node
 													textNode.parentNode.removeChild(textNode);
 													textNode = null;
 												}
-												var eachHandler = nextPart && nextPart.eachProperty && nextPart.each;
-												// if "each" is defined, we will use it render each item 
-												if(eachHandler){
-													eachHandler = generate(eachHandler, nextPart);
+												if(value.isSequence){
+													generate(value, part.parent)(element, item, beforeElement);
 												}else{
-													eachHandler = function(element, value, beforeElement){
-														// if there no each handler, we use the default tag name for the parent 
-														return put(beforeElement || element, (beforeElement ? '-' : '') + (childTagForParent[element.tagName] || 'span'), value);
+													element.innerHTML = '';
+													// if it is an array, we do iterative rendering
+													var eachHandler = nextPart && nextPart.eachProperty && nextPart.each;
+													// if "each" is defined, we will use it render each item 
+													if(eachHandler){
+														eachHandler = generate(eachHandler, nextPart);
+													}else{
+														eachHandler = function(element, value, beforeElement){
+															// if there no each handler, we use the default tag name for the parent 
+															return put(beforeElement || element, (beforeElement ? '-' : '') + (childTagForParent[element.tagName] || 'span'), value);
+														}
 													}
-												}
-												var rows = value.map(function(value){
-													// TODO: do this inside generate
-													return eachHandler(element, value, null);
-												});
-												if(value.observe){
-													value.observe(function(object, previousIndex, newIndex){
-														if(previousIndex > -1){
-															var oldElement = rows[previousIndex];
-															oldElement.parentNode.removeChild(oldElement);
-															rows.splice(previousIndex, 1);
-														}
-														if(newIndex > -1){
-															rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
-														}
-													}, true);
+													var rows = value.map(function(value){
+														// TODO: do this inside generate
+														return eachHandler(element, value, null);
+													});
+													if(value.observe){
+														value.observe(function(object, previousIndex, newIndex){
+															if(previousIndex > -1){
+																var oldElement = rows[previousIndex];
+																oldElement.parentNode.removeChild(oldElement);
+																rows.splice(previousIndex, 1);
+															}
+															if(newIndex > -1){
+																rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
+															}
+														}, true);
+													}
 												}
 											}else if(value && value.nodeType){
 												if(textNode){
@@ -183,6 +194,7 @@ define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xs
 									}
 	//								nextElement = element;
 								}
+								nextElement = nextElement._contentNode || nextElement;
 								var selector;
 								if(prefix){// we don't want to modify the current element, we need to create a new one
 										selector = (lastPart && lastPart.args ?
