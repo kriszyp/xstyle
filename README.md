@@ -625,13 +625,22 @@ Also, you may wish to completely disable xstyle, or import a stylesheet that sho
 by xstyle. This may be due to conflicts with properties, or other issues. Xstyle parsing can be
 turned off by using:
 
-	@xstyle off;
+	@xstyle end;
 
 And it can be turned back on with:
 
-	@xstyle on;
+	@xstyle start;
 
-(not fully implemented)
+You can also use the <code>@xstyle start</code> and <code>end</code> directives to
+create nested scopes. For example, you might wish to apply to a shim to all CSS (without 
+nesting it in an inner rule), and you can do so by using this directive:
+
+	@xstyle start;
+	some-variable=var: some value;
+	@import 'stylesheet-that-uses-some-variable.css';
+	@xstyle end;
+	/* any definition above won't affect CSS below */
+	
 
 ### Included Shim Stylesheets
 
@@ -769,7 +778,7 @@ than inlined in the JavaScript build layer. One
 can still use the #inline URL directive to inline resources in combination with the AMD
 build plugin.
  
-## Import Fixing
+## Import Correction
 
 Another feature Xstyle provides is reliable @import behavior. Internet Explorer is not
 capable of loading multiples levels deep @imports. Xstyle provides @import "flattening"
