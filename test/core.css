@@ -1,6 +1,8 @@
 test-variable=var: 163px;
 test-expression=var: test;
 
+@xstyle start;
+
 test-component = section {
 	=>
 		h1 (label) { color: red},
@@ -37,6 +39,7 @@ hello-world = test-component {
 	label: Hello world;
 	main-color: #888;
 }
+
 /*@media -sass-debug-info{filename{font-family:style\.scss}line{font-family:\0000336}}*/
 body {
 	padding:20px;
@@ -54,5 +57,16 @@ body {
 		div.middle2
 		    div.child3 
 		    div.child4
-		div.middle3
+		div.middle3#one-child
+}
+
+@xstyle end;
+#one-child {
+	=>
+		test-component;
+}
+@xstyle end;
+body {
+	=>
+		div "shouldn't do anything because the parser is off";
 }

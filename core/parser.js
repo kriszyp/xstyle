@@ -273,12 +273,14 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 								cssScan.lastIndex = currentIndex;
 							}else if(directive == 'xstyle'){
 								if(first.slice(8,13) == 'start'){
+									// start a new nested rule for the new scope
 									var newTarget = target ? target.newRule('') : lastRootTarget;
 									newTarget.root = target.root;
 									newTarget.parent = target;
 									stack.push(target = newTarget);
 								}else{
-									var lastRootTarget = target;
+									// end of scope, store the scope, and pop it
+									var lastRootTarget = target || lastRootTarget;
 									stack.pop();
 									target = stack[stack.length - 1];
 								}
