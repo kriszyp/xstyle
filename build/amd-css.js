@@ -112,7 +112,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 				var text = module.getText ? module.getText() : module.text;
 				if(text===undefined){
 					// the module likely did not go through the read transform; therefore, just read it manually
-					text= fs.readFileSync(this.module.src, "utf8");
+					text= fs.readFileSync(module.src, "utf8");
 				}
 				var processed = xstyleProcess(text, stylesheetInfo.url, inlineAllResource);
 				//for(var i = 0; i < processed.requiredModules.length; i++){
