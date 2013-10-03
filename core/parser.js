@@ -355,7 +355,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 								// call handler
 								// immediately call this, since it isn't a part of a property
 								target.args = sequence.isSequence ? sequence : [sequence];
-								var result = stack[stack.length - 2].onCall(target);
+								var result = stack[stack.length - 2].onCall && stack[stack.length - 2].onCall(target);
 								if(result && result.then){
 									resumeOnComplete(result);
 								}
