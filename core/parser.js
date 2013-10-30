@@ -86,6 +86,10 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 					// we could perhaps use a simplified regex when we are in a property value 
 					var match = cssScan.exec(textToParse);
 					// the next block is parsed into several parts that comprise some operands and an operator
+					if(!match){
+						// done
+						return;
+					}
 					var operator = match[5],
 						whitespace = match[1],
 						first = match[2],
