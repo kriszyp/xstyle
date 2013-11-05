@@ -159,7 +159,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 								// it's a rule
 								assignNextName = true; // enter into the beginning of property mode
 								// normalize the selector
-								if(assignmentOperator == ':'){
+								if(assignmentOperator == ':' && assignment){
 									first += assignment;
 								}
 								selector = trim((selector + first).replace(/\s+/g, ' ').replace(/([\.#:])\S+|\w+/g,function(t, operator){
