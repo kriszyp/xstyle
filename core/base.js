@@ -1,5 +1,5 @@
-define("xstyle/core/base", ["xstyle/core/elemental", "xstyle/core/expression", "xstyle/core/utils", "put-selector/put", "xstyle/core/Rule"], 
-function(elemental, evaluateExpression, utils, put, Rule){
+define("xstyle/core/base", ["xstyle/core/elemental", "xstyle/core/expression", "xstyle/core/utils", "put-selector/put", "xstyle/core/Rule", "xstyle/core/observe"], 
+function(elemental, evaluateExpression, utils, put, Rule, observe){
 	// this module defines the base definitions intrisincally available in xstyle stylesheets
 	var truthyConversion = {
 		'': 0,
@@ -26,6 +26,10 @@ function(elemental, evaluateExpression, utils, put, Rule){
 		return {
 			forElement: function(element, directReference){
 				var contentElement = element;
+				if(appendTo){
+					// content needs to start at the parent
+					element = element.parentNode;
+				}
 				// we find the parent element with an item property, and key off of that 
 				while(!(property in element)){
 					element = element.parentNode;
@@ -41,7 +45,7 @@ function(elemental, evaluateExpression, utils, put, Rule){
 				return {
 					element: element, // indicates the key element
 					receive: function(callback, rule){// handle requests for the data
-						callback(element[property] || rule[property]);
+						observe.get(property in element ? element : rule, property, callback);
 					},
 					appendTo: appendTo
 				};
@@ -54,8 +58,11 @@ function(elemental, evaluateExpression, utils, put, Rule){
 	// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
 	root.definitions = {
 		Math: Math, // just useful
-		module: function(mid){
+		module: function(mid, lazy){
 			// require calls can be used to load in data in
+			if(!lazy){
+				require([mid]);
+			}
 			return {
 				then: function(callback){
 					require([mid], callback);

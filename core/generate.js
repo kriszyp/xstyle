@@ -1,5 +1,5 @@
-define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xstyle/core/utils", "xstyle/core/expression"],
-		function(elemental, put, utils, evaluateExpression){
+define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xstyle/core/utils", "xstyle/core/expression", "xstyle/core/observe"],
+		function(elemental, put, utils, evaluateExpression, observe){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
@@ -34,6 +34,7 @@ define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xs
 		return function(element, item, beforeElement){
 			var lastElement = element;
 			var subId = 0;
+			element._defaultBinding = false;
 			if(element._contentNode){
 				// if we are rendering on a node that has already been rendered with a content
 				// node, we need to nest inside that
@@ -73,6 +74,7 @@ define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xs
 								// TODO: make sure we only do this only once
 								var expression = part.args.toString();
 								var apply = evaluateExpression(part.parent, 0, expression);
+								
 								(function(element, nextPart){
 									utils.when(apply, function(apply){
 										// TODO: assess how we could propagate changes categorically
@@ -80,72 +82,81 @@ define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xs
 											apply = apply.forElement(element);
 											// now apply.element should indicate the element that it is actually keying or varying on
 										}
-										var textNode = element.appendChild(doc.createTextNode("Loading"));
 										receive(apply, function(value){
-											if(value && value.sort){
-												if(textNode){
-													// remove the loading node
-													textNode.parentNode.removeChild(textNode);
-													textNode = null;
-												}
-												if(value.isSequence){
-													generate(value, part.parent)(element, item, beforeElement);
-												}else{
-													element.innerHTML = '';
-													// if it is an array, we do iterative rendering
-													var eachHandler = nextPart && nextPart.eachProperty && nextPart.each;
-													// if "each" is defined, we will use it render each item 
-													if(eachHandler){
-														eachHandler = generate(eachHandler, nextPart);
-													}else{
-														eachHandler = function(element, value, beforeElement){
-															// if there no each handler, we use the default tag name for the parent 
-															return put(beforeElement || element, (beforeElement ? '-' : '') + (childTagForParent[element.tagName] || 'span'), value);
-														}
-													}
-													var rows = value.map(function(value){
-														// TODO: do this inside generate
-														return eachHandler(element, value, null);
-													});
-													if(value.observe){
-														value.observe(function(object, previousIndex, newIndex){
-															if(previousIndex > -1){
-																var oldElement = rows[previousIndex];
-																oldElement.parentNode.removeChild(oldElement);
-																rows.splice(previousIndex, 1);
-															}
-															if(newIndex > -1){
-																rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
-															}
-														}, true);
-													}
-												}
-											}else if(value && value.nodeType){
-												if(textNode){
-													// remove the loading node
-													textNode.parentNode.removeChild(textNode);
-													textNode = null;
-												}
-												element.appendChild(value);
-											}else{
-												value = value === undefined ? '' : value;
-												if(element.tagName in inputs){
-													// add the text
-													element.value = value;
-													// we are going to store the variable computation on the element
-													// so that on a change we can quickly do a put on it
-													// we might want to consider changing that in the future, to
-													// reduce memory, but for now this probably has minimal cost
-													element['-x-variable'] = apply; 
-												}else{
-													// put text in for Loading until we are ready
-													// TODO: we should do this after setting up the receive in case we synchronously get the data 
-													// if not an array, render as plain text
-													textNode.nodeValue = value;
-												}
-											}
+											element.content = value;
 										}, rule, expression);
 									});
+									if(!('_defaultBinding' in element)){
+										// if we don't have any handle for content yet, we install this default handling
+										element._defaultBinding = true;
+										var textNode = element.appendChild(doc.createTextNode("Loading"));
+										observe.get(element, 'content', function(value){
+											if(element._defaultBinding){ // the default binding can later be disabled
+												if(value && value.sort){
+													if(textNode){
+														// remove the loading node
+														textNode.parentNode.removeChild(textNode);
+														textNode = null;
+													}
+													if(value.isSequence){
+														generate(value, part.parent)(element, item, beforeElement);
+													}else{
+														element.innerHTML = '';
+														// if it is an array, we do iterative rendering
+														var eachHandler = nextPart && nextPart.eachProperty && nextPart.each;
+														// if "each" is defined, we will use it render each item 
+														if(eachHandler){
+															eachHandler = generate(eachHandler, nextPart);
+														}else{
+															eachHandler = function(element, value, beforeElement){
+																// if there no each handler, we use the default tag name for the parent 
+																return put(beforeElement || element, (beforeElement ? '-' : '') + (childTagForParent[element.tagName] || 'span'), '' + value);
+															}
+														}
+														var rows = value.map(function(value){
+															// TODO: do this inside generate
+															return eachHandler(element, value, null);
+														});
+														if(value.observe){
+															value.observe(function(object, previousIndex, newIndex){
+																if(previousIndex > -1){
+																	var oldElement = rows[previousIndex];
+																	oldElement.parentNode.removeChild(oldElement);
+																	rows.splice(previousIndex, 1);
+																}
+																if(newIndex > -1){
+																	rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
+																}
+															}, true);
+														}
+													}
+												}else if(value && value.nodeType){
+													if(textNode){
+														// remove the loading node
+														textNode.parentNode.removeChild(textNode);
+														textNode = null;
+													}
+													element.appendChild(value);
+												}else{
+													value = value === undefined ? '' : value;
+													if(element.tagName in inputs){
+														// add the text
+														element.value = value;
+														// we are going to store the variable computation on the element
+														// so that on a change we can quickly do a put on it
+														// we might want to consider changing that in the future, to
+														// reduce memory, but for now this probably has minimal cost
+														element['-x-variable'] = apply; 
+													}else{
+														// put text in for Loading until we are ready
+														// TODO: we should do this after setting up the receive in case we synchronously get the data 
+														// if not an array, render as plain text
+														textNode.nodeValue = value;
+													}
+												}
+											}
+										});
+									}
 								})(lastElement, nextPart);
 							}else{// brackets
 								put(lastElement, part.toString());
