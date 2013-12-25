@@ -1,5 +1,11 @@
-define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xstyle/core/utils", "xstyle/core/expression", "xstyle/core/observe"],
-		function(elemental, put, utils, evaluateExpression, observe){
+define("xstyle/core/generate", [
+	"xstyle/core/elemental",
+	"put-selector/put",
+	"xstyle/core/utils",
+	"xstyle/core/expression",
+	"xstyle/core/base",
+	"xstyle/core/observe"],
+		function(elemental, put, utils, evaluateExpression, root, observe){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
@@ -25,7 +31,7 @@ define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xs
 		}
 	}
 	var doc = document;	
-	function generate(generatingSelector, rule){
+	function forSelector(generatingSelector, rule){
 		// this is responsible for generation of DOM elements for elements matching generative rules
 		var id = nextId++;
 		// normalize to array
@@ -258,5 +264,9 @@ define("xstyle/core/generate", ["xstyle/core/elemental", "put-selector/put", "xs
 			return lastElement;
 		}
 	}
+	function generate(parentElement, selector){
+		return forSelector(selector, root)(parentElement);
+	}
+	generate.forSelector = forSelector;
 	return generate;
 });

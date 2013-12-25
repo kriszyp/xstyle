@@ -303,6 +303,16 @@ synchronize an element identifier or selector with another CSS rule.
 We can nest element generation and CSS rules in any combination that we want, allowing
 us to create sophisticated UI elements in a single modular unit. 
 
+## Programmatic Generation
+
+From JavaScript, we can also leverage the generation capabilites to create new elements and instantiate and use classes and components that were defined in xstyle css. This is functionality is provided by the `xstyle/core/generate` module, and if using the xstyle script, is accessible from `xstyle.generate`. This function takes two arguments, and supports the same CSS selector syntax for defining elements to be created:
+
+	generate(parentElement, selector);
+
+With this function we could generate a new element that has been defined as a component with generated sub-content. Here we could refer to the `content` class created above:
+
+	generate(target, 'div.content');
+
 ## Predefined Property Definitions
 
 Xstyle includes several predefined, or intrinsic definitions for properties. These can and usually

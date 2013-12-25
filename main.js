@@ -1,4 +1,10 @@
-define("xstyle/main", ["require", "xstyle/core/parser", "xstyle/core/base", "xstyle/core/elemental"], function (require, parser, ruleModel, elemental) {
+define("xstyle/main", [
+		"require",
+		"xstyle/core/parser",
+		"xstyle/core/base",
+		"xstyle/core/elemental",
+		"xstyle/core/generate"], // eventually we might split generate.js, to just load the actual string parsing segment
+		function (require, parser, ruleModel, elemental, generate) {
 	"use strict";
 	function search(tag){
 		// used to search for link and style tags
@@ -104,7 +110,14 @@ define("xstyle/main", ["require", "xstyle/core/parser", "xstyle/core/base", "xst
 	var xstyle =  {
 		process: checkImports,
 		parse: parse,
-		
+			// summary:
+			// 		put-selector like functionality, but returned element will be processed by
+			//	 	xstyle, with any applicable rules handling the new or updated element
+			//	parentElement:
+			// 		a parent element must be provided
+			//	selector:
+			// 		CSS selector syntax for creating a new element
+		generate: generate,
 		load:  function(resourceDef, require, callback, config){
 			// support use an AMD plugin loader
 			require(['xstyle/css'], function(plugin){

@@ -99,7 +99,7 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 						this.generator = value;
 						var rule = this;
 						require(["xstyle/core/generate", "xstyle/core/elemental"], function(generate, elemental){
-							value = generate(value, rule);
+							value = generate.forSelector(value, rule);
 							elemental.addRenderer(rule, value);
 						});
 						return;
