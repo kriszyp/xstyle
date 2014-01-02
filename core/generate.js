@@ -105,14 +105,14 @@ define("xstyle/core/generate", [
 														textNode = null;
 													}
 													if(value.isSequence){
-														generate(value, part.parent)(element, item, beforeElement);
+														forSelector(value, part.parent)(element, item, beforeElement);
 													}else{
 														element.innerHTML = '';
 														// if it is an array, we do iterative rendering
 														var eachHandler = nextPart && nextPart.eachProperty && nextPart.each;
 														// if "each" is defined, we will use it render each item 
 														if(eachHandler){
-															eachHandler = generate(eachHandler, nextPart);
+															eachHandler = forSelector(eachHandler, nextPart);
 														}else{
 															eachHandler = function(element, value, beforeElement){
 																// if there no each handler, we use the default tag name for the parent 
