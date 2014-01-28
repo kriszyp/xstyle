@@ -1,27 +1,26 @@
-define("xstyle/core/generate", [
-	"xstyle/core/elemental",
-	"put-selector/put",
-	"xstyle/core/utils",
-	"xstyle/core/expression",
-	"xstyle/core/base",
-	"xstyle/core/observe"],
-		function(elemental, put, utils, evaluateExpression, root, observe){
+define('xstyle/core/generate', [
+	'xstyle/core/elemental',
+	'put-selector/put',
+	'xstyle/core/utils',
+	'xstyle/core/expression',
+	'xstyle/core/base',
+	'xstyle/core/observe'
+], function(elemental, put, utils, evaluateExpression, root, observe){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
-	var nextId = 0;
 	var childTagForParent = {
-		"TABLE": "tr",
-		"TBODY": "tr",
-		"TR": "td",
-		"UL": "li",
-		"OL": "li",
-		"SELECT": "option"
+		TABLE: 'tr',
+		TBODY: 'tr',
+		TR: 'td',
+		UL: 'li',
+		OL: 'li',
+		SELECT: 'option'
 	};
 	var inputs = {
-		"INPUT": 1,
-		"TEXTAREA": 1,
-		"SELECT": 1
+		INPUT: 1,
+		TEXTAREA: 1,
+		SELECT: 1
 	};
 	function receive(target, callback, rule, name){
 		if(target && target.receive){
@@ -30,16 +29,14 @@ define("xstyle/core/generate", [
 			callback(target);
 		}
 	}
-	var doc = document;	
+	var doc = document;
 	function forSelector(generatingSelector, rule){
 		// this is responsible for generation of DOM elements for elements matching generative rules
-		var id = nextId++;
 		// normalize to array
 		generatingSelector = generatingSelector.sort ? generatingSelector : [generatingSelector];
 		// return a function that can do the generation for each element that matches
 		return function(element, item, beforeElement){
 			var lastElement = element;
-			var subId = 0;
 			element._defaultBinding = false;
 			if(element._contentNode){
 				// if we are rendering on a node that has already been rendered with a content
@@ -86,7 +83,8 @@ define("xstyle/core/generate", [
 										// TODO: assess how we could propagate changes categorically
 										if(apply.forElement){
 											apply = apply.forElement(element);
-											// now apply.element should indicate the element that it is actually keying or varying on
+											// now apply.element should indicate the element that it is actually
+											// keying or varying on
 										}
 										receive(apply, function(value){
 											element.content = value;
@@ -95,7 +93,7 @@ define("xstyle/core/generate", [
 									if(!('_defaultBinding' in element)){
 										// if we don't have any handle for content yet, we install this default handling
 										element._defaultBinding = true;
-										var textNode = element.appendChild(doc.createTextNode("Loading"));
+										var textNode = element.appendChild(doc.createTextNode('Loading'));
 										observe.get(element, 'content', function(value){
 											if(element._defaultBinding){ // the default binding can later be disabled
 												if(value && value.sort){
@@ -109,15 +107,18 @@ define("xstyle/core/generate", [
 													}else{
 														element.innerHTML = '';
 														// if it is an array, we do iterative rendering
-														var eachHandler = nextPart && nextPart.eachProperty && nextPart.each;
-														// if "each" is defined, we will use it render each item 
+														var eachHandler = nextPart && nextPart.eachProperty &&
+															nextPart.each;
+														// if 'each' is defined, we will use it render each item 
 														if(eachHandler){
 															eachHandler = forSelector(eachHandler, nextPart);
 														}else{
 															eachHandler = function(element, value, beforeElement){
-																// if there no each handler, we use the default tag name for the parent 
-																return put(beforeElement || element, (beforeElement ? '-' : '') + (childTagForParent[element.tagName] || 'span'), '' + value);
-															}
+																// if there no each handler, we use the default
+																// tag name for the parent 
+																return put(beforeElement || element, (beforeElement ? '-' : '') +
+																	(childTagForParent[element.tagName] || 'span'), '' + value);
+															};
 														}
 														var rows = value.map(function(value){
 															// TODO: do this inside generate
@@ -152,10 +153,11 @@ define("xstyle/core/generate", [
 														// so that on a change we can quickly do a put on it
 														// we might want to consider changing that in the future, to
 														// reduce memory, but for now this probably has minimal cost
-														element['-x-variable'] = apply; 
+														element['-x-variable'] = apply;
 													}else{
 														// put text in for Loading until we are ready
-														// TODO: we should do this after setting up the receive in case we synchronously get the data 
+														// TODO: we should do this after setting up the receive
+														// in case we synchronously get the data
 														// if not an array, render as plain text
 														textNode.nodeValue = value;
 													}
@@ -168,7 +170,8 @@ define("xstyle/core/generate", [
 								put(lastElement, part.toString());
 							}
 						}else{
-							// it is plain rule (not a call), we need to apply the auto-generated selector, so CSS is properly applied
+							// it is plain rule (not a call), we need to apply the 
+							// auto-generated selector, so CSS is properly applied
 							put(lastElement, part.selector);
 							// do any elemental updates
 							elemental.update(lastElement, part.selector);
@@ -214,9 +217,11 @@ define("xstyle/core/generate", [
 								nextElement = nextElement._contentNode || nextElement;
 								var selector;
 								if(prefix){// we don't want to modify the current element, we need to create a new one
-										selector = (lastPart && lastPart.args ?
-											'' : // if the last part was brackets or a call, we can continue modifying the same element
-											'span') + prefix + value;
+									selector = (lastPart && lastPart.args ?
+										// if the last part was brackets or a call, we can
+										// continue modifying the same element
+										'' :
+										'span') + prefix + value;
 								}else{
 									var tagName = value.match(/^[-\w]+/)[0];
 									var target = rule.getDefinition(tagName);
@@ -233,7 +238,8 @@ define("xstyle/core/generate", [
 									}
 								}
 								if(selector){
-									nextElement = put(beforeElement || nextElement, (beforeElement ? '-' : '') + selector);
+									nextElement = put(beforeElement || nextElement,
+										(beforeElement ? '-' : '') + selector);
 								}
 								beforeElement = null;
 								if(attrName){
@@ -244,8 +250,12 @@ define("xstyle/core/generate", [
 									// set the item property, so the item reference will work
 									nextElement.item = item;
 								}
-								if(j < parts.length - 1 || (nextElement != lastElement && nextElement != element &&// avoid infinite loop if it is a nop selector
-									(!nextPart || !nextPart.base) // if the next part is a rule, than it should be extending it already, so we don't want to double apply
+								if(j < parts.length - 1 || (nextElement != lastElement &&
+									// avoid infinite loop if it is a nop selector
+									nextElement != element &&
+									// if the next part is a rule, than it should be extending it
+									// already, so we don't want to double apply
+									(!nextPart || !nextPart.base)
 									)){
 									elemental.update(nextElement);
 								}
@@ -262,7 +272,7 @@ define("xstyle/core/generate", [
 				}
 			}
 			return lastElement;
-		}
+		};
 	}
 	function generate(parentElement, selector){
 		return forSelector(selector, root)(parentElement);

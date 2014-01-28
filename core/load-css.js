@@ -6,7 +6,7 @@
 /*jslint browser:true, on:true, sub:true */
 
 define([], function(){
-"use strict";
+	'use strict';
 
 /*
  * AMD css! plugin
@@ -85,13 +85,13 @@ define([], function(){
 		// failed is true if RequireJS threw an exception
 		failed = false,
 		doc = document,
-		cache = typeof _css_cache == "undefined" ? {} : _css_cache,
+		cache = typeof _css_cache == 'undefined' ? {} : _css_cache,
 		undef,
 		features = {
-			"event-link-onload": document.createElement("link").onload === null &&
+			'event-link-onload': document.createElement('link').onload === null &&
 				// safari lies about the onload event
 				!navigator.userAgent.match(/AppleWebKit/),
-			"dom-create-style-element": !document.createStyleSheet
+			'dom-create-style-element': !document.createStyleSheet
 		},
 		// find the head element and set it to it's standard property if nec.
 		head = doc.head || (doc.head = doc.getElementsByTagName('head')[0]);
@@ -101,8 +101,8 @@ define([], function(){
 	}
 	function createLink (doc, optHref) {
 		var link = doc[createElement]('link');
-		link.rel = "stylesheet";
-		link.type = "text/css";
+		link.rel = 'stylesheet';
+		link.type = 'text/css';
 		if (optHref) {
 			link.href = optHref;
 		}
@@ -125,8 +125,8 @@ define([], function(){
 	}
 		
 
-	if(!has("bundled-css")){ // if all the CSS is bundled, we don't need to the loader code
-		var loadDetector = function(params, cb){ 
+	if(!has('bundled-css')){ // if all the CSS is bundled, we don't need to the loader code
+		var loadDetector = function(params, cb){
 			// failure detection
 			// we need to watch for onError when using RequireJS so we can shut off
 			// our setTimeouts when it encounters an error.
@@ -135,7 +135,7 @@ define([], function(){
 					return function () {
 						failed = true;
 						orig.apply(this, arguments);
-					}
+					};
 				})(require.onError);
 			}
 		
@@ -146,7 +146,7 @@ define([], function(){
 				var link = params.link;
 				link[onreadystatechange] = link[onload] = function () {
 					if (!link.readyState || link.readyState == 'complete') {
-						features["event-link-onload"] = true;
+						features['event-link-onload'] = true;
 						cleanup(params);
 						cb();
 					}
@@ -199,15 +199,17 @@ define([], function(){
 				}
 			}
 			loadHandler(params, cbOnce);
-			if (!has("event-link-onload")) ssWatcher(params, cbOnce);
+			if (!has('event-link-onload')) {
+				ssWatcher(params, cbOnce);
+			}
 		
 		};
 	}
 	function insertCss(css){
-		if(has("dom-create-style-element")){
+		if(has('dom-create-style-element')){
 			// we can use standard <style> element creation
-			styleSheet = document.createElement("style");
-			styleSheet.setAttribute("type", "text/css");
+			styleSheet = document.createElement('style');
+			styleSheet.setAttribute('type', 'text/css');
 			styleSheet.appendChild(document.createTextNode(css));
 			head.insertBefore(styleSheet, head.firstChild);
 			return styleSheet;
@@ -220,29 +222,28 @@ define([], function(){
 	}
 	/***** finally! the actual plugin *****/
 	return function (resourceDef, callback, config) {
-				var resources = resourceDef.split(","),
+				var resources = resourceDef.split(','),
 					loadingCount = resources.length,
 
 				// all detector functions must ensure that this function only gets
 				// called once per stylesheet!
-					loaded = 
-				function () {
+				loaded = function () {
 					// load/error handler may have executed before stylesheet is
 					// fully parsed / processed in Opera, so use setTimeout.
 					// Opera will process before the it next enters the event loop
 					// (so 0 msec is enough time).
 					if(--loadingCount == 0){
 						// TODO: move this setTimeout to loadHandler
-						callback(link.sheet || link.styleSheet)
+						callback(link.sheet || link.styleSheet);
 						// TODO: Is this need for Opera?
 						//setTimeout(onCssLoaded,0);
 					}
-				}
+				};
 
 				// after will become truthy once the loop executes a second time
 				for(var i = 0, after; i < resources.length; i++, after = url){
 					resourceDef = resources[i];
-					var cached = cache[resourceDef]; 
+					var cached = cache[resourceDef];
 					if(cached){
 						link = insertCss(cached);
 						return loaded();
@@ -251,7 +252,7 @@ define([], function(){
 						// TODO: this is a bit weird: find a better way to extract name?
 						opts = parseSuffixes(resourceDef),
 						name = opts.shift(),
-						url = nameWithExt(name, "css"),
+						url = nameWithExt(name, 'css'),
 						link = createLink(doc),
 						nowait = 'nowait' in opts ? opts.nowait != 'false' : !!(config && config.cssDeferLoad),
 						params = {

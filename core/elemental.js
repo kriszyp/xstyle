@@ -1,5 +1,5 @@
-define("xstyle/core/elemental", ["put-selector/put"], function(put){
-	// using delegation, listen for any input changes in the document and "put" the value  
+define('xstyle/core/elemental', ['put-selector/put'], function(put){
+	// using delegation, listen for any input changes in the document and 'put' the value  
 	// TODO: add a hook so one could add support for IE8, or maybe this event delegation isn't really that useful
 	var doc = document;
 	var nextId = 1;
@@ -14,30 +14,31 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 	});
 	function on(target, event, selector, listener){
 		// this function can be overriden to provide better event handling
-		hasAddEventListener ? 
+		hasAddEventListener ?
 			target.addEventListener(event, select, false) :
 			target.attachEvent(event, select);
 		function select(event){
 			// do event delegation
 			if(!selector || matchesSelector.call(event.target, selector)){
-				listener(event);	
+				listener(event);
 			}
 		}
 	}
 
 	// elemental section, this code is for property handlers that need to mutate the DOM for elements
 	// that match it's rule
-	var testDiv = doc.createElement("div");
+	var testDiv = doc.createElement('div');
 	var features = {
-		"dom-qsa2.1": !!testDiv.querySelectorAll
+		'dom-qsa2.1': !!testDiv.querySelectorAll
 	};
 	function has(feature){
 		return features[feature];
 	}
 	// get the matches function, whatever it is called in this browser	
-	var matchesSelector = testDiv.matches || testDiv.matchesSelector || testDiv.webkitMatchesSelector || testDiv.mozMatchesSelector || testDiv.msMatchesSelector || testDiv.oMatchesSelector;
+	var matchesSelector = testDiv.matches || testDiv.matchesSelector ||
+		testDiv.webkitMatchesSelector || testDiv.mozMatchesSelector ||
+		testDiv.msMatchesSelector || testDiv.oMatchesSelector;
 	var selectorRenderers = [];
-	var classHash = {}, propertyHash = {};
 	var renderQueue = [];
 	var documentQueried;
 	// probably want to inline our own DOM readiness code
@@ -47,13 +48,13 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 			// TODO: fix the issues with sync so this can be run immediately
 			setTimeout(callback, 200);
 		}else{
-			doc.addEventListener("DOMContentLoaded", callback);
+			doc.addEventListener('DOMContentLoaded', callback);
 		}
 	}
 	domReady(function(){
 		if(!documentQueried){
 			documentQueried = true;
-			if(has("dom-qsa2.1")){
+			if(has('dom-qsa2.1')){
 				// if we have a query engine, it is fastest to use that
 				for(var i = 0, l = selectorRenderers.length; i < l; i++){
 					// find the matches and register the renderers
@@ -72,7 +73,6 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 	});
 	function findMatches(renderer){
 		// find the elements for a given selector and apply the renderers to it
-		var toRender = [];
 		var results = doc.querySelectorAll(renderer.selector);
 		var name = renderer.name;
 		for(var i = 0, l = results.length; i < l; i++){
@@ -99,7 +99,7 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 					renderer: renderer
 				});
 				currentStyle[name] = renderer.propertyValue;
-			} 
+			}
 		}
 		
 	}
@@ -114,13 +114,14 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 				var rendering = renderings[j];
 				var renderer = rendering.renderer;
 				var rendered = renderer.rendered;
-				isCurrent = currentStyle[rendering.name] == renderer.propertyValue; // determine if this renderer matches the current computed style
+				// determine if this renderer matches the current computed style
+				isCurrent = currentStyle[rendering.name] == renderer.propertyValue;
 				if(!rendered && isCurrent){
 					try{
 						renderer.render(element);
 					}catch(e){
 						console.error(e, e.stack);
-						put(element, "div.error", e.toString());
+						put(element, 'div.error', e.toString());
 					}
 				}
 				if(rendered && !isCurrent && renderer.unrender){
@@ -131,24 +132,19 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 		}
 		renderQueue = [];
 	}
-	function apply(element, renderers){
-		// an element was found that matches a selector, so we apply the renderers
-		for(var i = 0, l = renderers.length; i < l; i++){
-			renderers[i](element);
-		}
-	}
 	function update(element, selector){
-	/* At some point, might want to use getMatchedCSSRules for faster access to matching rules 			
-	 	if(typeof getMatchedCSSRules != "undefined"){
+		/* TODO: At some point, might want to use getMatchedCSSRules for faster access to matching rules
+		if(typeof getMatchedCSSRules != 'undefined'){
 			// webkit gives us fast access to which rules apply
 			getMatchedCSSRules(element);
 		}else{*/
-			for(var i = 0, l = selectorRenderers.length; i < l; i++){
+		for(var i = 0, l = selectorRenderers.length; i < l; i++){
 			var renderer = selectorRenderers[i];
 			if((!selector || (selector == renderer.selector)) &&
 				(matchesSelector ?
 					// use matchesSelector if available
-					matchesSelector.call(element, renderer.selector) : // TODO: determine if it is higher specificity that other  same name properties
+					// TODO: determine if it is higher specificity that other  same name properties
+					matchesSelector.call(element, renderer.selector) :
 					// else use IE's custom css property inheritance mechanism
 					element.currentStyle[renderer.id])){
 				renderer.render(element);
@@ -165,7 +161,7 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 			};
 			if(!matchesSelector){
 				// so we can match this rule by checking inherited styles
-				rule.setStyle(renderer.id = ('x' + nextId++), 'true'); 
+				rule.setStyle(renderer.id = ('x' + nextId++), 'true');
 			}
 			// the main entry point for adding elemental handlers for a selector. The handler
 			// will be called for each element that is created that matches a given selector
@@ -182,7 +178,8 @@ define("xstyle/core/elemental", ["put-selector/put"], function(put){
 						 'zoom: expression(cssxRegister(this,"' + selector +'"));');
 			}*/
 		},
-		update: update, // this should be called for newly created dynamic elements to ensure the proper rules are applied
+		// this should be called for newly created dynamic elements to ensure the proper rules are applied
+		update: update,
 		clearRenderers: function(){
 			// clears all the renderers in use
 			selectorRenderers = [];

@@ -6,7 +6,7 @@
 define('xstyle/core/load-imports', [], function(){
 	var insertedSheets = {},
 		features = {
-			"dom-deep-import": !document.createStyleSheet // essentially test to see if it is IE, inaccurate marker, maybe should use dom-addeventlistener? 
+			'dom-deep-import': !document.createStyleSheet // essentially test to see if it is IE, inaccurate marker, maybe should use dom-addeventlistener? 
 		};
 	function has (feature) {
 		return features[feature];
@@ -24,7 +24,7 @@ define('xstyle/core/load-imports', [], function(){
 			}
 		}
 		function aggregateSource(sheet){
-			var source = "";
+			var source = '';
 			var importRules = !sheet.disabled && (sheet.imports || sheet.rules || sheet.cssRules);
 			
 			for(var i = 0; i < importRules.length; i++){										
@@ -35,7 +35,7 @@ define('xstyle/core/load-imports', [], function(){
 			}
 			return sheet.source = source + sheet.localSource;
 		}
-		if(false && !has("dom-deep-import")){
+		if(false && !has('dom-deep-import')){
 			// in IE, so we flatten the imports due to IE's lack of support for deeply nested @imports
 			// and fix the computation of URLs (IE calculates them wrong)
 			var computeImportUrls = function(sheet, baseUrl){
@@ -112,7 +112,7 @@ define('xstyle/core/load-imports', [], function(){
 			if(!sheet.addRule){
 				// only FF doesn't have this
 				sheet.addRule = function(selector, style, index){
-					return this.insertRule(selector + "{" + style + "}", index >= 0 ? index : this.cssRules.length);
+					return this.insertRule(selector + '{' + style + '}', index >= 0 ? index : this.cssRules.length);
 				}
 			}
 			if(!sheet.deleteRule){
@@ -150,8 +150,8 @@ define('xstyle/core/load-imports', [], function(){
 					}else{
 						// disabling is the only way to remove an imported stylesheet in firefox; it doesn't work in IE and WebKit
 						sheetToDelete.disabled = true; // this works in Opera
-						if("cssText" in sheetToDelete){
-							sheetToDelete.cssText =""; // this works in IE
+						if('cssText' in sheetToDelete){
+							sheetToDelete.cssText =''; // this works in IE
 						}else{
 							// removing the rule is only way to remove an imported stylesheet in WebKit
 							owner = sheetToDelete.ownerRule;
@@ -201,7 +201,7 @@ define('xstyle/core/load-imports', [], function(){
 				var cssRules = sheet.rules || sheet.cssRules;
 				for(var i = 0; i < cssRules.length; i++){
 					var rule = cssRules[i];
-					if(rule.selectorText && rule.selectorText.substring(0,2) == "x-"){
+					if(rule.selectorText && rule.selectorText.substring(0,2) == 'x-'){
 						sheet.needsParsing = true;
 					}
 				}
@@ -228,7 +228,7 @@ define('xstyle/core/load-imports', [], function(){
 		}
 	}
 	function absoluteUrl(base, url) {
-		if(!url || url.indexOf(":") > 0 || url.charAt(0) == '/'){
+		if(!url || url.indexOf(':') > 0 || url.charAt(0) == '/'){
 			return url;
 		}
 		// in IE we do this trick to get the absolute URL
@@ -246,7 +246,7 @@ define('xstyle/core/load-imports', [], function(){
 	var progIds = ['Msxml2.XMLHTTP', 'Microsoft.XMLHTTP', 'Msxml2.XMLHTTP.4.0'];
 
 	function xhr () {
-		if (typeof XMLHttpRequest !== "undefined") {
+		if (typeof XMLHttpRequest !== 'undefined') {
 			// rewrite the getXhr method to always return the native implementation
 			xhr = function () { return new XMLHttpRequest(); };
 		}
@@ -254,7 +254,7 @@ define('xstyle/core/load-imports', [], function(){
 			// keep trying progIds until we find the correct one, then rewrite the getXhr method
 			// to always return that one.
 			var noXhr = xhr = function () {
-					throw new Error("getXhr(): XMLHttpRequest not available");
+					throw new Error('getXhr(): XMLHttpRequest not available');
 				};
 			while (progIds.length > 0 && xhr === noXhr) (function (id) {
 				try {

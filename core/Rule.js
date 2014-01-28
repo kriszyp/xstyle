@@ -1,18 +1,22 @@
-define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyle/core/utils"], function(evaluateExpression, put, utils){
+define('xstyle/core/Rule', [
+	'xstyle/core/expression',
+	'put-selector/put',
+	'xstyle/core/utils'
+], function(evaluateExpression, put, utils){
 
 	// define the Rule class, our abstraction of a CSS rule		
 	var create = Object.create || function(base){
 		function Base(){}
 		Base.prototype = base;
-		return new Base;
-	}
+		return new Base();
+	};
 
 	var operatorMatch = {
 		'{': '}',
 		'[': ']',
 		'(': ')'
 	};
-	var testDiv = put("div");
+	var testDiv = put('div');
 	function Rule(){}
 	Rule.prototype = {
 		eachProperty: function(onProperty){
@@ -24,8 +28,9 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			}
 		},
 		fullSelector: function(){
-			// calculate the full selector, in case this is a nested rule we determine the full selector using parent rules 
-			return (this.parent ? this.parent.fullSelector() : "") + (this.selector || "") + " ";  
+			// calculate the full selector, in case this is a nested rule we
+			// determine the full selector using parent rules 
+			return (this.parent ? this.parent.fullSelector() : '') + (this.selector || '') + ' ';
 		},
 		newRule: function(name){
 			// called by the parser when a new child rule is encountered 
@@ -33,11 +38,11 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			rule.disabled = this.disabled;
 			return rule;
 		},
-		newCall: function(name, sequence, rule){
+		newCall: function(name){
 			// called by the parser when a function call is encountered
-				var call = new Call(name);
-				return call; 
-			},
+			var call = new Call(name);
+			return call;
+		},
 		addSheetRule: function(selector, cssText){
 			// Used to add a new rule
 			if(cssText &&
@@ -62,7 +67,7 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 		setStyle: function(name, value){
 			if(this.cssRule){
 				this.cssRule.style[name] = value;
-			}/*else if("ruleIndex" in this){
+			}/*else if('ruleIndex' in this){
 				// TODO: inline this
 				this.getCssRule().style[name] = value;
 			}*/else{
@@ -81,7 +86,7 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 		},
 		elements: function(callback){
 			var rule = this;
-			require(["xstyle/core/elemental"], function(elemental){
+			require(['xstyle/core/elemental'], function(elemental){
 				elemental.addRenderer(rule, function(element){
 					callback(element);
 				});
@@ -98,7 +103,7 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 					if(!name){
 						this.generator = value;
 						var rule = this;
-						require(["xstyle/core/generate", "xstyle/core/elemental"], function(generate, elemental){
+						require(['xstyle/core/generate', 'xstyle/core/elemental'], function(generate, elemental){
 							value = generate.forSelector(value, rule);
 							elemental.addRenderer(rule, value);
 						});
@@ -152,7 +157,6 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			var calls = value.calls;
 			if(calls){
 				for(var i = 0; i < calls.length; i++){
-					var call = calls[i];
 					this.onCall(calls[i], name, value);
 				}
 			}
@@ -184,7 +188,7 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 					// we progressively go through parent property names. For example if the 
 					// property name is foo-bar-baz, it first checks for foo-bar-baz, then 
 					// foo-bar, then foo
-					name = name.substring(0, name.lastIndexOf("-"));
+					name = name.substring(0, name.lastIndexOf('-'));
 					// try shorter name
 				}while(name);
 			}
@@ -273,9 +277,10 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 			return target;
 		},
 		appendTo: function(target, beforeElement){
-			return put(beforeElement || target, (beforeElement ? '-' : '') + (this.tagName || 'span') + (this.selector || ''));
+			return put(beforeElement || target, (beforeElement ? '-' : '') +
+				(this.tagName || 'span') + (this.selector || ''));
 		},
-		cssText: ""
+		cssText: ''
 	};
 	// a class representing function calls
 	function Call(value){
@@ -283,14 +288,14 @@ define("xstyle/core/Rule", ["xstyle/core/expression", "put-selector/put", "xstyl
 		this.caller = value;
 		this.args = [];
 	}
-	var CallPrototype = Call.prototype = new Rule;
+	var CallPrototype = Call.prototype = new Rule();
 	CallPrototype.declareProperty = CallPrototype.setValue = function(name, value){
 		// handle these both as addition of arguments
 		this.args.push(value);
 	};
 	CallPrototype.toString = function(){
 		var operator = this.operator;
-		return operator + this.args + operatorMatch[operator]; 
+		return operator + this.args + operatorMatch[operator];
 	};
 	return Rule;
 });

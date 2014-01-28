@@ -1,9 +1,9 @@
-define("xstyle/core/utils", [], function(){
+define('xstyle/core/utils', [], function(){
 	// some utility functions
 	var supportedTags = {};
 	return {
 		when: function(value, callback){
-			return value && value.then ? 
+			return value && value.then ?
 				(value.then(callback) || value) : callback(value);
 		},
 		convertCssNameToJs: function(name){
@@ -14,11 +14,13 @@ define("xstyle/core/utils", [], function(){
 		},
 		isTagSupported: function(tag){
 			// test to see if a tag is supported by the browser
+			var element;
 			if(tag in supportedTags){
 				return supportedTags[tag];
 			}
 			var elementString = (element = document.createElement(tag)).toString();
-			return supportedTags[tag] = !(elementString == "[object HTMLUnknownElement]" || elementString == "[object]");
+			return supportedTags[tag] = !(elementString == '[object HTMLUnknownElement]' ||
+				elementString == '[object]');
 		},
 		extend: function(target, base, error){
 			var ref = target.getDefinition(base, true);
@@ -36,7 +38,7 @@ define("xstyle/core/utils", [], function(){
 				// extending a native element
 				target.tagName = base;
 				if(!this.isTagSupported(base)){
-					error("Extending undefined definition " + base);
+					error('Extending undefined definition ' + base);
 				}
 			}
 			

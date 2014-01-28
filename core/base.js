@@ -1,5 +1,11 @@
-define("xstyle/core/base", ["xstyle/core/elemental", "xstyle/core/expression", "xstyle/core/utils", "put-selector/put", "xstyle/core/Rule", "xstyle/core/observe"], 
-function(elemental, evaluateExpression, utils, put, Rule, observe){
+define('xstyle/core/base', [
+	'xstyle/core/elemental',
+	'xstyle/core/expression',
+	'xstyle/core/utils',
+	'put-selector/put',
+	'xstyle/core/Rule',
+	'xstyle/core/observe'
+], function(elemental, evaluateExpression, utils, put, Rule, observe){
 	// this module defines the base definitions intrisincally available in xstyle stylesheets
 	var truthyConversion = {
 		'': 0,
@@ -11,14 +17,15 @@ function(elemental, evaluateExpression, utils, put, Rule, observe){
 		visibility: ['hidden', 'visible'],
 		'float': ['none', 'left']
 	};
-	var testDiv = put("div");
+	var testDiv = put('div');
 	var ua = navigator.userAgent;
-	var vendorPrefix = ua.indexOf("WebKit") > -1 ? "-webkit-" :
-		ua.indexOf("Firefox") > -1 ? "-moz-" :
-		ua.indexOf("MSIE") > -1 ? "-ms-" :
-		ua.indexOf("Opera") > -1 ? "-o-" : "";
-	// we treat the stylesheet as a "root" rule; all normal rules are children of it
-	var target, root = new Rule;
+	var vendorPrefix = ua.indexOf('WebKit') > -1 ? '-webkit-' :
+		ua.indexOf('Firefox') > -1 ? '-moz-' :
+		ua.indexOf('MSIE') > -1 ? '-ms-' :
+		ua.indexOf('Opera') > -1 ? '-o-' : '';
+	// we treat the stylesheet as a 'root' rule; all normal rules are children of it
+	var currentEvent;
+	var root = new Rule();
 	root.root = true;
 	function elementProperty(property, appendTo){
 		// definition bound to an element's property
@@ -34,14 +41,14 @@ function(elemental, evaluateExpression, utils, put, Rule, observe){
 				while(!(property in element)){
 					element = element.parentNode;
 					if(!element){
-						throw new Error(property + " not found");
+						throw new Error(property + ' not found');
 					}
 				}
 				// provide a means for being able to reference the target node,
 				// this primarily used by the generate model to nest content properly
 				if(directReference){
 					element['_' + property + 'Node'] = contentElement;
-				} 
+				}
 				return {
 					element: element, // indicates the key element
 					receive: function(callback, rule){// handle requests for the data
@@ -87,7 +94,7 @@ function(elemental, evaluateExpression, utils, put, Rule, observe){
 					get: function(property){
 						return this.element[property];
 					}
-				};				
+				};
 			}
 		},
 		event: {
@@ -96,7 +103,7 @@ function(elemental, evaluateExpression, utils, put, Rule, observe){
 			}
 		},
 		each: {
-			put: function(value, rule, name){
+			put: function(value, rule){
 				rule.each = value;
 			}
 		},
@@ -104,7 +111,7 @@ function(elemental, evaluateExpression, utils, put, Rule, observe){
 			put: function(value, rule, name){
 				// add a vendor prefix
 				// check to see if the browser supports this feature through vendor prefixing
-				if(typeof testDiv.style[vendorPrefix + name] == "string"){
+				if(typeof testDiv.style[vendorPrefix + name] == 'string'){
 					// if so, handle the prefixing right here
 					// TODO: switch to using getCssRule, but make sure we have it fixed first
 					rule.setStyle(vendorPrefix + name, value);
@@ -143,8 +150,9 @@ function(elemental, evaluateExpression, utils, put, Rule, observe){
 			receive: function(callback, rule, name){
 				var parentRule = rule;
 				do{
-					var target = parentRule.variables && parentRule.variables[name] || 
-						(parentRule.definitions && parentRule.definitions[name]); // we can reference definitions as well
+					var target = parentRule.variables && parentRule.variables[name] ||
+						// we can reference definitions as well
+						(parentRule.definitions && parentRule.definitions[name]);
 					if(target){
 						if(target.receive){
 							// if it has its own receive capabilities, use that
@@ -206,11 +214,11 @@ function(elemental, evaluateExpression, utils, put, Rule, observe){
 						// test for attribute support
 						return utils.isTagSupported(parsed);
 					}
-					throw new Error("can't parse @supports string");
+					throw new Error('can\'t parse @supports string');
 				}
 				
 				if(evaluateSupport(rule.selector.slice(10))){
-				rule.selector = '';
+					rule.selector = '';
 				}else{
 					rule.disabled = true;
 				}

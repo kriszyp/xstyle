@@ -1,4 +1,4 @@
-define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
+define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 	// handles the creation of reactive expressions
 	var jsKeywords = {
 		'true': true, 'false': false, 'null': 'null', 'typeof': 'typeof', or: '||', and: '&&'
@@ -32,17 +32,17 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 				target[property] = value;
 		});
 	}
-	return function(rule, name, value){
+	return function evaluateExpression(rule, name, value){
 		// evaluate a binding
-		var binding = rule["var-expr-" + name];
+		var binding = rule['var-expr-' + name];
 		if(variables){
 			return binding;
 		}
 		var variables = [], isElementDependent;
 		variables.id = nextId++;
-		var target, parameters = [], id = 0, callbacks = [],
-			attributeParts, expression = value.join ? value.join("") : value.toString(),
-			simpleExpression = expression.match(/^[\w_$\/\.-]*$/); 
+		var parameters = [],
+			attributeParts, expression = value.join ? value.join('') : value.toString(),
+			simpleExpression = expression.match(/^[\w_$\/\.-]*$/);
 		// Do the parsing and function creation just once, and adapt the dependencies for the element at creation time
 		// deal with an array, converting strings to JS-eval'able strings
 			// find all the variables in the expression
@@ -51,7 +51,8 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 				if(jsKeywords.hasOwnProperty(variable)){
 					return jsKeywords[variable];
 				}
-				// for each reference, we break apart into variable reference and property references after each dot				
+				// for each reference, we break apart into variable reference and
+				// property references after each dot				
 				attributeParts = variable.split('/');
 				var parameterName = attributeParts.join('_').replace(/-/g,'_');
 				parameters.push(parameterName);
@@ -62,7 +63,7 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 				if(typeof target == 'string' || target instanceof Array){
 					target = evaluateExpression(rule, firstReference, target);
 				}else if(!target){
-					throw new Error('Could not find reference "' + firstReference + '"');					
+					throw new Error('Could not find reference "' + firstReference + '"');
 				}
 				if(target.forElement){
 					isElementDependent = true;
@@ -72,7 +73,7 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 				return parameterName;
 			}
 			return t;
-		})
+		});
 	
 		if(simpleExpression){
 			// a direct reversible reference
@@ -80,14 +81,16 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 			if(name){
 				// create the reverse function
 				var reversal = function(element, name, value){
-					utils.when(findAttributeInAncestors(element, attributeParts[0], attributeParts[1]), function(target){
+					utils.when(findAttributeInAncestors(element, attributeParts[0], attributeParts[1]),
+							function(target){
+						var name;
 						for(var i = 2; i < attributeParts.length -1; i++){
-							var name = attributeParts[i];
+							name = attributeParts[i];
 							target = target.get ?
 								target.get(name) :
 								target[name];
 						}
-						var name = attributeParts[i];
+						name = attributeParts[i];
 						if(target.set){
 							target.set(name, value);
 						}else{
@@ -103,7 +106,7 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 			var reactiveFunction = Function.apply(this, parameters.concat(['return (' + expression + ')']));
 		}
 		variables.func = reactiveFunction;
-		rule["var-expr-" + name] = variables;
+		rule['var-expr-' + name] = variables;
 		function getComputation(){
 			var waiting = variables.length + 1;
 			var values = [], callbacks = [];
@@ -124,23 +127,25 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 					}
 				};
 			};
+			var variable;
 			if(reactiveFunction){
 				for(var i = 0; i < variables.length; i++){
-					var variable = variables[i];
+					variable = variables[i];
 					get(variable[0], variable.slice(1), done(i));
 				}
 			}else{
-				var variable = variables[0];
+				variable = variables[0];
 				var value = {
 					then: function(callback){
-						callbacks ? 
+						callbacks ?
 							callbacks.push(callback) :
 							callback(value); // immediately available
 					}
-				}
+				};
 				utils.when(variable[0], function(resolved){
+					var j;
 					value = resolved;
-					for(var j = 1; j < variable.length; j++){
+					for(j = 1; j < variable.length; j++){
 						if(value && value.get){
 							value = value.get(variable[j]);
 						}else{
@@ -155,22 +160,13 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 							break;
 						}
 					}
-					for(var j = 0; j < callbacks.length; j++){
+					for(j = 0; j < callbacks.length; j++){
 						callbacks[j](value);
 					}
 					// accept no more callbacks, since we have resolved
 					callbacks = null;
 				});
 				return value;
-				if(first && first.then){
-					return {
-						then: function(callback){
-							get(variable[0], variable.slice(1), callback);
-						}
-					};
-				}else{
-					return variable;
-				}
 			}
 			done(-1)();
 			if(result && result.then){
@@ -190,14 +186,12 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 					// all the variable listeners and properly destroy this
 					stopped = true;
 				}
-			}
+			};
 		}
-		return rule["var-expr-" + name] = isElementDependent ? {
+		return rule['var-expr-' + name] = isElementDependent ? {
 			forElement: function(element){
 				// TODO: at some point may make this async
-				var callbacks = [];
 				var mostSpecificElement;
-				var elementVariables = [];
 				// now find the element that matches that rule, in case we are dealing with a child
 				var parentElement;
 				for(var i = 0; i < variables.length; i++){
@@ -215,20 +209,20 @@ define("xstyle/core/expression", ["xstyle/core/utils"], function(utils){
 							parentElement = parentElement.parentNode;
 						}
 						// if so, we have a new most specific
-					}	
+					}
 					if(parentElement){
 						mostSpecificElement = varyOnElement;
 					}
 				}
 				// make sure we indicate the store we are keying off of
-				var computation = mostSpecificElement["expr-result-" + variables.id];
+				var computation = mostSpecificElement['expr-result-' + variables.id];
 				if(!computation){
-					mostSpecificElement["expr-result-" + variables.id] = computation = getComputation();
+					mostSpecificElement['expr-result-' + variables.id] = computation = getComputation();
 					computation.element = mostSpecificElement;
 				}
 				return computation;
 			}
 		} : getComputation();
-	}
-	
+	};
+
 });
