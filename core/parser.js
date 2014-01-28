@@ -228,7 +228,7 @@ define("xstyle/core/parser", ["xstyle/core/utils"], function(utils){
 							newTarget.parent = target;
 							if(doExtend){
 	//							value.replace(/(?:^|,|>)\s*([\w-]+)/g, function(t, base){
-								value.replace(/\s*([\w-]+)\s*$/g, function(t, base){
+								value.replace(/(?:^|\s+)([\w-]+)\s*$/g, function(t, base){
 									var result = utils.extend(newTarget, base, error);
 									if(result && result.then){
 										resumeOnComplete(result);
