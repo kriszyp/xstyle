@@ -52,7 +52,19 @@ define('xstyle/core/base', [
 				return {
 					element: element, // indicates the key element
 					receive: function(callback, rule){// handle requests for the data
-						observe.get(property in element ? element : rule, property, callback);
+						var elementValue;
+						// get the value from the element
+						observe.get(element, property, function(value){
+							callback(elementValue = value);
+						});
+						if(elementValue === undefined){
+							// else fallback to getting the value from the rule
+							observe.get(rule, property, function(value){
+								if(elementValue === undefined){
+									callback(value);
+								}
+							});
+						}
 					},
 					appendTo: appendTo
 				};

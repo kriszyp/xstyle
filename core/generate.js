@@ -38,26 +38,20 @@ define('xstyle/core/generate', [
 		return function(element, item, beforeElement){
 			var lastElement = element;
 			element._defaultBinding = false;
-			if(element._contentNode){
-				// if we are rendering on a node that has already been rendered with a content
-				// node, we need to nest inside that
-				element = element._contentNode;
-			}else{
-				if(beforeElement === undefined){
-					var childNodes = element.childNodes;
-					var childNode = childNodes[0], contentFragment;
-					// move the children out and record the contents in a fragment
-					if(childNode){
-						contentFragment = doc.createDocumentFragment();
-						do{
-							contentFragment.appendChild(childNode);
-						}while(childNode = childNodes[0]);
-					}
+			if(beforeElement === undefined){
+				var childNodes = element.childNodes;
+				var childNode = childNodes[0], contentFragment;
+				// move the children out and record the contents in a fragment
+				if(childNode){
+					contentFragment = doc.createDocumentFragment();
+					do{
+						contentFragment.appendChild(childNode);
+					}while(childNode = childNodes[0]);
 				}
-				// temporarily store it on the element, so it can be accessed as an element-property
-				// TODO: remove it after completion
-				element.content = contentFragment;
 			}
+			// temporarily store it on the element, so it can be accessed as an element-property
+			// TODO: remove it after completion
+			element.content = contentFragment;
 			var indentationLevel = 0;
 			var indentationLevels = [element];
 			for(var i = 0, l = generatingSelector.length;i < l; i++){
@@ -200,10 +194,19 @@ define('xstyle/core/generate', [
 						// now iterate over these
 						for(var j = 0;j < parts.length; j++){
 							(function(t, nextLine, indentation, prefix, value, attrName, attrValue){
+								function positionForChildren(){
+									var contentNode = nextElement._contentNode;
+									if(contentNode){
+										// we have a custom element, that has defined a content node.
+										contentNode.innerHTML = '';
+										nextElement = contentNode;
+									}
+								}
 								if(indentation){
 									if(nextLine){
 										var newIndentationLevel = indentation.length;
 										if(newIndentationLevel > indentationLevel){
+											positionForChildren();
 											// a new child
 											indentationLevels[newIndentationLevel] = nextElement;
 										}else{
@@ -211,10 +214,13 @@ define('xstyle/core/generate', [
 											nextElement = indentationLevels[newIndentationLevel] || nextElement;
 										}
 										indentationLevel = newIndentationLevel;
+									}else{
+										positionForChildren();
 									}
 	//								nextElement = element;
+								}else{
+									positionForChildren();
 								}
-								nextElement = nextElement._contentNode || nextElement;
 								var selector;
 								if(prefix){// we don't want to modify the current element, we need to create a new one
 									selector = (lastPart && lastPart.args ?
