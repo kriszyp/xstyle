@@ -57,7 +57,7 @@ define('xstyle/core/base', [
 						observe.get(element, property, function(value){
 							callback(elementValue = value);
 						});
-						if(elementValue === undefined){
+						if(elementValue === undefined && rule){
 							// else fallback to getting the value from the rule
 							observe.get(rule, property, function(value){
 								if(elementValue === undefined){

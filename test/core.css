@@ -13,7 +13,7 @@ test-component = section {
 		div (test-expression);
 	main-color=var: #00f;
 	label=var: Label;
-	content=var: cont asdfkadskf anskldf naskldfn adsklnf dsklanfl kadsnent;
+	content=var: The default content;
 	background-color: #ddd;
 	display: block;
 	width: 200px;
