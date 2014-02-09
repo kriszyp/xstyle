@@ -4,8 +4,8 @@ define('xstyle/core/base', [
 	'xstyle/core/utils',
 	'put-selector/put',
 	'xstyle/core/Rule',
-	'xstyle/core/observe'
-], function(elemental, evaluateExpression, utils, put, Rule, observe){
+	'xstyle/core/Proxy'
+], function(elemental, evaluateExpression, utils, put, Rule, Proxy){
 	// this module defines the base definitions intrisincally available in xstyle stylesheets
 	var truthyConversion = {
 		'': 0,
@@ -23,6 +23,13 @@ define('xstyle/core/base', [
 		ua.indexOf('Firefox') > -1 ? '-moz-' :
 		ua.indexOf('MSIE') > -1 ? '-ms-' :
 		ua.indexOf('Opera') > -1 ? '-o-' : '';
+	function derive(base, mixin){
+		var derived = Object.create(base);
+		for(var i in mixin){
+			derived[i] = mixin[i];
+		}
+		return derived;
+	}
 	// we treat the stylesheet as a 'root' rule; all normal rules are children of it
 	var currentEvent;
 	var root = new Rule();
@@ -49,28 +56,40 @@ define('xstyle/core/base', [
 				if(directReference){
 					element['_' + property + 'Node'] = contentElement;
 				}
+				var value = element[property];
+				if(!value){
+					value = element[property] = new Proxy();
+				}else if(!value.observe){
+					value = new Proxy(value);
+				}
+				value.element = element;
+				value.appendTo = appendTo;
+				return value;
 				return {
 					element: element, // indicates the key element
-					receive: function(callback, rule){// handle requests for the data
+					observe: function(callback, rule){// handle requests for the data
 						var elementValue;
 						// get the value from the element
-						observe.get(element, property, function(value){
+						(element[property] || (element[property] = new Proxy())).observe(function(value){
 							callback(elementValue = value);
 						});
 						if(elementValue === undefined && rule){
 							// else fallback to getting the value from the rule
-							observe.get(rule, property, function(value){
-								if(elementValue === undefined){
+							rule.property(property).observe(function(value){
+								if(elementValue == undefined){
 									callback(value);
 								}
 							});
 						}
 					},
+					put: function(value){
+						return element[property].put(value);
+					},
 					appendTo: appendTo
 				};
-			},
-			put: function(value, rule){
-				rule[property] = value;
+			}, 
+			forParent: function(rule, name){
+				return new Proxy();
 			}
 		};
 	}
@@ -100,7 +119,7 @@ define('xstyle/core/base', [
 			forElement: function(element){
 				return {
 					element: element, // indicates the key element
-					receive: function(callback){// handle requests for the data
+					observe: function(callback){// handle requests for the data
 						callback(element);
 					},
 					get: function(property){
@@ -110,42 +129,72 @@ define('xstyle/core/base', [
 			}
 		},
 		event: {
-			receive: function(callback){
+			observe: function(callback){
 				callback(currentEvent);
 			}
 		},
 		each: {
-			put: function(value, rule){
-				rule.each = value;
+			forParent: function(rule){
+				return {
+					put: function(value){
+						rule.each = value;
+					}
+				};
 			}
 		},
 		prefix: {
-			put: function(value, rule, name){
-				// add a vendor prefix
-				// check to see if the browser supports this feature through vendor prefixing
-				if(typeof testDiv.style[vendorPrefix + name] == 'string'){
-					// if so, handle the prefixing right here
-					// TODO: switch to using getCssRule, but make sure we have it fixed first
-					rule.setStyle(vendorPrefix + name, value);
-					return true;
-				}
+			forParent: function(rule, name){
+				return {
+					put: function(value){
+						// add a vendor prefix
+						// check to see if the browser supports this feature through vendor prefixing
+						if(typeof testDiv.style[vendorPrefix + name] == 'string'){
+							// if so, handle the prefixing right here
+							// TODO: switch to using getCssRule, but make sure we have it fixed first
+							rule.setStyle(vendorPrefix + name, value);
+							return true;
+						}
+					}
+				};
 			}
 		},
 		// provides CSS variable support
-		'var': {
-			// setting the variables
-			put: function(value, rule, name){
-				(rule.variables || (rule.variables = {}))[name] = value;
-				// TODO: can we reuse something for this?
-				var variableListeners = rule.variableListeners;
-				variableListeners = variableListeners && variableListeners[name] || 0;
-				for(var i = 0;i < variableListeners.length;i++){
-					variableListeners[i](value);
-				}
+		'var': derive(new Proxy(), {
+			forParent: function(rule, name){
+				// when we beget a var, we basically are making a propery that is included in variables
+				// object for the parent object
+				var variables = (rule.variables || (rule.variables = new Proxy()));
+				var proxy = variables.property(name);
+				var varObject = this;
+				proxy.observe = function(listener){
+					// modify observe to inherit values from parents as well
+					var currentValue;
+					Proxy.prototype.observe.call(proxy, function(value){
+						currentValue = value;
+						listener(value);
+					});
+					if(currentValue === undefined && rule.parent){
+						varObject.forParent(rule.parent, name).observe(function(value){
+							if(currentValue === undefined){
+								listener(value);
+							}
+						});
+					}
+				};
+				proxy.valueOf = function(){
+					var value = variables[name];
+					if(value !== undefined){
+						return value;
+					}
+					if(rule.parent){
+						return varObject.forParent(rule.parent, name).valueOf();
+					}
+				};
+				return proxy;
 			},
 			// referencing variables
 			call: function(call, rule, name, value){
-				this.receive(function(resolvedValue){
+				this.forParent(rule, call.args[0]).observe(function(resolvedValue){
 					var resolved = value.toString().replace(/var\([^)]+\)/g, resolvedValue);
 					// now check if the value if we should do subsitution for truthy values
 					var truthy = truthyConversion[resolved];
@@ -156,29 +205,9 @@ define('xstyle/core/base', [
 						}
 					}
 					rule.setStyle(name, resolved);
-				}, rule, call.args[0]);
-			},
-			// variable properties can also be referenced in property expressions
-			receive: function(callback, rule, name){
-				var parentRule = rule;
-				do{
-					var target = parentRule.variables && parentRule.variables[name] ||
-						// we can reference definitions as well
-						(parentRule.definitions && parentRule.definitions[name]);
-					if(target){
-						if(target.receive){
-							// if it has its own receive capabilities, use that
-							return target.receive(callback, rule, name);
-						}
-						var variableListeners = parentRule.variableListeners || (parentRule.variableListeners = {});
-						(variableListeners[name] || (variableListeners[name] = [])).push(callback);
-						return callback(target);
-					}
-					parentRule = parentRule.parent;
-				}while(parentRule);
-				callback();
+				});
 			}
-		},
+		}),
 		'extends': {
 			call: function(call, rule){
 				// TODO: this is duplicated in the parser, should consolidate
@@ -189,17 +218,21 @@ define('xstyle/core/base', [
 			}
 		},
 		on: {
-			put: function(value, rule, name){
-				// add listener
-				elemental.on(document, name.slice(3), rule.selector, function(event){
-					currentEvent = event;
-					var computation = evaluateExpression(rule, name, value);
-					if(computation.forElement){
-						computation = computation.forElement(event.target);
+			forParent: function(rule, name){
+				return {
+					put: function(value){
+						// add listener
+						elemental.on(document, name.slice(3), rule.selector, function(event){
+							currentEvent = event;
+							var computation = evaluateExpression(rule, name, value);
+							if(computation.forElement){
+								computation = computation.forElement(event.target);
+							}
+							computation && computation.stop && computation.stop();
+							currentEvent = null;
+						});
 					}
-					computation && computation.stop && computation.stop();
-					currentEvent = null;
-				});
+				};
 			}
 		},
 		'@supports': {
