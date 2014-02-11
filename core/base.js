@@ -110,6 +110,7 @@ define('xstyle/core/base', [
 		// TODO: add url()
 		// adds support for referencing each item in a list of items when rendering arrays 
 		item: elementProperty('item'),
+		'page-content': elementProperty('page-content'),
 		// adds referencing to the prior contents of an element
 		content: elementProperty('content', function(target){
 			target.appendChild(this.element);
