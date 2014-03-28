@@ -1,8 +1,6 @@
 test-variable=var: 163px;
 test-expression=var: test;
 
-@xstyle start;
-
 test-component = section {
 	=>
 		h1 (label) { color: red},
@@ -41,7 +39,7 @@ hello-world = test-component {
 }
 
 /*@media -sass-debug-info{filename{font-family:style\.scss}line{font-family:\0000336}}*/
-body {
+#core-test {
 	padding:20px;
 	=>
 	test-component {
@@ -60,11 +58,6 @@ body {
 		div.middle3#one-child
 }
 
-@xstyle end;
-#one-child {
-	=>
-		test-component;
-}
 @xstyle end;
 body {
 	=>

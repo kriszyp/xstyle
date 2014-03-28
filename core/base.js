@@ -87,7 +87,7 @@ define('xstyle/core/base', [
 					},
 					appendTo: appendTo
 				};
-			}, 
+			},
 			forParent: function(rule, name){
 				return new Proxy();
 			}
