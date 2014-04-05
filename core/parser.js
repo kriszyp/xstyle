@@ -32,6 +32,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 	};
 	
 	function parse(model, textToParse, styleSheet){
+		styleSheet = styleSheet || {addRule: function(){}, cssRules: []};
 		var mainScan;
 		var cssScan = mainScan = /(\s*)((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?(?:([{\}\[\]\(\)\\'":;])(\/\d+)?|$)/g;
 									// name: value 	operator
