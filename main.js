@@ -13,11 +13,12 @@ define("xstyle/main", [
 			checkImports(elements[i]);
 		}
 	}
-	elemental.ready(function(){
+	function searchAll(){
 		// search the document for <link> and <style> elements to potentially parse.
 		search('link');
 		search('style');
-	});
+	}
+	elemental.ready(searchAll);
 	// traverse the @imports to load the sources 
 	function checkImports(element, callback, fixedImports){
 		var sheet = element.sheet || element.styleSheet;
@@ -112,19 +113,27 @@ define("xstyle/main", [
 	
 	var xstyle =  {
 		process: checkImports,
+		processAll: searchAll,
 		parse: parse,
-			// summary:
-			// 		put-selector like functionality, but returned element will be processed by
-			//	 	xstyle, with any applicable rules handling the new or updated element
-			//	parentElement:
-			// 		a parent element must be provided
-			//	selector:
-			// 		CSS selector syntax for creating a new element
+		// generate:
+		// 		put-selector like functionality, but returned element will be processed by
+		//	 	xstyle, with any applicable rules handling the new or updated element
+		//	parentElement:
+		// 		a parent element must be provided
+		//	selector:
+		// 		CSS selector syntax for creating a new element
 		generate: generate,
 		load:  function(resourceDef, require, callback, config){
-			// support use an AMD plugin loader
+			// support using an AMD plugin loader
 			require(['xstyle/css'], function(plugin){
-				plugin.load(resourceDef, require, callback, config);
+				plugin.load(resourceDef, require, function(styleSheet){
+					if(styleSheet){
+						checkImports({sheet: styleSheet}, callback);
+					}else{
+						searchAll();
+						callback();
+					}
+				}, config);
 			});
 		}
 	};

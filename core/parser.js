@@ -305,7 +305,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 						}else if(assignmentOperator){
 							// need to do an assignment
 							try{
-								var result = target[assignmentOperator == ':' ? 'setValue' : 'declareProperty']
+								var result = target[assignmentOperator == ':' ? 'setValue' : 'declareDefinition']
 									(name, sequence, conditionalAssignment);
 								if(result && result.then){
 									resumeOnComplete(result);
@@ -384,7 +384,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								if(assignmentOperator){
 									// may still need to do an assignment
 									try{
-										target[assignmentOperator == ':' ? 'setValue' : 'declareProperty']
+										target[assignmentOperator == ':' ? 'setValue' : 'declareDefinition']
 											(name, sequence[1] || sequence, conditionalAssignment);
 									}catch(e){
 										error(e);

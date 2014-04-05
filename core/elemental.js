@@ -8,8 +8,13 @@ define('xstyle/core/elemental', ['put-selector/put'], function(put){
 		var element = event.target;
 		// get the variable computation so we can put the value
 		var variable = element['-x-variable'];
-		if(variable && variable.put){ // if it can be put, we do so
-			variable.put(element.value);
+		if(variable){
+			if(variable.forElement){
+				variable = variable.forElement(element);
+			}
+			if(variable && variable.put){ // if it can be put, we do so
+				variable.put(element.value);
+			}
 		}
 	});
 	function on(target, event, selector, listener){

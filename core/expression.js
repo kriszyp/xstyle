@@ -10,11 +10,11 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			if(!target){
 				return callback(name || target);
 			}
-			if(name && target.get){
-				return get(target.get(name), path.slice(1), callback);
+			if(name && target.property){
+				return get(target.property(name), path.slice(1), callback);
 			}
-			if(target.receive){
-				return target.receive(name ? function(value){
+			if(target.observe){
+				return target.observe(name ? function(value){
 					get(value, path, callback);
 				} : callback);
 			}
@@ -86,8 +86,8 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 						var name;
 						for(var i = 2; i < attributeParts.length -1; i++){
 							name = attributeParts[i];
-							target = target.get ?
-								target.get(name) :
+							target = target.property ?
+								target.property(name) :
 								target[name];
 						}
 						name = attributeParts[i];
@@ -146,11 +146,11 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 					var j;
 					value = resolved;
 					for(j = 1; j < variable.length; j++){
-						if(value && value.get){
-							value = value.get(variable[j]);
+						if(value && value.property){
+							value = value.property(variable[j]);
 						}else{
 							value = {
-								receive: function(callback){
+								observe: function(callback){
 									get(resolved, variable.slice(1), callback);
 								},
 								put: function(value){
@@ -173,7 +173,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				return result;
 			}
 			return {
-				receive: function(callback){
+				observe: function(callback){
 					if(callbacks){
 						callbacks.push(callback);
 					}

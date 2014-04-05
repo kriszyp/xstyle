@@ -4,8 +4,8 @@ define('xstyle/core/generate', [
 	'xstyle/core/utils',
 	'xstyle/core/expression',
 	'xstyle/core/base',
-	'xstyle/core/observe'
-], function(elemental, put, utils, evaluateExpression, root, observe){
+	'xstyle/core/Proxy'
+], function(elemental, put, utils, evaluateExpression, root, Proxy){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
@@ -23,8 +23,8 @@ define('xstyle/core/generate', [
 		SELECT: 1
 	};
 	function receive(target, callback, rule, name){
-		if(target && target.receive){
-			target.receive(callback, rule, name);
+		if(target && target.observe){
+			target.observe(callback, rule, name);
 		}else{
 			callback(target);
 		}
@@ -70,25 +70,28 @@ define('xstyle/core/generate', [
 								}
 								// TODO: make sure we only do this only once
 								var expression = part.args.toString();
-								var apply = evaluateExpression(part.parent, 0, expression);
+								var expressionResult = evaluateExpression(part.parent, 0, expression);
 								
 								(function(element, nextPart){
-									utils.when(apply, function(apply){
+									var contentProxy = element.content || (element.content = new Proxy());
+									utils.when(expressionResult, function(result){
 										// TODO: assess how we could propagate changes categorically
-										if(apply.forElement){
-											apply = apply.forElement(element);
+										if(result.forElement){
+											result = result.forElement(element);
 											// now apply.element should indicate the element that it is actually
 											// keying or varying on
 										}
-										receive(apply, function(value){
-											element.content = value;
-										}, rule, expression);
+										if(result.forParent){
+											// if the result can be specific to a rule, apply that context
+											result = result.forParent(rule, expression);
+										}
+										contentProxy.setSource(result);
 									});
 									if(!('_defaultBinding' in element)){
 										// if we don't have any handle for content yet, we install this default handling
 										element._defaultBinding = true;
 										var textNode = element.appendChild(doc.createTextNode('Loading'));
-										observe.get(element, 'content', function(value){
+										contentProxy.observe(function(value){
 											if(element._defaultBinding){ // the default binding can later be disabled
 												if(value && value.sort){
 													if(textNode){
@@ -147,10 +150,10 @@ define('xstyle/core/generate', [
 														// so that on a change we can quickly do a put on it
 														// we might want to consider changing that in the future, to
 														// reduce memory, but for now this probably has minimal cost
-														element['-x-variable'] = apply;
+														element['-x-variable'] = contentProxy;
 													}else{
 														// put text in for Loading until we are ready
-														// TODO: we should do this after setting up the receive
+														// TODO: we should do this after setting up the observe
 														// in case we synchronously get the data
 														// if not an array, render as plain text
 														textNode.nodeValue = value;

@@ -1,8 +1,9 @@
 define('xstyle/core/Rule', [
 	'xstyle/core/expression',
 	'put-selector/put',
-	'xstyle/core/utils'
-], function(evaluateExpression, put, utils){
+	'xstyle/core/utils',
+	'xstyle/core/Proxy'
+], function(evaluateExpression, put, utils, Proxy){
 
 	// define the Rule class, our abstraction of a CSS rule		
 	var create = Object.create || function(base){
@@ -19,6 +20,10 @@ define('xstyle/core/Rule', [
 	var testDiv = put('div');
 	function Rule(){}
 	Rule.prototype = {
+		property: function(key){
+			// basic property implementation to match the reactive/dstore API
+			return (this._properties || (this._properties = {}))[key] || (this._properties[key] = new Proxy(this.get(key)));
+		},
 		eachProperty: function(onProperty){
 			// iterate through each property on the rule
 			var values = this.values || 0;
@@ -92,7 +97,7 @@ define('xstyle/core/Rule', [
 				});
 			});
 		},
-		declareProperty: function(name, value, conditional){
+		declareDefinition: function(name, value, conditional){
 			// called by the parser when a variable assignment is encountered
 			if(this.disabled){
 				return;
@@ -177,7 +182,8 @@ define('xstyle/core/Rule', [
 								var segment = target[i];
 								var returned;
 								utils.when(segment, function(segment){
-									returned = segment.put && segment.put(value, rule, propertyName);
+									var newProperty = segment.forParent(rule, propertyName);
+									returned = newProperty.put(value);
 								});
 								if(returned){
 									return returned;
@@ -193,23 +199,28 @@ define('xstyle/core/Rule', [
 				}while(name);
 			}
 		},
-		put: function(value, rule){
+		forParent: function(rule){
 			// rules can be used as properties, in which case they act as mixins
 			// first extend
 			this.extend(rule);
-			if(value == 'defaults'){
-				// this indicates that we should leave the mixin properties as is.
-				return;
-			}
-			if(value && typeof value == 'string' && this.values){
-				// then apply properties with comma delimiting
-				var parts = value.toString().split(/,\s*/);
-				for(var i = 0; i < parts.length; i++){
-					// TODO: take the last part and don't split on spaces
-					var name = this.values[i];
-					name && rule.setValue(name, parts[i], this);
+			var base = this;
+			return {
+				put: function(value){
+					if(value == 'defaults'){
+						// this indicates that we should leave the mixin properties as is.
+						return;
+					}
+					if(value && typeof value == 'string' && base.values){
+						// then apply properties with comma delimiting
+						var parts = value.toString().split(/,\s*/);
+						for(var i = 0; i < parts.length; i++){
+							// TODO: take the last part and don't split on spaces
+							var name = base.values[i];
+							name && rule.setValue(name, parts[i], base);
+						}
+					}
 				}
-			}
+			};
 		},
 		extend: function(derivative, fullExtension){
 			// we might consider removing this if it is only used from put
@@ -262,16 +273,15 @@ define('xstyle/core/Rule', [
 				}*/
 			});
 			if(base.generator){
-				derivative.declareProperty(null, base.generator);
+				derivative.declareDefinition(null, base.generator);
 			}
-			
 		},
-		getDefinition: function(name, searchRules){
-			// lookup a definition by name, which used for handling properties and other thingsss
+		getDefinition: function(name, extraScope){
+			// lookup a definition by name, which used for handling properties and other things
 			var parentRule = this;
 			do{
-				var target = parentRule.definitions && parentRule.definitions[name] ||
-					(searchRules && parentRule.rules && parentRule.rules[name]);
+				var target = (parentRule.definitions && parentRule.definitions[name]) ||
+						(extraScope && parentRule[extraScope] && parentRule[extraScope][name]);
 				parentRule = parentRule.parent;
 			}while(!target && parentRule);
 			return target;
@@ -289,7 +299,7 @@ define('xstyle/core/Rule', [
 		this.args = [];
 	}
 	var CallPrototype = Call.prototype = new Rule();
-	CallPrototype.declareProperty = CallPrototype.setValue = function(name, value){
+	CallPrototype.declareDefinition = CallPrototype.setValue = function(name, value){
 		// handle these both as addition of arguments
 		this.args.push(value);
 	};

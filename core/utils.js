@@ -23,7 +23,7 @@ define('xstyle/core/utils', [], function(){
 				elementString == '[object]');
 		},
 		extend: function(target, base, error){
-			var ref = target.getDefinition(base, true);
+			var ref = target.getDefinition(base, 'rules');
 			if(ref){
 				return this.when(ref, function(ref){
 					if(ref.extend){

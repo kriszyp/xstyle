@@ -28,20 +28,27 @@ define(["require"], function(moduleRequire){
 					cachedCss = cachedCss.cssText;
 				}
 				moduleRequire(['./util/createStyleSheet'],function(createStyleSheet){
-					createStyleSheet(cachedCss);
+					checkForParser(createStyleSheet(cachedCss));
 				});
 				if(xCss){
 					//require([parsed], callback);
 				}
-				return checkForParser();
+				return;
 			}
-			function checkForParser(){
+			function checkForParser(styleSheet){
 				var parser = testElementStyle('x-parse', null, 'content');
 				if(parser && parser != 'none'){
 					// TODO: wait for parser to load
-					require([eval(parser)], callback);
+					require([eval(parser)], function(parser){
+						if(styleSheet){
+							parser.process({sheet: styleSheet}, callback);
+						}else{
+							parser.processAll();
+							callback(styleSheet);
+						}
+					});
 				}else{
-					callback();
+					callback(styleSheet);
 				}
 			}
 			
