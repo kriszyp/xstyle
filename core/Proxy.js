@@ -3,7 +3,7 @@ define('xstyle/core/Proxy', ['xstyle/core/utils'], function(utils){
 
 	function Proxy(value){
 		// just assume everything will be observed, we could change the optimizations later
-		if(value){
+		if(value !== undefined){
 			this.setSource(value);
 		}
 	}
@@ -22,7 +22,7 @@ define('xstyle/core/Proxy', ['xstyle/core/utils'], function(utils){
 		},
 		observe: function(listener){
 			(this._listeners || (this._listeners = [])).push(listener);
-			if(this.source){
+			if(this.source !== undefined){
 				listener(this.valueOf());
 			}
 			// TODO: return handle with remove method
