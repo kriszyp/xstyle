@@ -32,197 +32,241 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				target[property] = value;
 		});
 	}
-	return function evaluateExpression(rule, name, value){
-		// evaluate a binding
+	function someHasProperty(array, property){
+		for(var i = 0, l = array.length; i < l; i++){
+			var item = array[i];
+			if(property in item){
+				return true;
+			}
+		}
+	}
+	function resolveArguments(callback){
+		return {
+			onArguments: function(rule, args){
+				return callback(evaluateExpression(rule, args));
+			},
+			call: callback
+		};
+	}
+	function whenAll(callback){
+		return resolveArguments(function(){	
+			// handles waiting for async inputs
+			if(someHasProperty(arguments, 'then')){
+				var inputs = arguments;
+				// we have asynch inputs, do lazy loading
+				return {
+					then: function(onResolve, onError){
+						var remaining = 1;
+						var resolvedInputs;
+						for(var i = 0; i < l; i++){
+							var input = inputs[i];
+							if(input && input.then){
+								remaining++;
+								(function(i){
+									input.then(function(value){
+										resolvedInputs[i] = value;
+										onEach();
+									}, onError);
+								})(i);
+							}else{
+								resolvedInputs[i] = input;
+								onEach();
+							}
+						}
+						onEach();
+						function onEach(){
+							remaining--;
+							if(!remaining){
+								onResolve(callback(inputs));
+							}
+						}
+					}
+				};
+			}
+			// just sync inputs
+			return callback(arguments);
+		});
+	}
+	function contextualized(callback){
+		// this function is responsible for contextualizing a result
+		// based on the context of the arguments/inputs
+		return whenAll(function(inputs){
+			inputs.id = nextId++;
+			var isElementDependent;
+			// TODO: eventually we probably want to abstract out contextualization
+			if(someHasProperty(inputs, 'forElement')){
+				return {
+					forElement: function(element){
+						var mostSpecificElement;
+						// now find the element that matches that rule, in case we are dealing with a child
+						var parentElement;
+						for(var i = 0, l = inputs.length; i < l; i++){
+							var input = inputs[i];
+							var target = input[0];
+							// now find the element that is keyed on
+							if(target.forElement){
+								target = input[0] = target.forElement(element, input.length == 1);
+							}
+							// we need to find the most parent element that we need to vary on for this computation 
+							var varyOnElement = parentElement = target.element;
+							if(mostSpecificElement){
+								// check to see if one its parent is the mostSpecificElement
+								while(parentElement && parentElement != mostSpecificElement){
+									parentElement = parentElement.parentNode;
+								}
+								// if so, we have a new most specific
+							}
+							if(parentElement){
+								mostSpecificElement = varyOnElement;
+							}
+						}
+						// make sure we indicate the store we are keying off of
+						var computation = mostSpecificElement['expr-result-' + inputs.id];
+						if(!computation){
+							mostSpecificElement['expr-result-' + inputs.id] = computation = callback(inputs);
+							computation.element = mostSpecificElement;
+						}
+						return computation;
+					}
+				};
+			}
+			return callback(inputs);
+		})
+	}
+	function react(callback, reverse){
+		// based on reactive inputs, define a new reactive,
+		// that uses the callback function to compute new values
+		return contextualized(function(inputs){
+			function computeResult(){
+				var values = [];
+				for(var i = 0, l = inputs.length; i < l; i++){
+					var input = inputs[i];
+					values[i] = input && input.valueOf();
+				}
+				return callback(values);
+			}
+			if(someHasProperty(inputs, 'observe')){
+				var result = {
+					observe: function(listener){
+						for(var i = 0, l = inputs.length; i < l; i++){
+							var input = inputs[i];
+							input && input.observe && input.observe(function(){
+								listener(computeResult());
+							});
+						}
+					},
+					valueOf: function(){
+						return computeResult();
+					}
+				};
+				if(reverse && someHasProperty(inputs, 'put')){
+					result.put = function(value){
+						reverse(value, inputs);
+					};
+				}
+				return result;
+			}
+			return computeResult();
+		});
+	}
+	function operator(precedence, forward, reverseA, reverseB){
+		// defines the standard operators
+		function evaluate(expression){
+			return eval('(0||function(a,b){return ' + expression + ';})');
+		}
+		var forward = evaluate(forward);
+		var reverseA = evaluate(reverseA);
+		var reverseB = evaluate(reverseB);
+		var result = react(function(inputs){
+			return forward(inputs[0], inputs[1]);
+		}, function(output, inputs){
+			var a = inputs[0],
+				b = inputs[1];
+			if(a.put){
+				a.put(reverseA(output, b.valueOf()));
+			}else if(b.put){
+				b.put(reverseB(output, a.valueOf()));
+			}else{
+				throw new TypeError('Can not put');
+			}
+		});
+		result.precedence = precedence;
+		return result;
+	}
+	var operators = {
+		'+': operator(2, 'a+b', 'a-b', 'a-b'),
+		'-': operator(2, 'a-b', 'a+b', 'b-a'),
+		'*': operator(1, 'a*b', 'a/b', 'a/b'),
+		'/': operator(1, 'a/b', 'a*b', 'b/a')
+	};
+	function evaluateExpression(rule, value){
+		// evaluate an expression
+		/*
+		// TODO: do we need to cache this?
 		var binding = rule['var-expr-' + name];
 		if(variables){
 			return binding;
+		}*/
+		value = value.join ? value : [value];
+		for(var i = 0; i < value.length; i++){
+			var part = value[i];
+			if(typeof part == 'string'){
+				// parse out operators
+				var spliceArgs = [i, 1].concat(part.match(/"[^\"]*"|[+-\/*!&|]+|[a-zA-Z_][\w_$\.\/-]*/g));
+				// splice them back into the list
+				value.splice.apply(value, spliceArgs);
+				// adjust the index
+				i += spliceArgs - 3;
+			}
 		}
-		var variables = [], isElementDependent;
-		variables.id = nextId++;
-		var parameters = [],
-			attributeParts, expression = value.join ? value.join('') : value.toString(),
-			simpleExpression = expression.match(/^[\w_$\/\.-]*$/);
-		// Do the parsing and function creation just once, and adapt the dependencies for the element at creation time
-		// deal with an array, converting strings to JS-eval'able strings
-			// find all the variables in the expression
-		expression = expression.replace(/("[^\"]*")|([\w_$\.\/-]+)/g, function(t, string, variable){
-			if(variable){
-				if(jsKeywords.hasOwnProperty(variable)){
-					return jsKeywords[variable];
-				}
-				// for each reference, we break apart into variable reference and
-				// property references after each dot				
-				attributeParts = variable.split('/');
-				var parameterName = attributeParts.join('_').replace(/-/g,'_');
-				parameters.push(parameterName);
-				variables.push(attributeParts);
-				// first find the rule that is being referenced
-				var firstReference = attributeParts[0];
+		var lastOperatorPrecedence;
+		var stack = [];
+		var lastOperator;
+		// now apply operators
+		for(var i = 0; i < value.length; i++){
+			var part = value[i];
+			if(operators.hasOwnProperty(part)){
+				var operator = operators[part];
+				windDownStack(operator);
+				lastOperatorPrecedence = (lastOperator || operator).precedence;
+			}else if(jsKeywords.hasOwnProperty(part)){
+				part = value[i] = jsKeywords[part];
+			}else{
+				var propertyParts = part.split('/');
+				var firstReference = propertyParts[0];
 				var target = rule.getDefinition(firstReference);
 				if(typeof target == 'string' || target instanceof Array){
-					target = evaluateExpression(rule, firstReference, target);
+					target = evaluateExpression(rule, target);
 				}else if(!target){
 					throw new Error('Could not find reference "' + firstReference + '"');
 				}
-				if(target.forElement){
-					isElementDependent = true;
+				var path, j = 1;
+				while((path = propertyParts[j++])){
+					target.property(path);
 				}
-				attributeParts[0] = target;
-				// we will reference the variable a function argument in the function we will create
-				return parameterName;
+				part = value[i] = target;
 			}
-			return t;
-		});
-	
-		if(simpleExpression){
-			// a direct reversible reference
-			// no forward reactive needed
-			if(name){
-				// create the reverse function
-				var reversal = function(element, name, value){
-					utils.when(findAttributeInAncestors(element, attributeParts[0], attributeParts[1]),
-							function(target){
-						var name;
-						for(var i = 2; i < attributeParts.length -1; i++){
-							name = attributeParts[i];
-							target = target.property ?
-								target.property(name) :
-								target[name];
-						}
-						name = attributeParts[i];
-						if(target.set){
-							target.set(name, value);
-						}else{
-							target[name] = value;
-						}
-					});
-				};
-				reversal.rule = rule;
-//				(reversalOfAttributes[name] || (reversalOfAttributes[name] = [])).push(reversal);
-			}
-		}else{
-			// it's a full expression, so we create a time-varying bound function with the expression
-			var reactiveFunction = Function.apply(this, parameters.concat(['return (' + expression + ')']));
+			stack.push(part);
 		}
-		variables.func = reactiveFunction;
-		rule['var-expr-' + name] = variables;
-		function getComputation(){
-			var waiting = variables.length + 1;
-			var values = [], callbacks = [];
-			var result, isResolved, stopped;
-			var done = function(i){
-				return function(value){
-					if(stopped){
-						return;
-					}
-					values[i] = value;
-					waiting--;
-					if(waiting <= 0){
-						isResolved = true;
-						result = reactiveFunction ? reactiveFunction.apply(this, values) : values[0];
-						for(var j = 0; j < callbacks.length;j++){
-							callbacks[j](result);
-						}
-					}
-				};
-			};
-			var variable;
-			if(reactiveFunction){
-				for(var i = 0; i < variables.length; i++){
-					variable = variables[i];
-					get(variable[0], variable.slice(1), done(i));
-				}
-			}else{
-				variable = variables[0];
-				var value = {
-					then: function(callback){
-						callbacks ?
-							callbacks.push(callback) :
-							callback(value); // immediately available
-					}
-				};
-				utils.when(variable[0], function(resolved){
-					var j;
-					value = resolved;
-					for(j = 1; j < variable.length; j++){
-						if(value && value.property){
-							value = value.property(variable[j]);
-						}else{
-							value = {
-								observe: function(callback){
-									get(resolved, variable.slice(1), callback);
-								},
-								put: function(value){
-									set(resolved, variable.slice(1), value);
-								}
-							};
-							break;
-						}
-					}
-					for(j = 0; j < callbacks.length; j++){
-						callbacks[j](value);
-					}
-					// accept no more callbacks, since we have resolved
-					callbacks = null;
-				});
-				return value;
+		windDownStack({precedence: 0});
+		function windDownStack(operator){
+			while(lastOperatorPrecedence > operator.precedence){
+				var operandB = stack.pop();
+				var executingOperator = operators[stack.pop()];
+				var result = executingOperator.call(stack.pop(), operandB);
+				stack.push(result);
+				lastOperator = stack.length && stack[stack.length-1];
+				lastOperatorPrecedence = lastOperator && lastOperator.precedence;
 			}
-			done(-1)();
-			if(result && result.then){
-				return result;
-			}
-			return {
-				observe: function(callback){
-					if(callbacks){
-						callbacks.push(callback);
-					}
-					if(isResolved){
-						callback(result);
-					}
-				},
-				stop: function(){
-					// TODO: this is not the right way to do this, we need to remove
-					// all the variable listeners and properly destroy this
-					stopped = true;
-				}
-			};
 		}
-		return rule['var-expr-' + name] = isElementDependent ? {
-			forElement: function(element){
-				// TODO: at some point may make this async
-				var mostSpecificElement;
-				// now find the element that matches that rule, in case we are dealing with a child
-				var parentElement;
-				for(var i = 0; i < variables.length; i++){
-					var variable = variables[i];
-					var target = variable[0];
-					// now find the element that is keyed on
-					if(target.forElement){
-						target = variable[0] = target.forElement(element, variable.length == 1);
-					}
-					// we need to find the most parent element that we need to vary on for this computation 
-					var varyOnElement = parentElement = target.element;
-					if(mostSpecificElement){
-						// check to see if one its parent is the mostSpecificElement
-						while(parentElement && parentElement != mostSpecificElement){
-							parentElement = parentElement.parentNode;
-						}
-						// if so, we have a new most specific
-					}
-					if(parentElement){
-						mostSpecificElement = varyOnElement;
-					}
-				}
-				// make sure we indicate the store we are keying off of
-				var computation = mostSpecificElement['expr-result-' + variables.id];
-				if(!computation){
-					mostSpecificElement['expr-result-' + variables.id] = computation = getComputation();
-					computation.element = mostSpecificElement;
-				}
-				return computation;
-			}
-		} : getComputation();
-	};
 
+		return stack[0];
+	}
+	return {
+		resolveArguments: resolveArguments,
+		whenAll: whenAll,
+		contextualized: contextualized,
+		react: react,
+		evaluate: evaluateExpression
+	};
 });

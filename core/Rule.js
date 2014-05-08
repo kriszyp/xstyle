@@ -3,7 +3,7 @@ define('xstyle/core/Rule', [
 	'put-selector/put',
 	'xstyle/core/utils',
 	'xstyle/core/Proxy'
-], function(evaluateExpression, put, utils, Proxy){
+], function(expression, put, utils, Proxy){
 
 	// define the Rule class, our abstraction of a CSS rule		
 	var create = Object.create || function(base){
@@ -99,6 +99,7 @@ define('xstyle/core/Rule', [
 		},
 		declareDefinition: function(name, value, conditional){
 			// called by the parser when a variable assignment is encountered
+			// this creates a new definition in the current rule
 			if(this.disabled){
 				return;
 			}
@@ -125,7 +126,7 @@ define('xstyle/core/Rule', [
 							var parts = value.join('').split(/\s*,\s*/);
 							var definition = [];
 							for(var i = 0;i < parts.length; i++){
-								definition[i] = evaluateExpression(this, name, parts[i]);
+								definition[i] = expression.evaluate(this, parts[i]);
 							}
 						}
 						if(value[0] && value[0].operator == '{'){ // see if it is a rule
@@ -133,7 +134,11 @@ define('xstyle/core/Rule', [
 						}else if(value[1] && value[1].operator == '{'){
 							definition = value[1];
 						}
-						definitions[name] = definition || evaluateExpression(this, name, value);
+						definition = definition || expression.evaluate(this, value);
+						if(definition.define){
+							definition = definition.define(name, this);
+						}
+						definitions[name] = definition;
 						if(propertyExists){
 							console.warn('Overriding existing property "' + name + '"');
 						}
@@ -144,10 +149,10 @@ define('xstyle/core/Rule', [
 				definitions[name] = value;
 			}
 		},
-		onCall: function(call, name, value){
+		onArguments: function(call, name, value){
 			var handler = call.ref;
-			if(handler && typeof handler.call == 'function'){
-				return handler.call(call, this, name, value);
+			if(handler && typeof handler.onArguments == 'function'){
+				return handler.onArguments(call, this, name, value);
 			}
 		},
 		setValue: function(name, value, scopeRule){
@@ -161,8 +166,22 @@ define('xstyle/core/Rule', [
 			values[name] = value;
 			var calls = value.calls;
 			if(calls){
-				for(var i = 0; i < calls.length; i++){
-					this.onCall(calls[i], name, value);
+				var changes;
+				for(var i = 0; i < value.length; i++){
+					var part = value[i];
+					if(part instanceof Call){
+						if(!value.hasOwnProperty(i)){
+							// it is derivative value, make a derivative call
+							value[i] = part = create(part);
+						}
+						if((part.computed = this.onArguments(part, name, value)) != undefined){
+							changes = true;
+						}
+					}
+				}
+				if(changes){
+					// if there were new computd values, update this style
+					this.setStyle(name, value.toString());
 				}
 			}
 			// called when each property is parsed, and this determines if there is a handler for it
@@ -182,7 +201,9 @@ define('xstyle/core/Rule', [
 								var segment = target[i];
 								var returned;
 								utils.when(segment, function(segment){
-									var newProperty = segment.forParent(rule, propertyName);
+									var newProperty = segment.forParent ?
+										segment.forParent(rule, propertyName) :
+										segment;
 									returned = newProperty.put(value);
 								});
 								if(returned){
@@ -264,6 +285,10 @@ define('xstyle/core/Rule', [
 			
 	//		var ruleStyle = derivative.getCssRule().style;
 			base.eachProperty(function(name, value){
+				if(typeof value == 'object'){
+					// make a derivative on copy
+					value = create(value);
+				}
 				derivative.setValue(name, value);
 		/*		if(name){
 					name = convertCssNameToJs(name);
@@ -304,6 +329,10 @@ define('xstyle/core/Rule', [
 		this.args.push(value);
 	};
 	CallPrototype.toString = function(){
+		var computed = this.computed;
+		if(computed !== undefined){
+			return computed;
+		}
 		var operator = this.operator;
 		return operator + this.args + operatorMatch[operator];
 	};

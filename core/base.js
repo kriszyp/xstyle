@@ -7,16 +7,6 @@ define('xstyle/core/base', [
 	'xstyle/core/Proxy'
 ], function(elemental, evaluateExpression, utils, put, Rule, Proxy){
 	// this module defines the base definitions intrisincally available in xstyle stylesheets
-	var truthyConversion = {
-		'': 0,
-		'false': 0,
-		'true': 1
-	};
-	var styleSubstitutes = {
-		display: ['none',''],
-		visibility: ['hidden', 'visible'],
-		'float': ['none', 'left']
-	};
 	var testDiv = put('div');
 	var ua = navigator.userAgent;
 	var vendorPrefix = ua.indexOf('WebKit') > -1 ? '-webkit-' :
@@ -34,7 +24,7 @@ define('xstyle/core/base', [
 	var currentEvent;
 	var root = new Rule();
 	root.root = true;
-	function elementProperty(property, appendTo){
+	function elementProperty(property, rule, inherit, appendTo){
 		// definition bound to an element's property
 		// TODO: allow it be bound to other names, and use prefixing to not collide with element names
 		return {
@@ -44,11 +34,21 @@ define('xstyle/core/base', [
 					// content needs to start at the parent
 					element = element.parentNode;
 				}
-				// we find the parent element with an item property, and key off of that 
-				while(!(property in element)){
-					element = element.parentNode;
-					if(!element){
-						throw new Error(property + ' not found');
+				if(rule){
+					while(!element.matches(rule.selector)){
+						element = element.parentNode;
+						if(!element){
+							throw new Error('Rule not found');
+						}
+					}
+				}
+				if(inherit){
+					// we find the parent element with an item property, and key off of that 
+					while(!(property in element)){
+						element = element.parentNode;
+						if(!element){
+							throw new Error(property ? (property + ' not found') : ('Property was never defined'));
+						}
 					}
 				}
 				// provide a means for being able to reference the target node,
@@ -58,7 +58,7 @@ define('xstyle/core/base', [
 				}
 				var value = element[property];
 				if(!value){
-					value = element[property] = new Proxy();
+					value = element[property] = new Proxy(null);
 				}else if(!value.observe){
 					value = new Proxy(value);
 				}
@@ -88,8 +88,49 @@ define('xstyle/core/base', [
 					appendTo: appendTo
 				};
 			},
-			forParent: function(rule, name){
-				return new Proxy();
+			define: function(newProperty, rule){
+				// if we don't already have a property define, we will do so now
+				return elementProperty(property || newProperty, rule, appendTo);
+			},
+			put: function(value){
+				elemental.addRenderer(function(element){
+					var proxy = element[property];
+					if(proxy && proxy.put){
+						proxy.put(value);
+					}else{
+						element[property] = new Proxy(value);
+					}
+				});
+			}
+		};
+	}
+	function observeExpressionForRule(rule, name, value, callback){
+		var result = evaluateExpression(rule, name, value);
+		if(result.forElement){
+			// we can't just set a style, we need to individually apply
+			// the styles for each element
+			elemental.addRenderer(rule, function(element){
+				callback(result.forElement(element), element);
+			});
+		}else{
+			callback(result);
+		}
+	}
+	function conditional(yes, no){
+		return {
+			onArguments: function(call, rule, name, value){
+				observeExpressionForRule(rule, name, call.args[0], function(observable, element){
+					observable.observe(function(variableValue){
+						// convert to the conditional values
+						variableValue = variableValue ? yes : no;
+						var resolved = value.toString().replace(new RegExp(yes + '\\([^)]+\\)', 'g'), variableValue);
+						if(element){
+							element.style[name] = variableValue;
+						}else{
+							rule.setStyle(name, variableValue);
+						}
+					});
+				});
 			}
 		};
 	}
@@ -109,12 +150,15 @@ define('xstyle/core/base', [
 		},
 		// TODO: add url()
 		// adds support for referencing each item in a list of items when rendering arrays 
-		item: elementProperty('item'),
-		'page-content': elementProperty('page-content'),
+		item: elementProperty('item', null, true),
+		'page-content': elementProperty('page-content', {selector: 'body'}, true),
 		// adds referencing to the prior contents of an element
-		content: elementProperty('content', function(target){
+		content: elementProperty('content', null, true, function(target){
 			target.appendChild(this.element);
 		}),
+		// don't define the property now let it be redefined when it is declared in another
+		// definition
+		'element-property': elementProperty(),
 		element: {
 			// definition to reference the actual element
 			forElement: function(element){
@@ -161,8 +205,9 @@ define('xstyle/core/base', [
 		},
 		// provides CSS variable support
 		'var': derive(new Proxy(), {
+			// TODO: should this be define?
 			forParent: function(rule, name){
-				// when we beget a var, we basically are making a propery that is included in variables
+				// when we beget a var, we basically are making a property that is included in variables
 				// object for the parent object
 				var variables = (rule.variables || (rule.variables = new Proxy()));
 				var proxy = variables.property(name);
@@ -194,29 +239,27 @@ define('xstyle/core/base', [
 				return proxy;
 			},
 			// referencing variables
-			call: function(call, rule, name, value){
+			onArguments: function(call, rule, name, value){
 				this.forParent(rule, call.args[0]).observe(function(resolvedValue){
 					var resolved = value.toString().replace(/var\([^)]+\)/g, resolvedValue);
-					// now check if the value if we should do subsitution for truthy values
-					var truthy = truthyConversion[resolved];
-					if(truthy > -1){
-						var substitutes = styleSubstitutes[name];
-						if(substitutes){
-							resolved = substitutes[truthy];
-						}
-					}
 					rule.setStyle(name, resolved);
 				});
 			}
 		}),
+		inline: conditional('inline', 'none'),
+		block: conditional('block', 'none'),
+		visible: conditional('visible', 'hidden'),
 		'extends': {
-			call: function(call, rule){
+			onArguments: function(call, rule){
 				// TODO: this is duplicated in the parser, should consolidate
 				var args = call.args;
 				for(var i = 0; i < args.length; i++){ // TODO: merge possible promises
 					return utils.extend(rule, args[i], console.error);
 				}
 			}
+		},
+		set: function(event){
+			observeExpressionForRule(rule, name, call.args[0]).put(call.args[1]);
 		},
 		on: {
 			forParent: function(rule, name){
@@ -271,5 +314,6 @@ define('xstyle/core/base', [
 			}
 		}
 	};
+	root.elementProperty = elementProperty;
 	return root;
 });

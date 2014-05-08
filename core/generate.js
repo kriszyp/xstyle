@@ -5,7 +5,7 @@ define('xstyle/core/generate', [
 	'xstyle/core/expression',
 	'xstyle/core/base',
 	'xstyle/core/Proxy'
-], function(elemental, put, utils, evaluateExpression, root, Proxy){
+], function(elemental, put, utils, expressionModule, root, Proxy){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
@@ -70,7 +70,7 @@ define('xstyle/core/generate', [
 								}
 								// TODO: make sure we only do this only once
 								var expression = part.args.toString();
-								var expressionResult = evaluateExpression(part.parent, 0, expression);
+								var expressionResult = expressionModule.evaluate(part.parent, expression);
 								
 								(function(element, nextPart){
 									var contentProxy = element.content || (element.content = new Proxy());
@@ -106,9 +106,11 @@ define('xstyle/core/generate', [
 														// if it is an array, we do iterative rendering
 														var eachHandler = nextPart && nextPart.eachProperty &&
 															nextPart.each;
+														// we create a rule for the item elements
+														var eachRule = nextPart.newRule();
 														// if 'each' is defined, we will use it render each item 
 														if(eachHandler){
-															eachHandler = forSelector(eachHandler, nextPart);
+															eachHandler = forSelector(eachHandler, eachRule);
 														}else{
 															eachHandler = function(element, value, beforeElement){
 																// if there no each handler, we use the default
