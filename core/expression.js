@@ -35,7 +35,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 	function someHasProperty(array, property){
 		for(var i = 0, l = array.length; i < l; i++){
 			var item = array[i];
-			if(property in item){
+			if(item && typeof item == 'object' && property in item){
 				return true;
 			}
 		}
@@ -196,8 +196,8 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 	var operators = {
 		'+': operator(2, 'a+b', 'a-b', 'a-b'),
 		'-': operator(2, 'a-b', 'a+b', 'b-a'),
-		'*': operator(1, 'a*b', 'a/b', 'a/b'),
-		'/': operator(1, 'a/b', 'a*b', 'b/a')
+		'*': operator(3, 'a*b', 'a/b', 'a/b'),
+		'/': operator(3, 'a/b', 'a*b', 'b/a')
 	};
 	function evaluateExpression(rule, value){
 		// evaluate an expression
@@ -212,7 +212,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			var part = value[i];
 			if(typeof part == 'string'){
 				// parse out operators
-				var spliceArgs = [i, 1].concat(part.match(/"[^\"]*"|[+-\/*!&|]+|[a-zA-Z_][\w_$\.\/-]*/g));
+				var spliceArgs = [i, 1].concat(part.match(/"[^\"]*"|[+-\/*!&|]+|[\w_$\.\/-]+/g));
 				// splice them back into the list
 				value.splice.apply(value, spliceArgs);
 				// adjust the index
@@ -231,7 +231,10 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				lastOperatorPrecedence = (lastOperator || operator).precedence;
 			}else if(jsKeywords.hasOwnProperty(part)){
 				part = value[i] = jsKeywords[part];
-			}else{
+			}else if(part > -1){
+				part = +part;
+			}
+			else{
 				var propertyParts = part.split('/');
 				var firstReference = propertyParts[0];
 				var target = rule.getDefinition(firstReference);
@@ -248,15 +251,15 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			}
 			stack.push(part);
 		}
-		windDownStack({precedence: 0});
+		windDownStack({precedence: 1});
 		function windDownStack(operator){
-			while(lastOperatorPrecedence > operator.precedence){
+			while(lastOperatorPrecedence >= operator.precedence){
 				var operandB = stack.pop();
 				var executingOperator = operators[stack.pop()];
 				var result = executingOperator.call(stack.pop(), operandB);
-				stack.push(result);
 				lastOperator = stack.length && stack[stack.length-1];
-				lastOperatorPrecedence = lastOperator && lastOperator.precedence;
+				stack.push(result);
+				lastOperatorPrecedence = lastOperator && operators[lastOperator] && operators[lastOperator].precedence;
 			}
 		}
 
