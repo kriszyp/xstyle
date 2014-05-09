@@ -192,7 +192,7 @@ define('xstyle/core/Rule', [
 				do{
 					// check for the handler
 					var target = (scopeRule || this).getDefinition(name);
-					if(target){
+					if(target !== undefined){
 						var rule = this;
 						return utils.when(target, function(target){
 							// call the handler to handle this rule
@@ -305,10 +305,12 @@ define('xstyle/core/Rule', [
 			// lookup a definition by name, which used for handling properties and other things
 			var parentRule = this;
 			do{
-				var target = (parentRule.definitions && parentRule.definitions[name]) ||
-						(extraScope && parentRule[extraScope] && parentRule[extraScope][name]);
+				var target = (parentRule.definitions && parentRule.definitions[name]);
+				if(target === undefined && extraScope && parentRule[extraScope]){
+					target = parentRule[extraScope][name];
+				}
 				parentRule = parentRule.parent;
-			}while(!target && parentRule);
+			}while(target === undefined && parentRule);
 			return target;
 		},
 		appendTo: function(target, beforeElement){

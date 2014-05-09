@@ -267,8 +267,11 @@ define('xstyle/core/base', [
 				}
 			}
 		},
-		set: function(event){
-			observeExpressionForRule(rule, name, call.args[0]).put(call.args[1]);
+		set: function(name, value){
+			var rule = this;
+			observeExpressionForRule(this, '', name, function(result){
+				result.put(expression.evaluate(rule, value));
+			});
 		},
 		on: {
 			forParent: function(rule, name){
@@ -278,7 +281,7 @@ define('xstyle/core/base', [
 						elemental.on(document, name.slice(3), rule.selector, function(event){
 							currentEvent = event;
 							var computation = expression.evaluate(rule, value);
-							if(computation.forElement){
+							if(computation && computation.forElement){
 								computation = computation.forElement(event.target);
 							}
 							computation && computation.stop && computation.stop();

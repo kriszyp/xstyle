@@ -215,7 +215,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		if(variables){
 			return binding;
 		}*/
-		value = value.join ? value : [value];
+		value = value.join ? value.slice() : [value];
 		for(var i = 0; i < value.length; i++){
 			var part = value[i];
 			if(typeof part == 'string'){
@@ -235,7 +235,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			var part = value[i];
 			if(part.operator == '('){
 				stack.pop(); // this should be the token, the function name, prior to the arguments
-				part = part.ref.apply(rule, part.args);
+				part = part.ref.apply(rule, part.args[0].split(','));
 			}else if(operators.hasOwnProperty(part)){
 				var operator = operators[part];
 				windDownStack(operator);
