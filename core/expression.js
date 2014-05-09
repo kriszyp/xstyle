@@ -1,28 +1,32 @@
 define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 	// handles the creation of reactive expressions
-	var jsKeywords = {
-		'true': true, 'false': false, 'null': 'null', 'typeof': 'typeof', or: '||', and: '&&'
-	};
 	var nextId = 1;
-	function get(target, path, callback){
-		return utils.when(target, function(target){
+	function get(target, path){
+		return utils.when(target, contextualize(function(target){
 			var name = path[0];
 			if(!target){
-				return callback(name || target);
+				return target;
 			}
 			if(name && target.property){
-				return get(target.property(name), path.slice(1), callback);
-			}
-			if(target.observe){
-				return target.observe(name ? function(value){
-					get(value, path, callback);
-				} : callback);
+				return get(target.property(name), path.slice(1));
 			}
 			if(name){
-				return get(target[name], path.slice(1), callback);
+				return get(target[name], path.slice(1));
+			}
+			return target;
+		}));
+	}
+	function contextualize(callback){
+		return function(target){
+			if(target && target.forElement){
+				return {
+					forElement: function(element){
+						return callback(target.forElement(element));
+					}
+				};
 			}
 			return callback(target);
-		});
+		}
 	}
 	function set(target, path, value){
 		get(target, path.slice(0, path.length - 1), function(target){
@@ -45,14 +49,15 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			onArguments: function(rule, args){
 				return callback(evaluateExpression(rule, args));
 			},
-			call: callback
+			apply: callback
 		};
 	}
+
 	function whenAll(callback){
-		return resolveArguments(function(){	
+		return resolveArguments(function(instance, inputs){	
 			// handles waiting for async inputs
-			if(someHasProperty(arguments, 'then')){
-				var inputs = arguments;
+			if(someHasProperty(inputs, 'then')){
+				var inputs = inputs;
 				// we have asynch inputs, do lazy loading
 				return {
 					then: function(onResolve, onError){
@@ -84,7 +89,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				};
 			}
 			// just sync inputs
-			return callback(arguments);
+			return callback(inputs);
 		});
 	}
 	function contextualized(callback){
@@ -100,15 +105,16 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 						var mostSpecificElement;
 						// now find the element that matches that rule, in case we are dealing with a child
 						var parentElement;
+						var outputs = [];
 						for(var i = 0, l = inputs.length; i < l; i++){
 							var input = inputs[i];
-							var target = input[0];
 							// now find the element that is keyed on
-							if(target.forElement){
-								target = input[0] = target.forElement(element, input.length == 1);
+							if(input && input.forElement){
+								input = input.forElement(element, input.length == 1);
 							}
+							outputs[i] = input;
 							// we need to find the most parent element that we need to vary on for this computation 
-							var varyOnElement = parentElement = target.element;
+							var varyOnElement = parentElement = input.element;
 							if(mostSpecificElement){
 								// check to see if one its parent is the mostSpecificElement
 								while(parentElement && parentElement != mostSpecificElement){
@@ -123,7 +129,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 						// make sure we indicate the store we are keying off of
 						var computation = mostSpecificElement['expr-result-' + inputs.id];
 						if(!computation){
-							mostSpecificElement['expr-result-' + inputs.id] = computation = callback(inputs);
+							mostSpecificElement['expr-result-' + inputs.id] = computation = callback(outputs);
 							computation.element = mostSpecificElement;
 						}
 						return computation;
@@ -176,28 +182,30 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		}
 		var forward = evaluate(forward);
 		var reverseA = evaluate(reverseA);
-		var reverseB = evaluate(reverseB);
+		var reverseB = reverseB && evaluate(reverseB);
 		var result = react(function(inputs){
 			return forward(inputs[0], inputs[1]);
 		}, function(output, inputs){
 			var a = inputs[0],
 				b = inputs[1];
-			if(a.put){
-				a.put(reverseA(output, b.valueOf()));
-			}else if(b.put){
-				b.put(reverseB(output, a.valueOf()));
+			if(a && a.put){
+				a.put(reverseA(output, b && b.valueOf()));
+			}else if(b && b.put){
+				b.put(reverseB(output, a && a.valueOf()));
 			}else{
 				throw new TypeError('Can not put');
 			}
 		});
 		result.precedence = precedence;
+		result.infix = !!reverseB;
 		return result;
 	}
 	var operators = {
 		'+': operator(2, 'a+b', 'a-b', 'a-b'),
 		'-': operator(2, 'a-b', 'a+b', 'b-a'),
 		'*': operator(3, 'a*b', 'a/b', 'a/b'),
-		'/': operator(3, 'a/b', 'a*b', 'b/a')
+		'/': operator(3, 'a/b', 'a*b', 'b/a'),
+		'!': operator(4, '!a', '!a')
 	};
 	function evaluateExpression(rule, value){
 		// evaluate an expression
@@ -225,12 +233,13 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		// now apply operators
 		for(var i = 0; i < value.length; i++){
 			var part = value[i];
-			if(operators.hasOwnProperty(part)){
+			if(part.operator == '('){
+				stack.pop(); // this should be the token, the function name, prior to the arguments
+				part = part.ref.apply(rule, part.args);
+			}else if(operators.hasOwnProperty(part)){
 				var operator = operators[part];
 				windDownStack(operator);
 				lastOperatorPrecedence = (lastOperator || operator).precedence;
-			}else if(jsKeywords.hasOwnProperty(part)){
-				part = value[i] = jsKeywords[part];
 			}else if(part > -1){
 				part = +part;
 			}
@@ -240,12 +249,11 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				var target = rule.getDefinition(firstReference);
 				if(typeof target == 'string' || target instanceof Array){
 					target = evaluateExpression(rule, target);
-				}else if(!target){
+				}else if(target === undefined){
 					throw new Error('Could not find reference "' + firstReference + '"');
 				}
-				var path, j = 1;
-				while((path = propertyParts[j++])){
-					target.property(path);
+				if(propertyParts.length > 1){
+					target = get(target, propertyParts.slice(1));
 				}
 				part = value[i] = target;
 			}
@@ -254,9 +262,9 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		windDownStack({precedence: 1});
 		function windDownStack(operator){
 			while(lastOperatorPrecedence >= operator.precedence){
-				var operandB = stack.pop();
+				var lastOperand = stack.pop();
 				var executingOperator = operators[stack.pop()];
-				var result = executingOperator.call(stack.pop(), operandB);
+				var result = executingOperator.apply(rule, executingOperator.infix ? [stack.pop(), lastOperand] : [lastOperand]);
 				lastOperator = stack.length && stack[stack.length-1];
 				stack.push(result);
 				lastOperatorPrecedence = lastOperator && operators[lastOperator] && operators[lastOperator].precedence;

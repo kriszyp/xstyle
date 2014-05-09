@@ -4,8 +4,9 @@ define('xstyle/core/base', [
 	'xstyle/core/utils',
 	'put-selector/put',
 	'xstyle/core/Rule',
+	'dojo/Deferred',
 	'xstyle/core/Proxy'
-], function(elemental, evaluateExpression, utils, put, Rule, Proxy){
+], function(elemental, expression, utils, put, Rule, Deferred, Proxy){
 	// this module defines the base definitions intrisincally available in xstyle stylesheets
 	var testDiv = put('div');
 	var ua = navigator.userAgent;
@@ -105,7 +106,7 @@ define('xstyle/core/base', [
 		};
 	}
 	function observeExpressionForRule(rule, name, value, callback){
-		var result = evaluateExpression(rule, name, value);
+		var result = expression.evaluate(rule, value);
 		if(result.forElement){
 			// we can't just set a style, we need to individually apply
 			// the styles for each element
@@ -139,12 +140,20 @@ define('xstyle/core/base', [
 		Math: Math, // just useful
 		module: function(mid, lazy){
 			// require calls can be used to load in data in
+			if(mid[0].value){
+				// support mid as a string literal as well
+				mid = mid[0].value
+			}
 			if(!lazy){
 				require([mid]);
 			}
 			return {
 				then: function(callback){
-					require([mid], callback);
+					var deferred = new Deferred();
+					require([mid], function(module){
+						deferred.resolve(callback(module));
+					});
+					return deferred.promise;
 				}
 			};
 		},
@@ -268,7 +277,7 @@ define('xstyle/core/base', [
 						// add listener
 						elemental.on(document, name.slice(3), rule.selector, function(event){
 							currentEvent = event;
-							var computation = evaluateExpression(rule, name, value);
+							var computation = expression.evaluate(rule, value);
 							if(computation.forElement){
 								computation = computation.forElement(event.target);
 							}
@@ -312,7 +321,11 @@ define('xstyle/core/base', [
 					rule.disabled = true;
 				}
 			}
-		}
+		},
+		// the primitives
+		'true': true,
+		'false': false,
+		'null': null
 	};
 	root.elementProperty = elementProperty;
 	return root;

@@ -92,7 +92,21 @@ define([
 			});
 			result.put(11);
 			assert.equal(latestA, 4);
-		}/*,
+		},
+		'evaluate !': function(){
+			var result = expression.evaluate(rule, '!a');
+			assert.equal(result.valueOf(), false);
+			var latestA;
+			a.observe(function(value){
+				latestA = value;
+			});
+			result.put(true);
+			assert.equal(latestA, false);
+
+		}
+
+
+		/*,
 		'evaluate groups': function(){
 			a.put(5);
 			var result = expression.evaluate(rule, 'a*(b+c)');
