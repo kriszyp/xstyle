@@ -22,13 +22,6 @@ define('xstyle/core/generate', [
 		TEXTAREA: 1,
 		SELECT: 1
 	};
-	function receive(target, callback, rule, name){
-		if(target && target.observe){
-			target.observe(callback, rule, name);
-		}else{
-			callback(target);
-		}
-	}
 	var doc = document;
 	function forSelector(generatingSelector, rule){
 		// this is responsible for generation of DOM elements for elements matching generative rules

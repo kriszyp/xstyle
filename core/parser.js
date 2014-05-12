@@ -30,6 +30,37 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 	LiteralString.prototype.toString = function(){
 		return '"' + this.value.replace(/["\\\n\r]/g, '\\$&') + '"';
 	};
+	LiteralString.prototype.isLiteralString = true;
+
+	function parseArgs(){
+		var parsedArgs, sequence = this.args[0];
+		// parse the commas now, to separate into distint args
+		if(typeof sequence == 'string'){
+			// TODO: does this ever happen
+			// simple string split
+			parsedArgs = sequence.split(/\s*,\s*/);
+		}else{
+			// need to go through the sequence to find comma splits
+			parsedArgs = [];
+			var lastPosition = 0;
+			for(var i = 0; i < sequence.length + 1; i++){ // go one past, so we can do cleanup
+				var arg = sequence[i];
+				if(typeof arg == 'string' || arg === undefined){
+					var parts = arg && arg.split(/\s*,\s*/);
+					if(parsedArgs.length > 1 || parts === undefined){
+						var nextSequence = sequence.slice(lastPosition, i);
+						if(lastPosition > 0){
+							nextSequence.unshift(parsedArgs.pop());
+						}
+						lastPosition = i + 1;
+						parsedArgs.push(nextSequence);
+						parts && parsedArgs.push.apply(parsedArgs, parts.slice(1));
+					}
+				}
+			}
+		}
+		return parsedArgs;
+	}
 	
 	function parse(model, textToParse, styleSheet){
 		styleSheet = styleSheet || {addRule: function(){}, cssRules: []};
@@ -232,6 +263,8 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								var callParts = value.match(/(.*?)([\w-]*)$/);
 								addInSequence(newTarget = target.newCall(callParts[2], sequence, target));
 								newTarget.ref = target.getDefinition(callParts[2]);
+								newTarget.getArgs = parseArgs;
+
 								(sequence.calls || (sequence.calls = [])).push(newTarget);
 							}
 							// make the parent reference
@@ -369,7 +402,8 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							if(operator == ')' && !assignmentOperator){
 								// call handler
 								// immediately call this, since it isn't a part of a property
-								target.args = sequence.isSequence ? sequence : [sequence];
+								target.args = parseArgs(sequence);
+
 								var result = stack[stack.length - 2].onArguments(target);
 								if(result && result.then){
 									resumeOnComplete(result);

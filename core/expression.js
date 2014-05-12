@@ -16,6 +16,9 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			return target;
 		}));
 	}
+	function observe(target, callback){
+		return (target && target.observe) ? target.observe(callback) : callback(target);
+	}
 	function contextualize(callback){
 		return function(target){
 			if(target && target.forElement){
@@ -44,17 +47,25 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			}
 		}
 	}
-	function resolveArguments(callback){
-		return {
-			onArguments: function(rule, args){
-				return callback(evaluateExpression(rule, args));
-			},
-			apply: callback
+	function resolved(callback, returnArray){
+		function resolve(){
+			var args = arguments;
+			var resolved;
+			if(resolve.skipResolve){
+				resolved = args;
+			}else{
+				resolved = [];
+				for(var i = 0, l = args.length; i < l; i++){
+					resolved[i] = evaluateExpression(this, args[i]);
+				}
+			}
+			return callback[returnArray ? 'call' : 'apply'](this, resolved);
 		};
+		return resolve;
 	}
 
-	function whenAll(callback){
-		return resolveArguments(function(instance, inputs){	
+	function ready(callback, returnArray){
+		return resolved(function(inputs){	
 			// handles waiting for async inputs
 			if(someHasProperty(inputs, 'then')){
 				var inputs = inputs;
@@ -62,19 +73,19 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				return {
 					then: function(onResolve, onError){
 						var remaining = 1;
-						var resolvedInputs;
+						var readyInputs = [];
 						for(var i = 0; i < l; i++){
 							var input = inputs[i];
 							if(input && input.then){
 								remaining++;
 								(function(i){
 									input.then(function(value){
-										resolvedInputs[i] = value;
+										readyInputs[i] = value;
 										onEach();
 									}, onError);
 								})(i);
 							}else{
-								resolvedInputs[i] = input;
+								readyInputs[i] = input;
 								onEach();
 							}
 						}
@@ -82,20 +93,20 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 						function onEach(){
 							remaining--;
 							if(!remaining){
-								onResolve(callback(inputs));
+								onResolve(callback[returnArray ? 'call' : 'apply'](this, readyInputs));
 							}
 						}
 					}
 				};
 			}
 			// just sync inputs
-			return callback(inputs);
-		});
+			return callback[returnArray ? 'call' : 'apply'](this, inputs);
+		}, true);
 	}
-	function contextualized(callback){
+	function contextualized(callback, returnArray){
 		// this function is responsible for contextualizing a result
 		// based on the context of the arguments/inputs
-		return whenAll(function(inputs){
+		return ready(function(inputs){
 			inputs.id = nextId++;
 			var isElementDependent;
 			// TODO: eventually we probably want to abstract out contextualization
@@ -129,15 +140,15 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 						// make sure we indicate the store we are keying off of
 						var computation = mostSpecificElement['expr-result-' + inputs.id];
 						if(!computation){
-							mostSpecificElement['expr-result-' + inputs.id] = computation = callback(outputs);
-							computation.element = mostSpecificElement;
+							mostSpecificElement['expr-result-' + inputs.id] = computation = callback[returnArray ? 'call' : 'apply'](this, outputs);
+							computation && (computation.element = mostSpecificElement);
 						}
 						return computation;
 					}
 				};
 			}
-			return callback(inputs);
-		})
+			return callback[returnArray ? 'call' : 'apply'](this, inputs);
+		}, true);
 	}
 	function react(callback, reverse){
 		// based on reactive inputs, define a new reactive,
@@ -149,7 +160,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 					var input = inputs[i];
 					values[i] = input && input.valueOf();
 				}
-				return callback(values);
+				return callback.apply(this, values);
 			}
 			if(someHasProperty(inputs, 'observe')){
 				var result = {
@@ -173,39 +184,51 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				return result;
 			}
 			return computeResult();
-		});
+		}, true);
 	}
+	var deny = {};
 	function operator(precedence, forward, reverseA, reverseB){
 		// defines the standard operators
 		function evaluate(expression){
 			return eval('(0||function(a,b){return ' + expression + ';})');
 		}
 		var forward = evaluate(forward);
-		var reverseA = evaluate(reverseA);
+		var reverseA = reverseA && evaluate(reverseA);
 		var reverseB = reverseB && evaluate(reverseB);
-		var result = react(function(inputs){
-			return forward(inputs[0], inputs[1]);
-		}, function(output, inputs){
+		var operatorReactor = react(forward, function(output, inputs){
 			var a = inputs[0],
 				b = inputs[1];
 			if(a && a.put){
-				a.put(reverseA(output, b && b.valueOf()));
+				var result = reverseA(output, b && b.valueOf());
+				if(result !== deny){
+					a.put(result);
+				}
 			}else if(b && b.put){
 				b.put(reverseB(output, a && a.valueOf()));
 			}else{
 				throw new TypeError('Can not put');
 			}
 		});
-		result.precedence = precedence;
-		result.infix = !!reverseB;
-		return result;
+		operatorReactor.skipResolve = true;
+		operatorReactor.precedence = precedence;
+		operatorReactor.infix = reverseA === true || !!reverseB;
+		return operatorReactor;
+	}
+	function conditional(){
+		return {
+			precedence: true,
+			infix: true
+		}
 	}
 	var operators = {
-		'+': operator(2, 'a+b', 'a-b', 'a-b'),
-		'-': operator(2, 'a-b', 'a+b', 'b-a'),
-		'*': operator(3, 'a*b', 'a/b', 'a/b'),
-		'/': operator(3, 'a/b', 'a*b', 'b/a'),
-		'!': operator(4, '!a', '!a')
+		'+': operator(5, 'a+b', 'a-b', 'a-b'),
+		'-': operator(5, 'a-b', 'a+b', 'b-a'),
+		'*': operator(6, 'a*b', 'a/b', 'a/b'),
+		'/': operator(6, 'a/b', 'a*b', 'b/a'),
+		'^': operator(7, 'a^b', 'a^(-b)', 'Math.log(a)/Math.log(b)'),
+		'?': operator(2, 'b[a?0:1]', 'a===b[0]||(a===b[1]?false:deny)', '[a,b]'),
+		':': operator(3, '[a,b]', 'a[0]?a[1]:deny', 'a[1]'),
+		'!': operator(8, '!a', '!a')
 	};
 	function evaluateExpression(rule, value){
 		// evaluate an expression
@@ -220,11 +243,17 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			var part = value[i];
 			if(typeof part == 'string'){
 				// parse out operators
-				var spliceArgs = [i, 1].concat(part.match(/"[^\"]*"|[+-\/*!&|]+|[\w_$\.\/-]+/g));
+				// TODO: change this to a replace so we can find any extra characters to report
+				// a syntax error
+				var parts = part.match(/"[^\"]*"|[+-\/\?\:^*!&|]+|[\w_$\.\/-]+/g);
+				var spliceArgs = [i, 1];
+				if(parts){
+					spliceArgs.push.apply(spliceArgs, parts);
+				}
 				// splice them back into the list
 				value.splice.apply(value, spliceArgs);
 				// adjust the index
-				i += spliceArgs - 3;
+				i += spliceArgs.length - 3;
 			}
 		}
 		var lastOperatorPrecedence;
@@ -234,7 +263,8 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		for(var i = 0; i < value.length; i++){
 			var part = value[i];
 			if(part.operator == '('){
-				stack.pop(); // this should be the token, the function name, prior to the arguments
+				// TODO: is this being double applied?
+				stack.pop();
 				part = part.ref.apply(rule, part.args[0].split(','));
 			}else if(operators.hasOwnProperty(part)){
 				var operator = operators[part];
@@ -242,8 +272,9 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				lastOperatorPrecedence = (lastOperator || operator).precedence;
 			}else if(part > -1){
 				part = +part;
-			}
-			else{
+			}else if(part.isLiteralString){
+				part = part.value;
+			}else{
 				var propertyParts = part.split('/');
 				var firstReference = propertyParts[0];
 				var target = rule.getDefinition(firstReference);
@@ -255,7 +286,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				if(propertyParts.length > 1){
 					target = get(target, propertyParts.slice(1));
 				}
-				part = value[i] = target;
+				part = target;
 			}
 			stack.push(part);
 		}
@@ -274,10 +305,11 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		return stack[0];
 	}
 	return {
-		resolveArguments: resolveArguments,
-		whenAll: whenAll,
+		resolved: resolved,
+		ready: ready,
 		contextualized: contextualized,
 		react: react,
+		observe: observe,
 		evaluate: evaluateExpression
 	};
 });

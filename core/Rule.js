@@ -17,6 +17,7 @@ define('xstyle/core/Rule', [
 		'[': ']',
 		'(': ')'
 	};
+	var observe = expression.observe;
 	var testDiv = put('div');
 	function Rule(){}
 	Rule.prototype = {
@@ -149,11 +150,10 @@ define('xstyle/core/Rule', [
 				definitions[name] = value;
 			}
 		},
-		onArguments: function(call, name, value){
+		onArguments: function(call, name){
 			var handler = call.ref;
-			if(handler && typeof handler.onArguments == 'function'){
-				return handler.onArguments(call, this, name, value);
-			}
+			// call the target with the parsed arguments
+			return handler.apply(this, call.getArgs(), name);
 		},
 		setValue: function(name, value, scopeRule){
 			// called by the parser when a property is encountered
@@ -161,12 +161,13 @@ define('xstyle/core/Rule', [
 				// TODO: eventually we need to support reenabling
 				return;
 			}
+			var rule = this;
 			var values = (this.values || (this.values = []));
 			values.push(name);
 			values[name] = value;
 			var calls = value.calls;
 			if(calls){
-				var changes;
+				var evaluatedCalls;
 				for(var i = 0; i < value.length; i++){
 					var part = value[i];
 					if(part instanceof Call){
@@ -174,18 +175,16 @@ define('xstyle/core/Rule', [
 							// it is derivative value, make a derivative call
 							value[i] = part = create(part);
 						}
-						if((part.computed = this.onArguments(part, name, value)) != undefined){
-							changes = true;
+						// evaluate each call
+						var evaluated = this.onArguments(part, name);
+						if(evaluated !== undefined){
+							(evaluatedCalls || (evaluatedCalls = [])).push(evaluated);
+							part.evaluated = true;
 						}
 					}
 				}
-				if(changes){
-					// if there were new computd values, update this style
-					this.setStyle(name, value.toString());
-				}
 			}
 			// called when each property is parsed, and this determines if there is a handler for it
-			//TODO: delete the property if it one that the browser actually uses
 			// this is called for each CSS property
 			if(name){
 				var propertyName = name;
@@ -193,7 +192,13 @@ define('xstyle/core/Rule', [
 					// check for the handler
 					var target = (scopeRule || this).getDefinition(name);
 					if(target !== undefined){
-						var rule = this;
+						if(this.cssRule){
+							// delete the property if it one that the browser actually uses
+							var thisStyle = this.cssRule.style;
+							if(name in thisStyle){
+								thisStyle[name] = ''
+							}
+						}
 						return utils.when(target, function(target){
 							// call the handler to handle this rule
 							target = target.splice ? target : [target];
@@ -218,6 +223,44 @@ define('xstyle/core/Rule', [
 					name = name.substring(0, name.lastIndexOf('-'));
 					// try shorter name
 				}while(name);
+			}
+			// if we don't have a handler, and there are evaluated calls, we may need to
+			// setup reactive bindings
+			if(evaluatedCalls){
+				// react to the evaluated values
+				var computation = expression.react(function(){
+					var j = 0;
+					var computedValue = value.slice();
+					for(var i = 0; i < value.length; i++){
+						var part = value[i];
+						if(part instanceof Call && part.evaluated){
+							// remove the caller string
+							computedValue[i-1] = value[i-1].slice(0, -part.caller.length);
+							// insert the current value
+							computedValue[i] = arguments[j++];
+						}
+					}
+					// now piece it together as a string
+					return computedValue.join('');
+				});
+				computation.skipResolve = true;
+				var result = computation.apply(this, evaluatedCalls);
+				// if there were new computed values, update this style
+				if(result.forElement){
+					// the value is dependent on the element, so we need to do element
+					// specific rendering
+					require(['xstyle/core/elemental'], function(elemental){
+						elemental.addRenderer(rule, function(element){
+							observe(result.forElement(element), function(value){
+								element.style[propertyName] = value;
+							});
+						});
+					});
+				}else{
+					observe(result, function(value){
+						rule.setStyle(propertyName, value);
+					});
+				}
 			}
 		},
 		forParent: function(rule){
@@ -331,10 +374,6 @@ define('xstyle/core/Rule', [
 		this.args.push(value);
 	};
 	CallPrototype.toString = function(){
-		var computed = this.computed;
-		if(computed !== undefined){
-			return computed;
-		}
 		var operator = this.operator;
 		return operator + this.args + operatorMatch[operator];
 	};

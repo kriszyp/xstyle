@@ -119,8 +119,8 @@ define('xstyle/core/base', [
 	}
 	function conditional(yes, no){
 		return {
-			onArguments: function(call, rule, name, value){
-				observeExpressionForRule(rule, name, call.args[0], function(observable, element){
+			apply: function(rule, args, name){
+				observeExpressionForRule(rule, name, args[0], function(observable, element){
 					observable.observe(function(variableValue){
 						// convert to the conditional values
 						variableValue = variableValue ? yes : no;
@@ -248,31 +248,27 @@ define('xstyle/core/base', [
 				return proxy;
 			},
 			// referencing variables
-			onArguments: function(call, rule, name, value){
-				this.forParent(rule, call.args[0]).observe(function(resolvedValue){
-					var resolved = value.toString().replace(/var\([^)]+\)/g, resolvedValue);
-					rule.setStyle(name, resolved);
-				});
+			apply: function(rule, args){
+				return this.forParent(rule, args[0]);
 			}
 		}),
 		inline: conditional('inline', 'none'),
 		block: conditional('block', 'none'),
 		visible: conditional('visible', 'hidden'),
 		'extends': {
-			onArguments: function(call, rule){
+			apply: function(rule, args){
 				// TODO: this is duplicated in the parser, should consolidate
-				var args = call.args;
 				for(var i = 0; i < args.length; i++){ // TODO: merge possible promises
 					return utils.extend(rule, args[i], console.error);
 				}
 			}
 		},
-		set: function(name, value){
-			var rule = this;
-			observeExpressionForRule(this, '', name, function(result){
-				result.put(expression.evaluate(rule, value));
-			});
-		},
+		set: expression.contextualized(function(target, value){
+			target.put(value);
+		}),
+		get: expression.resolved(function(value){
+			return value;
+		}),
 		on: {
 			forParent: function(rule, name){
 				return {
