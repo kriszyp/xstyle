@@ -18,7 +18,7 @@ define('xstyle/core/Rule', [
 		'(': ')'
 	};
 	var observe = expression.observe;
-	var testDiv = put('div');
+	var testStyle = put('div').style;
 	function Rule(){}
 	Rule.prototype = {
 		property: function(key){
@@ -104,12 +104,12 @@ define('xstyle/core/Rule', [
 			if(this.disabled){
 				return;
 			}
+			var rule = this;
 			if(value.length){
 				if(value[0].toString().charAt(0) == '>'){
 					// this is used to indicate that generation should be triggered
 					if(!name){
 						this.generator = value;
-						var rule = this;
 						require(['xstyle/core/generate', 'xstyle/core/elemental'], function(generate, elemental){
 							value = generate.forSelector(value, rule);
 							elemental.addRenderer(rule, value);
@@ -118,7 +118,7 @@ define('xstyle/core/Rule', [
 					}
 				}else{
 					// add it to the definitions for this rule
-					var propertyExists = name in testDiv.style || this.getDefinition(name);
+					var propertyExists = name in testStyle || this.getDefinition(name);
 					if(!conditional || !propertyExists){
 						var definitions = (this.definitions || (this.definitions = {}));
 						var first = value[0];
@@ -136,10 +136,25 @@ define('xstyle/core/Rule', [
 							definition = value[1];
 						}
 						definition = definition || expression.evaluate(this, value);
-						if(definition.define){
-							definition = definition.define(name, this);
+						if(definition.then){
+							// if we have a promise, create a new one to maintain lazy activation
+							// and still check for a define function
+							var originalDefinition = definition;
+							definition = {
+								then: function(callback){
+									return originalDefinition.then(function(definition){
+										return callback(applyDefine(definition));
+									});
+								}
+							};
 						}
-						definitions[name] = definition;
+						var applyDefine = function(definition){
+							if(definition.define){
+								definition = definition.define(name, rule);
+							}
+							return definition;
+						};
+						definitions[name] = applyDefine(definition);
 						if(propertyExists){
 							console.warn('Overriding existing property "' + name + '"');
 						}
@@ -165,25 +180,6 @@ define('xstyle/core/Rule', [
 			var values = (this.values || (this.values = []));
 			values.push(name);
 			values[name] = value;
-			var calls = value.calls;
-			if(calls){
-				var evaluatedCalls;
-				for(var i = 0; i < value.length; i++){
-					var part = value[i];
-					if(part instanceof Call){
-						if(!value.hasOwnProperty(i)){
-							// it is derivative value, make a derivative call
-							value[i] = part = create(part);
-						}
-						// evaluate each call
-						var evaluated = this.onArguments(part, name);
-						if(evaluated !== undefined){
-							(evaluatedCalls || (evaluatedCalls = [])).push(evaluated);
-							part.evaluated = true;
-						}
-					}
-				}
-			}
 			// called when each property is parsed, and this determines if there is a handler for it
 			// this is called for each CSS property
 			if(name){
@@ -196,7 +192,7 @@ define('xstyle/core/Rule', [
 							// delete the property if it one that the browser actually uses
 							var thisStyle = this.cssRule.style;
 							if(name in thisStyle){
-								thisStyle[name] = ''
+								thisStyle[name] = '';
 							}
 						}
 						return utils.when(target, function(target){
@@ -224,42 +220,31 @@ define('xstyle/core/Rule', [
 					// try shorter name
 				}while(name);
 			}
-			// if we don't have a handler, and there are evaluated calls, we may need to
+			// if we don't have a handler, and this is a CSS property, we may need to
 			// setup reactive bindings
-			if(evaluatedCalls){
-				// react to the evaluated values
-				var computation = expression.react(function(){
-					var j = 0;
-					var computedValue = value.slice();
-					for(var i = 0; i < value.length; i++){
-						var part = value[i];
-						if(part instanceof Call && part.evaluated){
-							// remove the caller string
-							computedValue[i-1] = value[i-1].slice(0, -part.caller.length);
-							// insert the current value
-							computedValue[i] = arguments[j++];
+			if(propertyName in testStyle){
+				var calls = value.calls;
+				if(calls){
+					var result = evaluateText(value, this, propertyName);
+					// if there were new computed values, update this style
+					if(result){
+						if(result.forElement){
+							// the value is dependent on the element, so we need to do element
+							// specific rendering
+							require(['xstyle/core/elemental'], function(elemental){
+								elemental.addRenderer(rule, function(element){
+									observe(result.forElement(element), function(value){
+										element.style[propertyName] = value;
+									});
+								});
+							});
+						}else{
+							// otherwise we can just do live updates to the CSS rule
+							observe(result, function(value){
+								rule.setStyle(propertyName, value);
+							});
 						}
 					}
-					// now piece it together as a string
-					return computedValue.join('');
-				});
-				computation.skipResolve = true;
-				var result = computation.apply(this, evaluatedCalls);
-				// if there were new computed values, update this style
-				if(result.forElement){
-					// the value is dependent on the element, so we need to do element
-					// specific rendering
-					require(['xstyle/core/elemental'], function(elemental){
-						elemental.addRenderer(rule, function(element){
-							observe(result.forElement(element), function(value){
-								element.style[propertyName] = value;
-							});
-						});
-					});
-				}else{
-					observe(result, function(value){
-						rule.setStyle(propertyName, value);
-					});
 				}
 			}
 		},
@@ -362,6 +347,52 @@ define('xstyle/core/Rule', [
 		},
 		cssText: ''
 	};
+
+	expression.evaluateText = evaluateText;
+	function evaluateText(sequence, rule, name, onlyReturnEvaluated){
+		var calls = sequence.calls;
+		if(calls){
+			var evaluatedCalls;
+			for(var i = 0; i < sequence.length; i++){
+				var part = sequence[i];
+				if(part instanceof Call){
+					if(!sequence.hasOwnProperty(i)){
+						// it is derivative part, make a derivative call
+						sequence[i] = part = create(part);
+					}
+					// evaluate each call
+					var evaluated = part.ref.apply(rule, part.getArgs(), name);
+					if(evaluated !== undefined){
+						(evaluatedCalls || (evaluatedCalls = [])).push(evaluated);
+						part.evaluated = true;
+					}
+				}
+			}
+		}
+		if(evaluatedCalls){
+			// react to the evaluated sequences
+			var computation = expression.react(function(){
+				var j = 0;
+				var computedValue = sequence.slice();
+				for(var i = 0; i < sequence.length; i++){
+					var part = sequence[i];
+					if(part instanceof Call && part.evaluated){
+						// remove the caller string
+						computedValue[i-1] = sequence[i-1].slice(0, -part.caller.length);
+						// insert the current value
+						computedValue[i] = arguments[j++];
+					}
+				}
+				// now piece it together as a string
+				return computedValue.join('');
+			});
+			computation.skipResolve = true;
+			return computation.apply(this, evaluatedCalls);
+		}
+		if(!onlyReturnEvaluated){
+			return sequence.toString();
+		}
+	}
 	// a class representing function calls
 	function Call(value){
 		// we store the caller and the arguments

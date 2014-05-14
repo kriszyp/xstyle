@@ -62,102 +62,10 @@ define('xstyle/core/generate', [
 									put(lastElement, nextPart.selector);
 								}
 								// TODO: make sure we only do this only once
-								var expression = part.args.toString();
+								var expression = part.getArgs()[0];
 								var expressionResult = expressionModule.evaluate(part.parent, expression);
 								
-								(function(element, nextPart){
-									var contentProxy = element.content || (element.content = new Proxy());
-									utils.when(expressionResult, function(result){
-										// TODO: assess how we could propagate changes categorically
-										if(result.forElement){
-											result = result.forElement(element);
-											// now apply.element should indicate the element that it is actually
-											// keying or varying on
-										}
-										if(result.forParent){
-											// if the result can be specific to a rule, apply that context
-											result = result.forParent(rule, expression);
-										}
-										contentProxy.setSource(result);
-									});
-									if(!('_defaultBinding' in element)){
-										// if we don't have any handle for content yet, we install this default handling
-										element._defaultBinding = true;
-										var textNode = element.appendChild(doc.createTextNode('Loading'));
-										contentProxy.observe(function(value){
-											if(element._defaultBinding){ // the default binding can later be disabled
-												if(value && value.sort){
-													if(textNode){
-														// remove the loading node
-														textNode.parentNode.removeChild(textNode);
-														textNode = null;
-													}
-													if(value.isSequence){
-														forSelector(value, part.parent)(element, item, beforeElement);
-													}else{
-														element.innerHTML = '';
-														// if it is an array, we do iterative rendering
-														var eachHandler = nextPart && nextPart.eachProperty &&
-															nextPart.each;
-														// we create a rule for the item elements
-														var eachRule = nextPart.newRule();
-														// if 'each' is defined, we will use it render each item 
-														if(eachHandler){
-															eachHandler = forSelector(eachHandler, eachRule);
-														}else{
-															eachHandler = function(element, value, beforeElement){
-																// if there no each handler, we use the default
-																// tag name for the parent 
-																return put(beforeElement || element, (beforeElement ? '-' : '') +
-																	(childTagForParent[element.tagName] || 'span'), '' + value);
-															};
-														}
-														var rows = value.map(function(value){
-															// TODO: do this inside generate
-															return eachHandler(element, value, null);
-														});
-														if(value.observe){
-															value.observe(function(object, previousIndex, newIndex){
-																if(previousIndex > -1){
-																	var oldElement = rows[previousIndex];
-																	oldElement.parentNode.removeChild(oldElement);
-																	rows.splice(previousIndex, 1);
-																}
-																if(newIndex > -1){
-																	rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
-																}
-															}, true);
-														}
-													}
-												}else if(value && value.nodeType){
-													if(textNode){
-														// remove the loading node
-														textNode.parentNode.removeChild(textNode);
-														textNode = null;
-													}
-													element.appendChild(value);
-												}else{
-													value = value === undefined ? '' : value;
-													if(element.tagName in inputs){
-														// add the text
-														element.value = value;
-														// we are going to store the variable computation on the element
-														// so that on a change we can quickly do a put on it
-														// we might want to consider changing that in the future, to
-														// reduce memory, but for now this probably has minimal cost
-														element['-x-variable'] = contentProxy;
-													}else{
-														// put text in for Loading until we are ready
-														// TODO: we should do this after setting up the observe
-														// in case we synchronously get the data
-														// if not an array, render as plain text
-														textNode.nodeValue = value;
-													}
-												}
-											}
-										});
-									}
-								})(lastElement, nextPart);
+								renderExpression(lastElement, nextPart, expressionResult, rule, expression);
 							}else{// brackets
 								put(lastElement, part.toString());
 							}
@@ -277,6 +185,104 @@ define('xstyle/core/generate', [
 			}
 			return lastElement;
 		};
+
+	}
+
+	function renderExpression(element, nextPart, expressionResult, rule, expression){
+		var contentProxy = element.content || (element.content = new Proxy());
+		utils.when(expressionResult, function(result){
+			// TODO: assess how we could propagate changes categorically
+			if(result.forElement){
+				result = result.forElement(element);
+				// now apply.element should indicate the element that it is actually
+				// keying or varying on
+			}
+			// TODO: do really need to check forParent here?
+			// TODO: do we really need the expression to be passed in?
+			if(result.forParent){
+				// if the result can be specific to a rule, apply that context
+
+				result = result.forParent(rule, expression);
+			}
+			contentProxy.setSource(result);
+		});
+		if(!('_defaultBinding' in element)){
+			// if we don't have any handle for content yet, we install this default handling
+			element._defaultBinding = true;
+			var textNode = element.appendChild(doc.createTextNode('Loading'));
+			contentProxy.observe(function(value){
+				if(element._defaultBinding){ // the default binding can later be disabled
+					if(value && value.sort){
+						if(textNode){
+							// remove the loading node
+							textNode.parentNode.removeChild(textNode);
+							textNode = null;
+						}
+						if(value.isSequence){
+							forSelector(value, part.parent)(element, item, beforeElement);
+						}else{
+							element.innerHTML = '';
+							// if it is an array, we do iterative rendering
+							var eachHandler = nextPart && nextPart.eachProperty &&
+								nextPart.each;
+							// we create a rule for the item elements
+							var eachRule = nextPart.newRule();
+							// if 'each' is defined, we will use it render each item 
+							if(eachHandler){
+								eachHandler = forSelector(eachHandler, eachRule);
+							}else{
+								eachHandler = function(element, value, beforeElement){
+									// if there no each handler, we use the default
+									// tag name for the parent 
+									return put(beforeElement || element, (beforeElement ? '-' : '') +
+										(childTagForParent[element.tagName] || 'span'), '' + value);
+								};
+							}
+							var rows = value.map(function(value){
+								// TODO: do this inside generate
+								return eachHandler(element, value, null);
+							});
+							if(value.observe){
+								value.observe(function(object, previousIndex, newIndex){
+									if(previousIndex > -1){
+										var oldElement = rows[previousIndex];
+										oldElement.parentNode.removeChild(oldElement);
+										rows.splice(previousIndex, 1);
+									}
+									if(newIndex > -1){
+										rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
+									}
+								}, true);
+							}
+						}
+					}else if(value && value.nodeType){
+						if(textNode){
+							// remove the loading node
+							textNode.parentNode.removeChild(textNode);
+							textNode = null;
+						}
+						element.appendChild(value);
+					}else{
+						value = value === undefined ? '' : value;
+						if(element.tagName in inputs){
+							// add the text
+							element.value = value;
+							// we are going to store the variable computation on the element
+							// so that on a change we can quickly do a put on it
+							// we might want to consider changing that in the future, to
+							// reduce memory, but for now this probably has minimal cost
+							element['-x-variable'] = contentProxy;
+						}else{
+							// put text in for Loading until we are ready
+							// TODO: we should do this after setting up the observe
+							// in case we synchronously get the data
+							// if not an array, render as plain text
+							textNode.nodeValue = value;
+						}
+					}
+				}
+			});
+		}
 	}
 	function generate(parentElement, selector){
 		return forSelector(selector, root)(parentElement);

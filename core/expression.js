@@ -74,7 +74,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 					then: function(onResolve, onError){
 						var remaining = 1;
 						var readyInputs = [];
-						for(var i = 0; i < l; i++){
+						for(var i = 0; i < inputs.length; i++){
 							var input = inputs[i];
 							if(input && input.then){
 								remaining++;
@@ -265,7 +265,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			if(part.operator == '('){
 				// TODO: is this being double applied?
 				stack.pop();
-				part = part.ref.apply(rule, part.args[0].split(','));
+				part = part.ref.apply(rule, part.getArgs());
 			}else if(operators.hasOwnProperty(part)){
 				var operator = operators[part];
 				windDownStack(operator);
@@ -304,6 +304,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 
 		return stack[0];
 	}
+
 	return {
 		resolved: resolved,
 		ready: ready,
