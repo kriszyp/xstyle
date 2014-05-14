@@ -15,7 +15,7 @@ define('xstyle/core/load-imports', [], function(){
 	function load(link, callback){
 		var sheet = link.sheet || link.styleSheet;
 		
-		loadingCount = 1;
+		var loadingCount = 1;
 		
 		function finishedModule(){
 			if(!--loadingCount){
