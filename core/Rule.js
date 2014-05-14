@@ -82,7 +82,7 @@ define('xstyle/core/Rule', [
 		},
 		getCssRule: function(){
 			if(!this.cssRule){
-				this.cssRule =this.addSheetRule(this.selector, this.cssText);
+				this.cssRule = this.addSheetRule(this.selector, this.cssText);
 			}
 			return this.cssRule;
 		},
@@ -176,7 +176,6 @@ define('xstyle/core/Rule', [
 				// TODO: eventually we need to support reenabling
 				return;
 			}
-			var rule = this;
 			var values = (this.values || (this.values = []));
 			values.push(name);
 			values[name] = value;
@@ -195,6 +194,7 @@ define('xstyle/core/Rule', [
 								thisStyle[name] = '';
 							}
 						}
+						var rule = this;
 						return utils.when(target, function(target){
 							// call the handler to handle this rule
 							target = target.splice ? target : [target];
@@ -220,32 +220,40 @@ define('xstyle/core/Rule', [
 					// try shorter name
 				}while(name);
 			}
-			// if we don't have a handler, and this is a CSS property, we may need to
-			// setup reactive bindings
 			if(propertyName in testStyle){
-				var calls = value.calls;
-				if(calls){
-					var result = evaluateText(value, this, propertyName);
-					// if there were new computed values, update this style
-					if(result){
-						if(result.forElement){
-							// the value is dependent on the element, so we need to do element
-							// specific rendering
-							require(['xstyle/core/elemental'], function(elemental){
-								elemental.addRenderer(rule, function(element){
-									observe(result.forElement(element), function(value){
-										element.style[propertyName] = value;
-									});
+				// if we don't have a handler, and this is a CSS property, we may need to
+				// setup reactive bindings
+				this._setStyleFromValue(propertyName, value, true);
+			}
+		},
+		_setStyleFromValue: function(propertyName, value, alreadySet){
+			// This sets a CSS rule property from an unevaluated value
+			var calls = value.calls;
+			if(calls){
+				var rule = this;
+				var result = evaluateText(value, this, propertyName, true);
+				// if there were new computed values, update this style
+				if(result){
+					if(result.forElement){
+						// the value is dependent on the element, so we need to do element
+						// specific rendering
+						return require(['xstyle/core/elemental'], function(elemental){
+							elemental.addRenderer(rule, function(element){
+								observe(result.forElement(element), function(value){
+									element.style[propertyName] = value;
 								});
 							});
-						}else{
-							// otherwise we can just do live updates to the CSS rule
-							observe(result, function(value){
-								rule.setStyle(propertyName, value);
-							});
-						}
+						});
+					}else{
+						// otherwise we can just do live updates to the CSS rule
+						return observe(result, function(value){
+							rule.setStyle(propertyName, value);
+						});
 					}
 				}
+			}
+			if(!alreadySet){
+				this.setStyle(propertyName, value);
 			}
 		},
 		forParent: function(rule){
@@ -361,7 +369,7 @@ define('xstyle/core/Rule', [
 						sequence[i] = part = create(part);
 					}
 					// evaluate each call
-					var evaluated = part.ref.apply(rule, part.getArgs(), name);
+					var evaluated = part.ref && part.ref.apply(rule, part.getArgs(), name);
 					if(evaluated !== undefined){
 						(evaluatedCalls || (evaluatedCalls = [])).push(evaluated);
 						part.evaluated = true;

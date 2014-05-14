@@ -204,8 +204,7 @@ define('xstyle/core/base', [
 						// check to see if the browser supports this feature through vendor prefixing
 						if(typeof testDiv.style[vendorPrefix + name] == 'string'){
 							// if so, handle the prefixing right here
-							// TODO: switch to using getCssRule, but make sure we have it fixed first
-							rule.setStyle(vendorPrefix + name, value);
+							rule._setStyleFromValue(vendorPrefix + name, value);
 							return true;
 						}
 					}
