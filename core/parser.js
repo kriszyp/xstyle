@@ -445,8 +445,12 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 				}
 			}
 			function error(e){
-				console.error(e.message || e, (styleSheet.href || 'in-page stylesheet') + ':' +
-					textToParse.slice(0, cssScan.lastIndex).split('\n').length);
+				var detail = (styleSheet.href || 'in-page stylesheet') + ':' +
+					textToParse.slice(0, cssScan.lastIndex).split('\n').length;
+				if(parseSheet.onerror){
+					parseSheet.onerror(e, detail);
+				}
+				console.error(e.message || e, detail);
 				if(e.stack){
 					console.error(e.stack);
 				}
