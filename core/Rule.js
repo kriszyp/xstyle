@@ -234,7 +234,7 @@ define('xstyle/core/Rule', [
 				var values = first.values;
 				for(var i = 0; i < values.length; i++){
 					var key = values[i];
-					values[key];
+					this._setStyleFromValue(propertyName + '-' + key, values[key]);
 				}
 				return;
 			}
