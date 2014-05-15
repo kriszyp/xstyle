@@ -351,11 +351,9 @@ This definition will create a property like the declared property, except a vend
 will be added that corresponds to the browser's vendor. The prefixes are -webkit- for
 WebKit browsers, -moz- for Firefox, and -ms- for IE. A typical usage is:
 
-	border-radius = prefix;
+	appearance = prefix;
 	
-	border-radius: 5px;
-
-(functionality has been implemented)
+	appearance: button;
 
 ### content - Insertion Point
 
@@ -403,8 +401,6 @@ we could specify the margin-left and margin-right by writing:
 		left: 10px;
 		right: 20px;
 	};
-
-(not implemented)
 
 ## Data Binding
 

@@ -228,6 +228,16 @@ define('xstyle/core/Rule', [
 		},
 		_setStyleFromValue: function(propertyName, value, alreadySet){
 			// This sets a CSS rule property from an unevaluated value
+			var first = value[0];
+			if(first instanceof Rule){
+				// nested rule, that we can apply to sub-properties
+				var values = first.values;
+				for(var i = 0; i < values.length; i++){
+					var key = values[i];
+					values[key];
+				}
+				return;
+			}
 			var calls = value.calls;
 			if(calls){
 				var rule = this;
