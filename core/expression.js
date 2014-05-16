@@ -187,15 +187,16 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		}, true);
 	}
 	var deny = {};
-	function operator(precedence, forward, reverseA, reverseB){
+	var operatingFunctions = {};
+	var operators = {};
+	function getOperatingFunction(expression){
+		return operatingFunctions[expression] ||
+			(operatingFunctions[expression] =
+				new Function('a', 'b', 'return ' + expression));
+	}
+	function operator(operator, precedence, forward, reverseA, reverseB){
 		// defines the standard operators
-		function evaluate(expression){
-			return eval('(0||function(a,b){return ' + expression + ';})');
-		}
-		var forward = evaluate(forward);
-		var reverseA = reverseA && evaluate(reverseA);
-		var reverseB = reverseB && evaluate(reverseB);
-		var operatorReactor = react(forward, function(output, inputs){
+		var reverse = function(output, inputs){
 			var a = inputs[0],
 				b = inputs[1];
 			if(a && a.put){
@@ -208,28 +209,35 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			}else{
 				throw new TypeError('Can not put');
 			}
-		});
-		operatorReactor.skipResolve = true;
-		operatorReactor.precedence = precedence;
-		operatorReactor.infix = reverseA === true || !!reverseB;
-		return operatorReactor;
-	}
-	function conditional(){
-		return {
-			precedence: true,
-			infix: true
+		};
+		// define a function that can lazily ensure the operating function
+		// is available
+		var operatorHandler = function(){
+			var operatorReactive;
+			forward = getOperatingFunction(forward);
+			reverseA = reverseA && getOperatingFunction(reverseA);
+			reverseB = reverseB && getOperatingFunction(reverseB);
+			operators[operator] = operatorReactive = react(forward, reverse);
+			addFlags(operatorReactive);
+			return operatorReactive.apply(this, arguments);
+		};
+		function addFlags(operatorHandler){
+			operatorHandler.skipResolve = true;
+			operatorHandler.precedence = precedence;
+			operatorHandler.infix = reverseA === true || !!reverseB;			
 		}
+		addFlags(operatorHandler);
+		operators[operator] = operatorHandler;
 	}
-	var operators = {
-		'+': operator(5, 'a+b', 'a-b', 'a-b'),
-		'-': operator(5, 'a-b', 'a+b', 'b-a'),
-		'*': operator(6, 'a*b', 'a/b', 'a/b'),
-		'/': operator(6, 'a/b', 'a*b', 'b/a'),
-		'^': operator(7, 'a^b', 'a^(-b)', 'Math.log(a)/Math.log(b)'),
-		'?': operator(2, 'b[a?0:1]', 'a===b[0]||(a===b[1]?false:deny)', '[a,b]'),
-		':': operator(3, '[a,b]', 'a[0]?a[1]:deny', 'a[1]'),
-		'!': operator(8, '!a', '!a')
-	};
+	operator('+', 5, 'a+b', 'a-b', 'a-b');
+	operator('-', 5, 'a-b', 'a+b', 'b-a');
+	operator('*', 6, 'a*b', 'a/b', 'a/b');
+	operator('/', 6, 'a/b', 'a*b', 'b/a');
+	operator('^', 7, 'a^b', 'a^(-b)', 'Math.log(a)/Math.log(b)');
+	operator('?', 2, 'b[a?0:1]', 'a===b[0]||(a===b[1]?false:deny)', '[a,b]');
+	operator(':', 3, '[a,b]', 'a[0]?a[1]:deny', 'a[1]');
+	operator('!', 8, '!a', '!a');
+
 	function evaluateExpression(rule, value){
 		// evaluate an expression
 		/*
@@ -275,7 +283,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			}else if(part.isLiteralString){
 				part = part.value;
 			}else{
-				var propertyParts = part.split('/');
+				var propertyParts = part.split(/\s*\/\s*/);
 				var firstReference = propertyParts[0];
 				var target = rule.getDefinition(firstReference);
 				if(typeof target == 'string' || target instanceof Array){
