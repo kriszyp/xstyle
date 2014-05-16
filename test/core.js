@@ -20,6 +20,7 @@ define([
 			assert.equal(componentStyle.backgroundColor, 'rgb(221, 221, 221)');
 			var testHeader = testComponent.firstChild;
 			assert.equal(testHeader.tagName, 'H1');
+			assert.isTrue(testHeader.className.indexOf('test-class') > -1);
 			assert.equal(testHeader.innerHTML, 'Label');
 			var headerStyle = getComputedStyle(testHeader);
 			assert.equal(headerStyle.color, 'rgb(255, 0, 0)');
@@ -41,6 +42,7 @@ define([
 			assert.equal(componentStyle.backgroundColor, 'rgb(255, 255, 0)');
 			var testHeader = testComponent.firstChild;
 			assert.equal(testHeader.tagName, 'H1');
+			assert.isTrue(testHeader.className.indexOf('test-class') > -1);
 			assert.equal(testHeader.innerHTML, 'test');
 			var headerStyle = getComputedStyle(testHeader);
 			assert.equal(headerStyle.color, 'rgb(255, 0, 0)');
@@ -61,6 +63,7 @@ define([
 			assert.equal(componentStyle.backgroundColor, 'rgb(255, 170, 170)');
 			var testHeader = testComponent.firstChild;
 			assert.equal(testHeader.tagName, 'H1');
+			assert.isTrue(testHeader.className.indexOf('test-class') > -1);
 			assert.equal(testHeader.innerHTML, 'Hello world');
 			var headerStyle = getComputedStyle(testHeader);
 			assert.equal(headerStyle.color, 'rgb(255, 0, 0)');
@@ -71,6 +74,15 @@ define([
 			assert.equal(contentStyle.width, '163px');
 			var testDiv = testContent.nextSibling;
 			assert.equal(testDiv.innerHTML, 'test');
+		},
+		'extend-class': function(){
+			var testComponent = put(document.body, 'test-class-extend');
+			assert.isTrue(testComponent.className.indexOf('test-class1')> -1);
+		},
+		'extend-class2': function(){
+			var testComponent = put(document.body, 'test-class-extend2');
+			assert.isTrue(testComponent.className.indexOf('test-class1')> -1);
+			assert.isTrue(testComponent.className.indexOf('test-class2')> -1);
 		}
 
 	});
