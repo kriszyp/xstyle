@@ -6,7 +6,8 @@
 define('xstyle/core/load-imports', [], function(){
 	var insertedSheets = {},
 		features = {
-			'dom-deep-import': !document.createStyleSheet // essentially test to see if it is IE, inaccurate marker, maybe should use dom-addeventlistener? 
+			// essentially test to see if it is IE, inaccurate marker, maybe should use dom-addeventlistener?
+			'dom-deep-import': !document.createStyleSheet 
 		};
 	function has (feature) {
 		return features[feature];
@@ -33,13 +34,13 @@ define('xstyle/core/load-imports', [], function(){
 					source += aggregateSource(rule.styleSheet || rule);
 				}
 			}
-			return sheet.source = source + sheet.localSource;
+			return (sheet.source = source + sheet.localSource);
 		}
 		if(false && !has('dom-deep-import')){
 			// in IE, so we flatten the imports due to IE's lack of support for deeply nested @imports
 			// and fix the computation of URLs (IE calculates them wrong)
 			var computeImportUrls = function(sheet, baseUrl){
-				var computedUrls = []
+				var computedUrls = [];
 				// IE miscalculates .href properties, so we calculate them by parsing
 				sheet.cssText.replace(/@import url\( ([^ ]+) \)/g, function(t, url){
 						// we have to actually parse the cssText because IE's href property is totally wrong
@@ -62,7 +63,9 @@ define('xstyle/core/load-imports', [], function(){
 				}
 				for(var i = 0; i < sheet.imports.length; i++){
 					var importedSheet = sheet.imports[i];
-					if(!importedSheet.cssText && !importedSheet.imports.length){ // empty means it is not loaded yet, try again later
+					if(!importedSheet.cssText &&
+							// empty means it is not loaded yet, try again later
+							!importedSheet.imports.length){
 						setTimeout(flattenImports, 50);
 						return;
 					}
@@ -94,7 +97,7 @@ define('xstyle/core/load-imports', [], function(){
 					sheet.processed = true;
 					loadOnce(sheet);
 				}
-			}
+			};
 			flattenImports();
 			return finishedModule();
 		}
@@ -113,7 +116,7 @@ define('xstyle/core/load-imports', [], function(){
 				// only FF doesn't have this
 				sheet.addRule = function(selector, style, index){
 					return this.insertRule(selector + '{' + style + '}', index >= 0 ? index : this.cssRules.length);
-				}
+				};
 			}
 			if(!sheet.deleteRule){
 				sheet.deleteRule = sheet.removeRule;
@@ -142,13 +145,15 @@ define('xstyle/core/load-imports', [], function(){
 					};
 					sheetToDelete.deleteRule = function(i){
 						existingSheet.deleteRule(i);
-					}
+					};
 					var owner = sheetToDelete.ownerNode || !parentStyleSheet && sheetToDelete.owningElement;
 					if(owner){
-						// it is top level <link>, remove the node (disabling doesn't work properly in IE, but node removal works everywhere)
+						// it is top level <link>, remove the node (disabling doesn't work properly in IE,
+						// but node removal works everywhere)
 						owner.parentNode.removeChild(owner); 
 					}else{
-						// disabling is the only way to remove an imported stylesheet in firefox; it doesn't work in IE and WebKit
+						// disabling is the only way to remove an imported stylesheet in firefox; it doesn't
+						// work in IE and WebKit
 						sheetToDelete.disabled = true; // this works in Opera
 						if('cssText' in sheetToDelete){
 							sheetToDelete.cssText =''; // this works in IE
@@ -157,7 +162,7 @@ define('xstyle/core/load-imports', [], function(){
 							owner = sheetToDelete.ownerRule;
 							if(owner){
 								try{
-									var parentStyleSheet = owner.parentStyleSheet;
+									parentStyleSheet = owner.parentStyleSheet;
 									var parentRules = parentStyleSheet.cssRules;
 									for(var i = 0; i < parentRules.length; i++){
 										// find the index of the owner rule that we want to delete
@@ -212,8 +217,8 @@ define('xstyle/core/load-imports', [], function(){
 				for(var i = 0; i < importRules.length; i++){										
 					var rule = importRules[i];
 					if(rule.href){
-						// it's an import (for non-IE browsers we are looking at all rules, and need to exclude non-import rules
-						var parentStyleSheet = sheet; 
+						// it's an import (for non-IE browsers we are looking at all rules,
+						// and need to exclude non-import rules
 						var childSheet = rule.styleSheet || rule;
 						if(loadOnce(childSheet, href)){
 							i--; // deleted, so go back in index
@@ -270,7 +275,7 @@ define('xstyle/core/load-imports', [], function(){
 	function fetchText (url, callback, errback) {
 		var x = xhr();
 		x.open('GET', url, true);
-		x.onreadystatechange = function (e) {
+		x.onreadystatechange = function(){
 			if (x.readyState === 4) {
 				if (x.status < 400) {
 					callback(x.responseText);
