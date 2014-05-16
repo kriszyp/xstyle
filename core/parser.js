@@ -212,7 +212,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								if(assignmentOperator == '='){
 									browserUnderstoodRule = false;
 									sequence.creating = true;
-									if(value){
+									if(value && value.match(/^\w/)){
 										// extend the referenced target value
 										doExtend = true;
 									}
@@ -228,7 +228,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 									// when we are using built stylesheets, we make numeric references
 									// to the rules, by index
 									cssRules = styleSheet.cssRules || styleSheet.rules;
-									if(newTarget.cssRule = nextRule = cssRules[match[6].slice(1)]){
+									if((newTarget.cssRule = nextRule = cssRules[match[6].slice(1)])){
 										selector = nextRule.selectorText;
 									}
 								}
@@ -271,7 +271,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							newTarget.parent = target;
 							if(doExtend){
 	//							value.replace(/(?:^|,|>)\s*([\w-]+)/g, function(t, base){
-								value.replace(/(?:^|\s+)([\w-]+)\s*$/g, function(t, base){
+								value.replace(/(?:^|\s+)([\w-\.]+)\s*$/g, function(t, base){
 									var result = utils.extend(newTarget, base, error);
 									if(result && result.then){
 										resumeOnComplete(result);
@@ -304,7 +304,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 					}
 					if(sequence){
 						// now see if we need to process an assignment or directive
-						var first = typeof sequence == 'string' ? sequence: sequence[0];
+						var first = typeof sequence == 'string' ? sequence : sequence[0];
 						if(first.charAt && first.charAt(0) == '@'){
 							// it's a directive
 							var directive = first.match(/\w+/)[0];
@@ -402,9 +402,12 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							if(operator == ')' && !assignmentOperator){
 								// call handler
 								// immediately call this, since it isn't a part of a property
-								target.args = parseArgs(sequence);
-
-								var result = stack[stack.length - 2].onArguments(target);
+								target.args = [sequence];
+								try{
+									var result = stack[stack.length - 2].onArguments(target);
+								}catch(e){
+									error(e);
+								}
 								if(result && result.then){
 									resumeOnComplete(result);
 								}
