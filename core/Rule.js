@@ -168,7 +168,7 @@ define('xstyle/core/Rule', [
 		onArguments: function(call, name){
 			var handler = call.ref;
 			// call the target with the parsed arguments
-			return handler.apply(this, call.getArgs(), name);
+			return handler && handler.apply(this, call.getArgs(), name);
 		},
 		setValue: function(name, value, scopeRule){
 			// called by the parser when a property is encountered
@@ -234,7 +234,7 @@ define('xstyle/core/Rule', [
 				var values = first.values;
 				for(var i = 0; i < values.length; i++){
 					var key = values[i];
-					this._setStyleFromValue(propertyName + '-' + key, values[key]);
+					this._setStyleFromValue(propertyName + (key == 'main' ? '' : '-' + key), values[key]);
 				}
 				return;
 			}
@@ -293,6 +293,11 @@ define('xstyle/core/Rule', [
 			// we might consider removing this if it is only used from put
 			var base = this;
 			var newText = base.cssText;
+			var extraSelector = base.extraSelector;
+			if(extraSelector){
+				// need to inherit any extra selectors by adding them to our selector
+				derivative.selector += extraSelector;
+			}
 			if(derivative.cssRule){
 				// already have a rule, we use a different mechanism here
 				var baseStyle = base.cssRule.style;

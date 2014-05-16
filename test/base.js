@@ -11,7 +11,9 @@ define([
 		name: 'base',
 		prefix: function(){
 			var testElement = put(document.body, 'test-prefix');
-			assert.strictEqual(getComputedStyle(testElement).WebkitAppearance, 'button');
+			if('WebkitAppearance' in testElement.style){
+				assert.strictEqual(getComputedStyle(testElement).WebkitAppearance, 'button');
+			}
 		},
 		expand: function(){
 			var testElement = put(document.body, 'test-expand');
@@ -19,7 +21,7 @@ define([
 			assert.strictEqual(style.marginTop, '1px');
 			assert.strictEqual(style.marginRight, '2px');
 			assert.strictEqual(style.marginBottom, '3px');
-			assert.strictEqual(style.marginLeft, '0px');
+			assert.strictEqual(style.marginLeft, '1px');
 		}
 	});
 });

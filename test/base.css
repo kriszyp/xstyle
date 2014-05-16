@@ -4,7 +4,7 @@ test-prefix = {
 }
 test-expand = {
 	margin: {
-		top: 1px;
+		main: 1px;
 		right: 2px;
 		bottom: 3px;
 	}
