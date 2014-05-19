@@ -47,8 +47,12 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			}
 		}
 	}
+	function selfResolving(func){
+		func.selfResolving = true;
+		return func;
+	}
 	function resolved(callback, returnArray){
-		function resolve(){
+		return selfResolving(function resolve(){
 			var args = arguments;
 			var resolved;
 			if(resolve.skipResolve){
@@ -60,8 +64,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				}
 			}
 			return callback[returnArray ? 'call' : 'apply'](this, resolved);
-		};
-		return resolve;
+		});
 	}
 
 	function ready(callback, returnArray){
@@ -246,9 +249,11 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		if(variables){
 			return binding;
 		}*/
+		var i;
+		var part;
 		value = value.join ? value.slice() : [value];
-		for(var i = 0; i < value.length; i++){
-			var part = value[i];
+		for(i = 0; i < value.length; i++){
+			part = value[i];
 			if(typeof part == 'string'){
 				// parse out operators
 				// TODO: change this to a replace so we can find any extra characters to report
@@ -268,21 +273,33 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		var stack = [];
 		var lastOperator;
 		// now apply operators
-		for(var i = 0; i < value.length; i++){
-			var part = value[i];
+		for(i = 0; i < value.length; i++){
+			part = value[i];
 			if(part.operator == '('){
-				// TODO: is this being double applied?
-				stack.pop();
-				part = part.ref.apply(rule, part.getArgs());
+				// pop off the name that precedes
+				var func = stack.pop();
+				part = (function(args){
+					return utils.when(func, function(func){
+						if(!func.selfResolving){
+							func = react(func);
+						}
+						return func.apply(rule, args);
+					});
+				})(part.getArgs());
 			}else if(operators.hasOwnProperty(part)){
+				// it is an operator, it has been added to the stack, but we need
+				// to apply on the stack of higher priority
 				var operator = operators[part];
 				windDownStack(operator);
 				lastOperatorPrecedence = (lastOperator || operator).precedence;
 			}else if(part > -1){
+				// a number literal
 				part = +part;
 			}else if(part.isLiteralString){
+				// a quoted string
 				part = part.value;
 			}else{
+				// a reference
 				var propertyParts = part.split(/\s*\/\s*/);
 				var firstReference = propertyParts[0];
 				var target = rule.getDefinition(firstReference);
@@ -298,8 +315,10 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			}
 			stack.push(part);
 		}
+		// finally apply any operators still on the stack
 		windDownStack({precedence: 1});
 		function windDownStack(operator){
+			// apply waiting operators of higher precedence
 			while(lastOperatorPrecedence >= operator.precedence){
 				var lastOperand = stack.pop();
 				var executingOperator = operators[stack.pop()];
@@ -319,6 +338,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		contextualized: contextualized,
 		react: react,
 		observe: observe,
-		evaluate: evaluateExpression
+		evaluate: evaluateExpression,
+		selfResolving: selfResolving
 	};
 });

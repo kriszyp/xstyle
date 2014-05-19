@@ -103,8 +103,37 @@ define([
 			result.put(true);
 			assert.equal(latestA, false);
 
+		},
+		'evaluate Math.min': function(){
+			var minAB = expression.evaluate(rule, ['Math/min', {operator: '(', getArgs: function(){
+				return ['a', 'b'];
+			}}]);
+			assert.equal(minAB.valueOf(), 1);
+			var latestResult;
+			minAB.observe(function(value){
+				latestResult = value;
+			});
+			assert.equal(latestResult, 1);
+			a.put(3);
+			assert.equal(latestResult, 2);
+			a.put(0);
+			assert.equal(latestResult, 0);
+		},
+		'evaluate Math.sqrt': function(){
+			var sqrtA = expression.evaluate(rule, ['Math/sqrt', {operator: '(', getArgs: function(){
+				return ['a'];
+			}}]);
+			assert.equal(sqrtA.valueOf(), 1);
+			var latestResult;
+			sqrtA.observe(function(value){
+				latestResult = value;
+			});
+			assert.equal(latestResult, 1);
+			a.put(4);
+			assert.equal(latestResult, 2);
+			a.put(0);
+			assert.equal(latestResult, 0);
 		}
-
 
 		/*,
 		'evaluate groups': function(){

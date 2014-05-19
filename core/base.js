@@ -137,12 +137,15 @@ define('xstyle/core/base', [
 	}
 	// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
 	root.definitions = {
-		Math: Math, // just useful
-		module: function(mid, lazy){
+		// useful globals to import
+		Math: Math,
+		window: window,
+		global: window,
+		module: expression.selfResolving(function(mid, lazy){
 			// require calls can be used to load in data in
 			if(mid[0].value){
 				// support mid as a string literal as well
-				mid = mid[0].value
+				mid = mid[0].value;
 			}
 			if(!lazy){
 				require([mid]);
@@ -156,7 +159,7 @@ define('xstyle/core/base', [
 					return deferred.promise;
 				}
 			};
-		},
+		}),
 		// TODO: add url()
 		// adds support for referencing each item in a list of items when rendering arrays 
 		item: elementProperty('item', null, true),
