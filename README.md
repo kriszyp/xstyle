@@ -61,10 +61,10 @@ making use of new definitions to develop your application within CSS.
 ## New Definitions
 
 The key building block in xstyle is an extension for creating new definitions for features like
-user defined properties. In traditional CSS, all properties, functions, and other 
+user defined properties, data sources, and functions. In traditional CSS, all properties, functions, and other 
 constructs are defined by the browser, and stylesheet rules are limited to using 
 these predefined properties. In xstyle, new properties, functions, and other elements can be defined with 
-extensible meaning. New definitions may be used as shims (to fill in for standard properties
+extensible meaning. New definitions may be used as bindings to data models, shims (to fill in for standard properties
 on other browsers), they may be compositions of other properties, or provide entirely new concepts.
 Since definitions can be constructed using JavaScript modules that can interact with
 the DOM, there is virtually no limit to the what can be created.
@@ -553,41 +553,49 @@ Here, we can use newer CSS properties like 'box-shadow' and 'transform' and Xsty
 will shim (or "polyfill" or "fix") older browsers for you, transforming these to 
 MS filters for older versions of Internet Explorer. 
 
-## Definition Modules
+# Interfacing with JavaScipt
 
-While xstyles provides predefined expressions for new definitions, we can also 
-define new definitions with our own custom JavaScript modules. To define a new property
-with a JavaScript module, we use the module('module-id') as the property definition:
+Xstyle provides expressive declarative capabilities, but any substantial application will need to interact
+with JavaScript. We often need to interact with JavaScript to access data models, create custom components or functions, and 
+define other imperative operations.
 
-	my-new-property = module('package/module-id');
+There are a couple ways we can interact with JavaScript. The first, preferred approach is to reference a module.
+To define a new definition from a JavaScript module, we use the module(module-id) to assign to a definition:
+
+	my-new-definition = module('package/module-id');
 	
-If you are using an AMD loader, xstyle will load the target module id and use this to handle
-the property. If you are not using an AMD module loader, you can still simply include a script
-with a define call:
+Using an AMD loader, xstyle will load the target module id and assign the result to the definition.
 
-define('package/module-id', {
-	/* module property definition */
-});
+Alternately, we access the global window variable through the `window` definition (or `global`). For example:
 
-The module can return an object (or provide an object to the define call), that has
-methods that to be called when the property is used in stylesheets. The following
-methods are defined:
+	my-new-definition = window.library.feature;
 
-* <code>module.put(value, rule, name)</code> - This is called whenever the property is used within a rule. The
+Note, that you need to be careful to ensure the global property/object is available before xstyle accesses it.
+
+The JavaScript module can return an object (or provide an object to the define call), or we can reference a global
+that has methods that will be called when the property or function is used in stylesheets. The following
+methods will be called if they exist (they are all optional):
+
+* <code>object.put(value, rule, name)</code> - This is called whenever the property is used within a rule. The
 <code>value</code> argument is the property value in the rule, and the <code>rule</code>
 argument is the Rule object.  
-* <code>module.receive(callback, rule, name)</code> - This is called when a property is accessed from a 
-binding, to receive the current value. The callback should be called wheneve the value
+* <code>object.observe(callback)</code> - This is called when a property is accessed from a 
+binding, to receive the current value. The callback should be called whenever the value
 is changed in the future.
-* <code>module.forElement(element)</code> - If the value of a property is dependent on the element
+* <code>object.forElement(element)</code> - If the value of a property is dependent on the element
 that the rule is being applied, the module object may provide a forElement(element)
 function that would return an object with the same methods as described here for the 
 module. It should be noted that there is additional processing overhead, since every
 element needs to be processed individually with this approach.  
-* <code>module.get(name)</code> - This is called when a property is accessed using the my-new-property/sub-property
+* <code>object.forParent(rule, name)</code> - This will be called when the definition is used
+as a property in a rule. The rule and the name of the property will be passed in.
+* <code>object.define(rule, name)</code> - This will be called when an object is assigned to a new
+definition.
+* <code>object.property(name)</code> - This is called when a property is accessed using the my-new-property/sub-property
 syntax.
-* <code>module.call(rule, args,...)</code> - This is called when the definition is used a function, like
-my-new-property()
+* <code>object.apply(rule, args)</code> - This is called when the definition is used a function, like
+my-new-definition(). Note, you can also provide a function as the value of the module or the referenced global value,
+in which case the apply() call will execute the function.
 
 The Rule object has the following properties and methods that can be used by the module:
 
@@ -597,6 +605,89 @@ a rule. If there are any definition for the property, there are then executed.
 apply additional native CSS properties directly by setting properties on the style object:
 
 	rule.setStyle('color', 'red');
+
+For example, we could define a module that vertically expands a target element when it is clicked, and takes
+two height values, with starting and ending values.
+
+	define([], function(){
+		return {
+			forParent: function(rule){
+				var heights;
+				return {
+					put: function(value){
+						// take the two heights and split them up
+						heights = value.split(/\s+/);
+						// define the starting height
+						rule.setStyle('height: ' + heights[0]);
+						// define a property for animating the change
+						rule.setStyle('transition: height 0.2s');
+
+					},
+					forElement: function(element){
+						element.addEventListener('click', function(){
+							// when the element is clicked, change the height
+							element.style.height = heights[1];
+						});
+						// note that when setting up event handling,
+						// it is strongly recommended that you use event delegation
+						// instead of forElement, when possible
+					}
+				};
+
+			}
+		};
+	});
+
+We could now use our property definition in a xstyle stylesheet:
+
+	expandable-height = module(my-package/expandable);
+
+	.target-element {
+		expandable-height: 10px 30px; /* specify a starting and ending height*/
+	}
+
+
+## Functions
+
+As listed, the `apply()` method will be called when a function is encountered. However, there are several ways of handling functions.
+By default, the function will be treated as a reactive function, the referenced definitions will be resolved, asynchronously, if needed, contextualized, and monitored for changes, such that any change will trigger the function execution again. For example, we could create a module that a function that computes the sum of values:
+
+	define(function () {
+		return function sum() {
+			var sum = 0;
+			for (var i = 0; i < arguments.length; i++) {
+				sum += arguments[i];
+			}
+			return sum;
+		};
+	});
+
+We could then use this in our xstyle stylesheet:
+
+	sum = module(my-package/sum);
+	model = module(my-package/data-model);
+
+	#sum {
+		=>
+			span (sum(model/a, model/b, model/b))
+	}
+
+The function will be executed with the values from the model objects, and will be re-executed whenever those values change so that the sum can be recomputed.
+
+Alternately, we may wish to have greater control over the execution of a function. The `dstore/core/expression` module provides several functions for defining different types of functions.
+
+If you wish to have the arguments resolved for us, and contextualized, we can define a function:
+
+	expression.contextualized(function);
+
+A contextualized function may be called with reactive objects, rather than the values of those reactive objects when they change. This can give us access to the original reactive object, which may provide methods and properties for observing changes, metadata, and modifying the value of the reactive object.
+
+We have several other options available:
+	
+* expression.resolved(function) - This makes our function have the arguments dereferenced, but there is no waiting for promises to be resolved. This can be useful if you want to selectively request the promise values (for lazy promises).
+* expression.ready(function) - This makes our function have the arguments resolved, but not contextualized. This can be useful if you want to contextualize the values based on a certain element.
+* expression.selfResolving(function) - Our function will be executed without any argument resolution. If our function is called like func(a, b), the arguments will be the actual strings 'a' and 'b'. This gives us the greatest ultimate control of the behavior of the function.
+* expression.react(function) - This explicitly makes our function act reactively. This behaves the same as an unaltered function.
 
 ## Pseudo Definitions
 
