@@ -66,28 +66,6 @@ define('xstyle/core/base', [
 				value.element = element;
 				value.appendTo = appendTo;
 				return value;
-				return {
-					element: element, // indicates the key element
-					observe: function(callback, rule){// handle requests for the data
-						var elementValue;
-						// get the value from the element
-						(element[property] || (element[property] = new Proxy())).observe(function(value){
-							callback(elementValue = value);
-						});
-						if(elementValue === undefined && rule){
-							// else fallback to getting the value from the rule
-							rule.property(property).observe(function(value){
-								if(elementValue == undefined){
-									callback(value);
-								}
-							});
-						}
-					},
-					put: function(value){
-						return element[property].put(value);
-					},
-					appendTo: appendTo
-				};
 			},
 			define: function(newProperty, rule){
 				// if we don't already have a property define, we will do so now
