@@ -1,17 +1,23 @@
-Xstyle is a framework for building applications through extensible CSS. With xstyle you
+xstyle is a declarative language for defining reactive user interfaces. Xstyle extends CSS, combining 
+familiar syntax with extensibility for creating componentized interfaces that can be used to present not only
+HTML, but data objects, with functionally reactive bindings. With xstyle you
 can define data bindings, UI elements, variables, extensions, and shims to create modern
 web applications with an elegantly simple, stylesheet driven approach. Xstyle also includes
 tools for loading CSS and building and minifying CSS-driven applications.
 
-Much of the functionality in xstyle is still pre-alpha, but this documentation is annotated 
-where implementation is incomplete. 
+xstyle is designed to maximize the maintainability and readability of applications, by allowing
+developers to define relationships and extensions, with clear, concise declarations that express
+purpose over mechanics, without the noise and repetitiveness of HTML.
+
+xstyle is designed to maximize the performance of applications, allowing components to be defined
+and built on modern techniques of event delegation and CSS properties, fully leveraging browser capabilities
+without zero per-instance overhead.
 
 # Why Extensible CSS with xstyle?
 
 Modern web browsers have increasingly moved towards relying on CSS to define the 
 presentation of the user interface. Furthermore, CSS is fundamentally built on the 
-powerful paradigms of declarative, function reactive programming, providing similar types of
-expressiveness as dependency injection systems. By adding a few simple CSS constructs,
+powerful paradigms of declarative, function reactive programming. By adding a few simple CSS constructs,
 xstyle bridges the gap to provide the capabilities for composition and modular extensions that
 allow virtually unlimited expression of user interfaces, with a familiar syntax in encapsulated form. 
 Xstyle goes beyond the capabilities of preprocessor because it runs in the browser and extensions
@@ -51,7 +57,7 @@ See the AMD Plugin Loader section for more information.
 
 Xstyle supports all modern browsers, and Internet Explorer back to version 8 
 (although in IE8, it is not possible to use xstyle CSS directly in style tags, all xstyle CSS
-must exist in CSS files). 
+must exist in CSS files, which is recommended anyway).
 
 # Using Xstyle CSS
 
@@ -111,7 +117,7 @@ create new definitions with custom behavior implemented in JavaScript module, wh
 in turn create other custom rules or affect interaction with the DOM. We can use
 rules as a definitions or JavaScript modules for more customized behavior:
 
-	my-custom-property = module('my/module');
+	my-custom-property = module(my/module);
 	
 We look at how how to implement a module in more detail later.
 
@@ -140,7 +146,7 @@ as defined in the base definition, we set the value to "defaults":
 We can also override properties from our definition:
 
 	.my-class {
-		absolutely: default;
+		absolutely: defaults;
 		top: 60px;
 	}
 
@@ -154,7 +160,7 @@ values are then assigned to the composite properties in order of declaration. Fo
 Would be the same as:
 
 	.my-class {
-		absolutely: default;
+		absolutely: defaults;
 		top: 60px;
 		bottom: 70px;
 	}
@@ -185,7 +191,7 @@ a new definition within a base rule definition, you can reference that definitio
 property definitions or element references.
 
 The second capability that extending rules provides (that is not a part of property mixins),
-is that you can refer to any tag or class selector as the base definition, and that tag or class will be used
+is that you can refer to any tag or class selector as the base definition, and that tag or class (or a `tag.class` combination) will be used
 when the definition is referenced in element generation (see next section). For example,
 we can create our own big-header definition that inherits from an h1:
   
@@ -431,7 +437,7 @@ This provides the foundation for wiring components to data sources. We can also 
 variables to modules, providing an interface between JavaScript-driven data and the UI.
 We bind a variable to a module like this:
 
-	person = module('data/person');
+	person = module(data/person);
  
 We can then bind to the object returned from the module. We use a / operator to refer
 to properties of an object:
@@ -562,7 +568,7 @@ define other imperative operations.
 There are a couple ways we can interact with JavaScript. The first, preferred approach is to reference a module.
 To define a new definition from a JavaScript module, we use the module(module-id) to assign to a definition:
 
-	my-new-definition = module('package/module-id');
+	my-new-definition = module(package/module-id);
 	
 Using an AMD loader, xstyle will load the target module id and assign the result to the definition.
 
@@ -694,7 +700,7 @@ We have several other options available:
 We can create new definitions for pseudo selectors. Pseudo selector definitions begin
 with a colon. For example, we can could create a custom pseudo selector:
 
-	:custom = module('my-package/custom');  
+	:custom = module(my-package/custom);
 
 The module's returned object should have a pseudo method that will be called for handling
 rule's with the defined pseudo selector.
@@ -703,7 +709,7 @@ Again, we can use a conditional operator if we only want to implement the pseudo
 has not already been provided by the browser. For example, if wanted to shim support
 for the :enabled pseudo, we could implement a shim module and conditionally load it:
 
-	:enabled =? module('my-package/enabled');
+	:enabled =? module(my-package/enabled);
 
 ## Scoped Blocks Xstyle and Disabling Parsing
 
@@ -785,7 +791,7 @@ be passed to the widget. There should also be a "type" property that indicates
 the id of the module with the widget to load. For example, we could add a "widget"
 property definition:
 
-	widget = module('xstyle/ext/widget');
+	widget = module(xstyle/ext/widget);
 
 And then we could create progress bar using dijit/ProgressBar, using the "widget" property
 in a rule:
