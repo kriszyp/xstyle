@@ -288,7 +288,7 @@ prefix. For example, suppose we want to define several rules for elements within
 		}
 	}
 
-Using nesting rules can reduce typing, add better organization, and make it easier to refactor stylesheets.
+Using nested rules can improve readability, add better organization, and make it easier to refactor stylesheets.
 
 ### Nested Element Generation
 
@@ -437,7 +437,7 @@ This provides the foundation for wiring components to data sources. We can also 
 variables to modules, providing an interface between JavaScript-driven data and the UI.
 We bind a variable to a module like this:
 
-	person = module(data/person);
+	person = module(package/person-model);
  
 We can then bind to the object returned from the module. We use a / operator to refer
 to properties of an object:
@@ -449,6 +449,11 @@ to properties of an object:
 			label 'Last Name:',
 			input[type=text](person/lastName);
 	}
+
+Data models can provide a `property(name)` method to handle access to properties, and the returned
+property objects can provide an `observe(callback)` method to define a listener for data changes.
+This follows the same API as the [dstore](https://github.com/SitePen/dstore) project, and more details
+are in the interfacing with JavaScript section below.
 
 ### Attribute Binding
 
