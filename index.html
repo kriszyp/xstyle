@@ -1,0 +1,142 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+	<meta charset="UTF-8">
+	<title>Try xstyle</title>
+	<style>
+	@import './ui.css';
+	#main {
+		ui = converter/ui;
+		data = converter/data;
+		=>
+			h1 'xstyle'
+			h2 'An extensible CSS framework that fully leverages modern browsers for building web applications with a single, simple, consistent technology.',
+			a[href='https://github.com/kriszyp/xstyle/archive/master.zip'].button {
+				=> 
+					span.icon.icon-download,
+					span 'Download xstyle'; 
+				background-color: #bbb;
+				margin-right: 160px;
+			},
+			a[href='https://github.com/kriszyp/xstyle'].button 'View xstyle project and documentation' {
+				background-color: #ddd;		
+			},
+			div.tiles 
+				div{},
+				a[href='https://github.com/kriszyp/xstyle'].tile {
+					background-color: #acf;
+				}
+					span.icon '</>' {font-weight: bold;} 
+					span.title 'Reactive UI'
+					div.content 'Create UIs with declarative syntax, that reacts to changes'
+				a[href='https://github.com/kriszyp/xstyle#data-binding'].tile {
+					background-color: #bde;
+				}
+					span.icon.icon-exchange 
+					span.title 'Data Binding'
+					div.content 'Bind data to elements with convenient, readable syntax'
+				a[href='https://github.com/kriszyp/xstyle#extensions-and-shims'].tile {
+					background-color: #cdd;
+				}
+					span.icon.icon-resize-full 
+					span.title 'Extensible CSS'
+					div.content 'Create your own extensions to CSS, and use events, DOM, and more'
+				a[href='https://github.com/kriszyp/xstyle#element-generation'].tile {
+					background-color: #acf;
+				}
+					span.icon '</>' {font-weight: bold;} 
+					span.title 'Element generation'
+					div.content 'Templated creation of UI elements in CSS, with CSS syntax'
+				a[href='https://github.com/kriszyp/xstyle#expressions'].tile {
+					background-color: #cef;
+				}
+					span.icon.icon-cog, 
+					span.title 'Components',
+					div.content 'Encapsulate properties, elements, events, and JS for easy reuse'
+				a[href='https://github.com/kriszyp/xstyle#creating-components'].tile {
+					background-color: #ded;
+				}
+					span.icon.icon-certificate, 
+					span.title 'CSS shimming',
+					div.content 'Write modern CSS, with shims for older browsers'
+			a[href=https://github.com/kriszyp/xstyle].button 'View xstyle project and documentation' {
+				background-color: #ddd;		
+			},
+			div.tiles {
+				=>
+					div{},
+					a[href='https://github.com/kriszyp/xstyle#element-generation'].tile {
+						=>	span.icon '</>' {font-weight: bold;}, 
+							span.title 'Element generation',
+							div.content 'Create UI elements directly in CSS';
+						background-color: #acf;
+					},
+					a[href='https://github.com/kriszyp/xstyle#data-binding'].tile {
+						=> span.icon.icon-exchange, 
+							span.title 'Data Binding',
+							div.content 'Bind data to elements with declarative syntax in stylesheets';
+						background-color: #bde;
+					},
+					a[href='https://github.com/kriszyp/xstyle#extensions-and-shims'].tile {
+						=> span.icon.icon-resize-full, 
+							span.title 'Extensible CSS',
+							div.content 'Create your extensions to CSS';
+						background-color: #cdd;
+					},
+					a[href='https://github.com/kriszyp/xstyle#variables'].tile {
+						=> span.icon.icon-th-list, 
+							span.title 'Variables',
+							div.content 'Use CSS variables';
+						background-color: #bdf;
+					},
+					a[href='https://github.com/kriszyp/xstyle#expressions'].tile {
+						=> span.icon.icon-cog, 
+							span.title 'Expressions',
+							div.content 'Use expressions with data bindings directly in stylesheets';
+						background-color: #cef;
+					},
+					a[href='https://github.com/kriszyp/xstyle#extensions-and-shims'].tile {
+						=> span.icon.icon-certificate, 
+							span.title 'CSS shimming',
+							div.content 'Write modern CSS, with shims for older browsers';
+						background-color: #ded;
+					};
+			},
+			div.more-explanation 'With xstyle you
+can define data bindings, UI elements, variables, extensions, and shims to create modern
+web applications with an elegantly simple, stylesheet-driven approach. Try it out now:',
+			div.column
+				h2 'data:',
+				textarea[data-continuous].live-source(converter/data)
+				span.error(converter/data/error)
+			div.column
+				h2 'presentation (xstyle CSS):'
+				textarea[data-continuous].live-source(converter/ui)
+				span.error(converter/ui/error)
+			div.column
+				h2 'result: #target'
+				div#target[title='The result of the data rendered according to the presentation CSS']
+			div.more-explanation ' 
+xstyle is a declarative language for defining reactive user interfaces. Xstyle extends CSS, combining 
+familiar syntax with extensibility for creating componentized interfaces that can be used to present not only
+HTML, but data objects, with functionally reactive bindings. With xstyle you
+can define data bindings, UI elements, variables, extensions, and shims to create modern
+web applications with an elegantly simple, stylesheet driven approach. Xstyle also includes
+tools for loading CSS and building and minifying CSS-driven applications.
+';
+	}
+	</style>
+	
+	<script src="../dojo/dojo.js" data-dojo-config="async:true"></script>
+	<script>
+		require(['xstyle/main'], function(layout){
+		});
+	
+	</script>
+	
+	</head>
+	<body>
+		<a href="https://github.com/kriszyp/xstyle"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
+		<div id="main"></div>	
+	</body>
+</html>
