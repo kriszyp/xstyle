@@ -1,4 +1,4 @@
-@import './css/font-awesome.css';
+@import './font/font-awesome.css';
 
 converter = module('xstyle/test/converter');
 data = converter/parsed;
