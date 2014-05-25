@@ -1,6 +1,6 @@
 @import './css/font-awesome.css';
 
-converter = module('xstyle/test/converter');
+converter = module('xstyle/util/converter');
 data = converter/parsed;
 h1, h2 {
 	font-weight: 100;
