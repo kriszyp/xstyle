@@ -150,7 +150,7 @@ define('xstyle/core/Rule', [
 						}
 						var applyDefine = function(definition){
 							if(definition.define){
-								definition = definition.define(name, rule);
+								definition = definition.define(rule, name);
 							}
 							return definition;
 						};
@@ -364,9 +364,8 @@ define('xstyle/core/Rule', [
 			}while(target === undefined && parentRule);
 			return target;
 		},
-		appendTo: function(target, beforeElement){
-			return put(beforeElement || target, (beforeElement ? '-' : '') +
-				(this.tagName || 'span') + (this.selector || ''));
+		newElement: function(){
+			return put((this.tagName || 'span') + (this.selector || ''));
 		},
 		cssText: ''
 	};

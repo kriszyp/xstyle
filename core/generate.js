@@ -47,8 +47,10 @@ define('xstyle/core/generate', [
 			element.content = contentFragment;
 			var indentationLevel = 0;
 			var indentationLevels = [element];
+			var stackOfElementsToUpdate = [];
 			for(var i = 0, l = generatingSelector.length;i < l; i++){
 				// go through each part in the selector/generation sequence
+				// TODO: eventually we should optimize for inserting nodes detached
 				var lastPart = part,
 					part = generatingSelector[i];
 				try{
@@ -74,7 +76,7 @@ define('xstyle/core/generate', [
 							// auto-generated selector, so CSS is properly applied
 							put(lastElement, part.selector);
 							// do any elemental updates
-							elemental.update(lastElement, part.selector);
+							stackOfElementsToUpdate.push(part.selector, lastElement);
 						}
 					}else if(typeof part == 'string'){
 						// actual CSS selector syntax, we generate the elements specified
@@ -138,13 +140,43 @@ define('xstyle/core/generate', [
 									var tagName = value.match(/^[-\w]+/)[0];
 									var target = rule.getDefinition(tagName);
 									// see if we have a definition for the element
-									if(target && target.appendTo){
-										nextElement = target.appendTo(nextElement, beforeElement);
-										// apply the rest of the selector
-										value = value.slice(tagName.length);
-										if(value){
-											put(nextElement, value);
-										}
+									if(target && (target.then || target.newElement)){
+										nextElement = (function(nextElement, beforeElement, value, tagName){
+											var newElement, placeHolder;
+											// this may be executed async, we need to be ready with a place holder
+											utils.when(target, function(target){
+												if(target.newElement){
+													newElement = target.newElement();
+
+													// apply the rest of the selector
+													value = value.slice(tagName.length);
+													if(value){
+														put(nextElement, value);
+													}
+												}else{
+													newElement = put(value);
+												}
+												if(placeHolder){
+													// a placeholder was created, replace it with the new element
+													placeHolder.parentNode.replaceChild(newElement, placeHolder);
+													var childNodes = placeHolder.childNodes;
+													var childNode;
+													// now move any children into the new element (or its content node)
+													newElement = newElement._contentNode || newElement;
+													while(childNode = childNodes[0]){
+														newElement.appendChild(childNode);
+													}
+												}
+											});
+											if(newElement){
+												// executed sync, just insert
+												return nextElement.insertBefore(newElement, beforeElement || null);
+											}else{
+												// it was async, put in a placeholder
+												var placeHolder = put('span');
+												return nextElement.insertBefore(placeHolder, beforeElement || null);
+											}
+										})(nextElement, beforeElement, value, tagName);
 									}else{
 										selector = value;
 									}
@@ -169,7 +201,7 @@ define('xstyle/core/generate', [
 									// already, so we don't want to double apply
 									(!nextPart || !nextPart.base)
 									)){
-									elemental.update(nextElement);
+									stackOfElementsToUpdate.push(null, nextElement);
 								}
 								lastElement = nextElement;
 							}).apply(this, parts[j]);
@@ -182,6 +214,11 @@ define('xstyle/core/generate', [
 					console.error(e, e.stack);
 					lastElement.appendChild(doc.createTextNode(e));
 				}
+			}
+			// now go back through and make updates to the elements, we do it in reverse
+			// order so we can affect the children first
+			while(elementToUpdate = stackOfElementsToUpdate.pop()){
+				elemental.update(elementToUpdate, stackOfElementsToUpdate.pop());
 			}
 			return lastElement;
 		};
@@ -197,12 +234,12 @@ define('xstyle/core/generate', [
 				// now apply.element should indicate the element that it is actually
 				// keying or varying on
 			}
-			// TODO: do really need to check forParent here?
-			// TODO: do we really need the expression to be passed in?
+			// We want to contextualize this for the parent (forParent), but
+			// we need to differentiate it from the forParent that rules do that create
+			// a new rule-specific instances (hence the flag)
 			if(result.forParent){
 				// if the result can be specific to a rule, apply that context
-
-				result = result.forParent(rule, expression);
+				result = result.forParent(rule, expression, true);
 			}
 			contentProxy.setSource(result);
 		});
