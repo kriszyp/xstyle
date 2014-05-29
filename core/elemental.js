@@ -13,7 +13,13 @@ define('xstyle/core/elemental', ['put-selector/put'], function(put){
 				variable = variable.forElement(element);
 			}
 			if(variable && variable.put){ // if it can be put, we do so
-				variable.put(element.value);
+				var oldType = typeof variable.valueOf();
+				var value = element.value;
+				// do type coercion
+				if(oldType === 'number' && isFinite(value)){
+					value = +value;
+				}
+				variable.put(value);
 			}
 		}
 	});
