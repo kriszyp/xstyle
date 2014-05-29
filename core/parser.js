@@ -173,7 +173,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							if(!parsed){ // no match for the end of the string
 								error('unterminated string');
 							}
-							var str = parsed[1]; // the contents of the string
+							var str = parsed[1].replace(/\\/g, ''); // the contents of the string
 							// move the css parser up to the end of the string position
 							cssScan.lastIndex = quoteScan.lastIndex;
 							// push the string on the current value and keep parsing
