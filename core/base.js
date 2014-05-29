@@ -25,13 +25,13 @@ define('xstyle/core/base', [
 	var currentEvent;
 	var root = new Rule();
 	root.root = true;
-	function elementProperty(property, rule, inherit, appendTo){
+	function elementProperty(property, rule, inherit, newElement){
 		// definition bound to an element's property
 		// TODO: allow it be bound to other names, and use prefixing to not collide with element names
 		return {
 			forElement: function(element, directReference){
 				var contentElement = element;
-				if(appendTo){
+				if(newElement){
 					// content needs to start at the parent
 					element = element.parentNode;
 				}
@@ -64,12 +64,12 @@ define('xstyle/core/base', [
 					value = new Proxy(value);
 				}
 				value.element = element;
-				value.appendTo = appendTo;
+				value.newElement = newElement;
 				return value;
 			},
-			define: function(newProperty, rule){
+			define: function(rule, newProperty){
 				// if we don't already have a property define, we will do so now
-				return elementProperty(property || newProperty, rule, appendTo);
+				return elementProperty(property || newProperty, rule, newElement);
 			},
 			put: function(value){
 				elemental.addRenderer(function(element){
@@ -113,6 +113,48 @@ define('xstyle/core/base', [
 			}
 		};
 	}
+	function deriveVar(rule, name, ifExists){
+		// when we beget a var, we basically are making a property that is included in variables
+		// object for the parent object
+		var variables = (rule.variables || (!ifExists && (rule.variables = new Proxy())));
+		var proxy;
+		if(ifExists){
+			proxy = variables && variables._properties[name];
+			if(!proxy){
+				return this;
+			}
+		}else{
+			proxy = variables.property(name);
+		}
+		var varObject = this;
+		proxy.observe = function(listener){
+			// modify observe to inherit values from parents as well
+			var currentValue;
+			Proxy.prototype.observe.call(proxy, function(value){
+				currentValue = value;
+				listener(value);
+			});
+			if(currentValue === undefined && rule.parent){
+				varObject.forParent(rule.parent, name).observe(function(value){
+					if(currentValue === undefined){
+						listener(value);
+					}
+				});
+			}
+		};
+		proxy.valueOf = function(){
+			var value = variables[name];
+			if(value !== undefined){
+				return value;
+			}
+			if(rule.parent){
+				return varObject.forParent(rule.parent, name).valueOf();
+			}
+		};
+		proxy.define = deriveVar;
+		proxy.forParent = deriveVar;
+		return proxy;
+	}
 	// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
 	root.definitions = {
 		// useful globals to import
@@ -144,7 +186,7 @@ define('xstyle/core/base', [
 		'page-content': elementProperty('page-content', {selector: 'body'}, true),
 		// adds referencing to the prior contents of an element
 		content: elementProperty('content', null, true, function(target){
-			target.appendChild(this.element);
+			this.element;
 		}),
 		// don't define the property now let it be redefined when it is declared in another
 		// definition
@@ -194,39 +236,8 @@ define('xstyle/core/base', [
 		},
 		// provides CSS variable support
 		'var': derive(new Proxy(), {
-			// TODO: should this be define?
-			forParent: function(rule, name){
-				// when we beget a var, we basically are making a property that is included in variables
-				// object for the parent object
-				var variables = (rule.variables || (rule.variables = new Proxy()));
-				var proxy = variables.property(name);
-				var varObject = this;
-				proxy.observe = function(listener){
-					// modify observe to inherit values from parents as well
-					var currentValue;
-					Proxy.prototype.observe.call(proxy, function(value){
-						currentValue = value;
-						listener(value);
-					});
-					if(currentValue === undefined && rule.parent){
-						varObject.forParent(rule.parent, name).observe(function(value){
-							if(currentValue === undefined){
-								listener(value);
-							}
-						});
-					}
-				};
-				proxy.valueOf = function(){
-					var value = variables[name];
-					if(value !== undefined){
-						return value;
-					}
-					if(rule.parent){
-						return varObject.forParent(rule.parent, name).valueOf();
-					}
-				};
-				return proxy;
-			},
+			define: deriveVar,
+			forParent: deriveVar,
 			// referencing variables
 			apply: function(rule, args){
 				return this.forParent(rule, args[0]);
