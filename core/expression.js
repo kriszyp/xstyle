@@ -227,7 +227,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		function addFlags(operatorHandler){
 			operatorHandler.skipResolve = true;
 			operatorHandler.precedence = precedence;
-			operatorHandler.infix = reverseA === true || !!reverseB;			
+			operatorHandler.infix = reverseA === true || !!reverseB;
 		}
 		addFlags(operatorHandler);
 		operators[operator] = operatorHandler;
@@ -276,16 +276,21 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		for(i = 0; i < value.length; i++){
 			part = value[i];
 			if(part.operator == '('){
+				var func = stack[stack.length - 1];
 				// pop off the name that precedes
-				var func = stack.pop();
-				part = (function(args){
-					return utils.when(func, function(func){
-						if(!func.selfResolving){
-							func = react(func);
-						}
-						return func.apply(rule, args);
-					});
-				})(part.getArgs());
+				if(func === undefined || operators.hasOwnProperty(func)){
+					part = evaluateExpression(rule, part.getArgs()[0]);
+				}else{
+					stack.pop();
+					part = (function(args){
+						return utils.when(func, function(func){
+							if(!func.selfResolving){
+								func = react(func);
+							}
+							return func.apply(rule, args);
+						});
+					})(part.getArgs());
+				}
 			}else if(operators.hasOwnProperty(part)){
 				// it is an operator, it has been added to the stack, but we need
 				// to apply on the stack of higher priority
