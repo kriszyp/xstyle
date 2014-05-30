@@ -1,0 +1,55 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+	<meta charset="UTF-8">
+	<title>Reversible Expressions in xstyle</title>
+	<style>
+	@import './ui.css';
+	#main {
+		ui = converter/ui;
+		data = converter/data;
+		data: '{
+  "temperature": 30
+}';
+		ui: '
+celsius = data/temperature;
+fahrenheit = 9 * celsius / 5 + 32;
+#target {
+  =>
+    div
+      label \'Celsius: \'
+      input(celsius)
+    div
+      label \'Fahrenheit: \'
+      input(fahrenheit);
+}';
+		=>
+			h1 'xstyle'
+			p 'This example demonstrates how expressions can be used to define relationships, and when basic arithmetic operations are used, these expressions are even reversible, where the result can be modified, and the source data will be calculated and changed.'
+			div.column
+				h2 'data:',
+				textarea[data-continuous].live-source(converter/data)
+				span.error(converter/data/error)
+			div.column
+				h2 'presentation (xstyle CSS):'
+				textarea[data-continuous].live-source(converter/ui)
+				span.error(converter/ui/error)
+			div.column
+				h2 'result: #target'
+				div#target[title='The result of the data rendered according to the presentation CSS'];
+	}
+	</style>
+	
+	<script src="gh-pages.js" data-dojo-config="async:true"></script>
+	<script>
+		require(['xstyle/main'], function(layout){
+		});
+	
+	</script>
+	
+	</head>
+	<body>
+		<a href="https://github.com/kriszyp/xstyle"><img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" alt="Fork me on GitHub"></a>
+		<div id="main"></div>	
+	</body>
+</html>
