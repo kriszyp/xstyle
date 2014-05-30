@@ -55,6 +55,7 @@ body {
 .live-source {
 	width: 280px;
 	height: 200px;
+	font-size: small;
 }
 .error {
 	color: red;
