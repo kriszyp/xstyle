@@ -39,9 +39,9 @@ define(['dstore/Model', 'dstore/Property', 'xstyle/util/createStyleSheet', 'xsty
 			}
 		}
 	}
+	var parsed = model.property('parsed');
 	model.observe('data', update);
 	model.observe('ui', update);
-	var parsed = model.property('parsed');
 	var parse, lastStyleSheet;
 	function update(){
 		console.log('model.data, model.ui', model.data, model.ui);
