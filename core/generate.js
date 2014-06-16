@@ -263,7 +263,7 @@ define('xstyle/core/generate', [
 							var eachHandler = nextPart && nextPart.eachProperty &&
 								nextPart.each;
 							// we create a rule for the item elements
-							var eachRule = nextPart.newRule();
+							var eachRule = rule.newRule();
 							// if 'each' is defined, we will use it render each item 
 							if(eachHandler){
 								eachHandler = forSelector(eachHandler, eachRule);
