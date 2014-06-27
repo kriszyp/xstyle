@@ -55,7 +55,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 			}else{
 				// there is no targe stylesheet, so
 				// we will be directly inlining the stylesheet in the layer, so we need the createStyleSheet module
-				var createStyleSheetModule = bc.getSrcModuleInfo('xstyle/util/createStyleSheet', referenceModule);
+				var createStyleSheetModule = bc.getSrcModuleInfo('xstyle/core/load-css', referenceModule);
 			}
 			// read the stylesheet so we can process
 			//var text= fs.readFileSync(stylesheetInfo.src, "utf8");
@@ -70,7 +70,7 @@ define(["dojo/json", "build/fs", "../build"], function(json, fs, buildModule){
 			var result = [cssPlugin];
 			if(createStyleSheetModule){
 				// if we are inlining the stylesheet, we need the functionality to insert a stylesheet from text 
-				result.push(bc.amdResources['xstyle/util/createStyleSheet']);
+				result.push(bc.amdResources['xstyle/core/load-css']);
 			}
 			if(bc.internStrings && !bc.internSkip(stylesheetInfo.mid, referenceModule)){
 				// or inline it
