@@ -208,6 +208,9 @@ define('xstyle/core/base', [
 		event: {
 			observe: function(callback){
 				callback(currentEvent);
+			},
+			valueOf: function(){
+				return currentEvent;
 			}
 		},
 		each: {
@@ -267,12 +270,20 @@ define('xstyle/core/base', [
 						// add listener
 						elemental.on(document, name.slice(3), rule.selector, function(event){
 							currentEvent = event;
-							var computation = expression.evaluate(rule, value);
-							if(computation && computation.forElement){
-								computation = computation.forElement(event.target);
-							}
-							computation && computation.stop && computation.stop();
-							currentEvent = null;
+							// TODO: might consider this putting in a separate 'realize()' function
+							utils.when(expression.evaluate(rule, value), function(computation){
+								currentEvent = event;
+								if(computation && computation.forElement){
+									computation = computation.forElement(event.target);
+								}
+								if(computation && computation.observe){
+									// trigger observe, if it has one
+									computation = computation.observe(function(){});
+								}
+								computation && computation.stop && computation.stop();
+								computation && computation.remove && computation.remove();
+								currentEvent = null;
+							});
 						});
 					}
 				};
