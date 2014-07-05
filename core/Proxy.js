@@ -65,6 +65,9 @@ define('xstyle/core/Proxy', ['xstyle/core/utils'], function(utils){
 		},
 		set: function(key, value){
 			var source = this.source;
+			if(source.set){
+				return source.set(key, value);
+			}
 			if(source){
 				source[key] = value;
 			}else{
@@ -74,6 +77,7 @@ define('xstyle/core/Proxy', ['xstyle/core/utils'], function(utils){
 			if(property){
 				property.put(value);
 			}
+			return value;
 		},
 		put: function(value){
 			var source = this.source;
@@ -83,6 +87,9 @@ define('xstyle/core/Proxy', ['xstyle/core/utils'], function(utils){
 				this.parent[this.name] = value;
 			}
 			return this.setSource(value);
+		},
+		toJSON: function(){
+			return this.valueOf();
 		}
 	};
 	return Proxy;
