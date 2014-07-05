@@ -153,7 +153,7 @@ define('xstyle/core/generate', [
 													// apply the rest of the selector
 													value = value.slice(tagName.length);
 													if(value){
-														put(nextElement, value);
+														put(newElement, value);
 													}
 												}else{
 													newElement = put(value);
