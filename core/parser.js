@@ -267,8 +267,6 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 
 								(sequence.calls || (sequence.calls = [])).push(newTarget);
 							}
-							// make the parent reference
-							newTarget.parent = target;
 							if(doExtend){
 	//							value.replace(/(?:^|,|>)\s*([\w-]+)/g, function(t, base){
 								value.replace(/(?:^|\s+)([\w-\.]+)\s*$/g, function(t, base){
@@ -324,7 +322,6 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 									// start a new nested rule for the new scope
 									var newTarget = target ? target.newRule('') : lastRootTarget;
 									newTarget.root = target.root;
-									newTarget.parent = target;
 									stack.push(target = newTarget);
 								}else{
 									// end of scope, store the scope, and pop it

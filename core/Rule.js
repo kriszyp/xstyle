@@ -42,11 +42,13 @@ define('xstyle/core/Rule', [
 			// called by the parser when a new child rule is encountered 
 			var rule = (this.rules || (this.rules = {}))[name] = new Rule();
 			rule.disabled = this.disabled;
+			rule.parent = this;
 			return rule;
 		},
 		newCall: function(name){
 			// called by the parser when a function call is encountered
 			var call = new Call(name);
+			call.parent = this;
 			return call;
 		},
 		addSheetRule: function(selector, cssText){
