@@ -1,4 +1,4 @@
-define('xstyle/core/elemental', ['put-selector/put'], function(put){
+define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], function(put, utils){
 	// using delegation, listen for any input changes in the document and 'put' the value  
 	// TODO: add a hook so one could add support for IE8, or maybe this event delegation isn't really that useful
 	var doc = document;
@@ -162,38 +162,62 @@ define('xstyle/core/elemental', ['put-selector/put'], function(put){
 			}
 		}
 	}
+	function addRenderer(rule, handler){
+		var renderer = {
+			selector: rule.selector,
+			render: handler
+		};
+		if(!matchesSelector){
+			// so we can match this rule by checking inherited styles
+			rule.setStyle(renderer.id = ('x' + nextId++), 'true');
+		}
+		// the main entry point for adding elemental handlers for a selector. The handler
+		// will be called for each element that is created that matches a given selector
+		selectorRenderers.push(renderer);
+		if(documentQueried){
+			findMatches(renderer);
+		}
+		renderWaiting();
+		/*if(!matchesSelector){
+			// create a custom property to identify this rule in created elements
+			return (renderers.triggerProperty = 'selector_' + encodeURIComponent(selector).replace(/%/g, '/')) + ': 1;' +
+				(document.querySelectorAll ? '' : 
+					// we use css expressions for IE6-7 to find new elements that match the selector, since qSA is not available, wonder if it is better to just use document.all...
+					 'zoom: expression(cssxRegister(this,"' + selector +'"));');
+		}*/
+		return {
+			remove: function(){
+				selectorRenderers.splice(selectorRenderers.indexOf(renderer), 1);
+			}
+		};
+	}
 	return {
 		ready: domReady,
 		on: on,
-		addRenderer: function(rule, handler){
-			var renderer = {
-				selector: rule.selector,
-				render: handler
-			};
-			if(!matchesSelector){
-				// so we can match this rule by checking inherited styles
-				rule.setStyle(renderer.id = ('x' + nextId++), 'true');
-			}
-			// the main entry point for adding elemental handlers for a selector. The handler
-			// will be called for each element that is created that matches a given selector
-			selectorRenderers.push(renderer);
-			if(documentQueried){
-				findMatches(renderer);
-			}
-			renderWaiting();
-			/*if(!matchesSelector){
-				// create a custom property to identify this rule in created elements
-				return (renderers.triggerProperty = 'selector_' + encodeURIComponent(selector).replace(/%/g, '/')) + ': 1;' +
-					(document.querySelectorAll ? '' : 
-						// we use css expressions for IE6-7 to find new elements that match the selector, since qSA is not available, wonder if it is better to just use document.all...
-						 'zoom: expression(cssxRegister(this,"' + selector +'"));');
-			}*/
-		},
+		addRenderer: addRenderer,
 		// this should be called for newly created dynamic elements to ensure the proper rules are applied
 		update: update,
 		clearRenderers: function(){
 			// clears all the renderers in use
 			selectorRenderers = [];
+		},
+		observeForElement: function(observable, rule, callback){
+			return utils.when(observable, function(contextualizable){
+				function observe(observable){
+					if(observable.observe){
+						observable.observe(callback);
+					}else{
+						callback(observable);
+					}
+				}
+				if(contextualizable.forElement){
+					addRenderer(rule, function(element){
+						observe(contextualizable.forElement(element));
+					});
+				}else{
+					observe(contextualizable);
+				}
+			});
 		}
 	};
 });

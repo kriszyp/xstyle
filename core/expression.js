@@ -17,7 +17,9 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		}));
 	}
 	function observe(target, callback){
-		return (target && target.observe) ? target.observe(callback) : callback(target);
+		return utils.when(target, function(target){
+			return (target && target.observe) ? target.observe(callback) : callback(target);
+		});
 	}
 	function contextualize(callback){
 		return function(target){
