@@ -14,7 +14,8 @@ define(['xstyle/core/base', 'xstyle/core/Proxy', 'xstyle/core/parser', 'xstyle/m
 	});
 
 	var content = eval('(' + contentText + ')');
-	(body['page-content'] || (body['page-content'] = new Proxy())).setSource(content);
+	base.definitions['page-content'].setSource(content);
+	//(body['page-content'] || (body['page-content'] = new Proxy())).setSource(content);
 	/*base.newRule('content');
 	
 	parse(contentRule, contentText, {

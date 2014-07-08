@@ -84,16 +84,17 @@ define('xstyle/core/base', [
 		};
 	}
 	function observeExpressionForRule(rule, name, value, callback){
-		var result = expression.evaluate(rule, value);
-		if(result.forElement){
-			// we can't just set a style, we need to individually apply
-			// the styles for each element
-			elemental.addRenderer(rule, function(element){
-				callback(result.forElement(element), element);
-			});
-		}else{
-			callback(result);
-		}
+		return utils.when(expression.evaluate(rule, value), function(result){
+			if(result.forElement){
+				// we can't just set a style, we need to individually apply
+				// the styles for each element
+				elemental.addRenderer(rule, function(element){
+					callback(result.forElement(element), element);
+				});
+			}else{
+				callback(result);
+			}
+		});
 	}
 	function conditional(yes, no){
 		return {
@@ -183,7 +184,7 @@ define('xstyle/core/base', [
 		// TODO: add url()
 		// adds support for referencing each item in a list of items when rendering arrays 
 		item: elementProperty('item', null, true),
-		'page-content': elementProperty('page-content', {selector: 'body'}, true),
+		'page-content': new Proxy(),
 		// adds referencing to the prior contents of an element
 		content: elementProperty('content', null, true, function(target){
 			this.element;
@@ -285,6 +286,17 @@ define('xstyle/core/base', [
 								currentEvent = null;
 							});
 						});
+					}
+				};
+			}
+		},
+		title: {
+			forParent: function(rule){
+				return {
+					put: function(value){
+						expression.observe(expression.evaluate(rule, value), function(value){
+							document.title = value;	
+						});	
 					}
 				};
 			}
