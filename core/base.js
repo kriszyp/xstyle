@@ -72,7 +72,7 @@ define('xstyle/core/base', [
 				return elementProperty(property || newProperty, rule, newElement);
 			},
 			put: function(value){
-				elemental.addRenderer(function(element){
+				rule && elemental.addRenderer(rule, function(element){
 					var proxy = element[property];
 					if(proxy && proxy.put){
 						proxy.put(value);
