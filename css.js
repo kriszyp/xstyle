@@ -44,20 +44,21 @@ define(["require"], function(moduleRequire){
 				}
 				return;
 			}
-			function checkForParser(styleSheet){
+			function checkForParser(styleSheetElement){
 				var parser = testElementStyle('x-parse', null, 'content');
+				var sheet = styleSheetElement.sheet || styleSheetElement.styleSheet;
 				if(parser && parser != 'none'){
 					// TODO: wait for parser to load
 					require([eval(parser)], function(parser){
-						if(styleSheet){
-							parser.process({sheet: styleSheet}, callback);
+						if(styleSheetElement){
+							parser.process(styleSheetElement, callback);
 						}else{
 							parser.processAll();
-							callback(styleSheet);
+							callback(sheet);
 						}
 					});
 				}else{
-					callback(styleSheet);
+					callback(sheet);
 				}
 			}
 			
