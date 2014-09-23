@@ -277,12 +277,16 @@ define('xstyle/core/generate', [
 										(childTagForParent[element.tagName] || 'span'), '' + value);
 								};
 							}
-							var rows = value.map(function(value){
+							var rows = [];
+							value.forEach(function(value){
 								// TODO: do this inside generate
-								return eachHandler(element, value, null);
+								rows.push(eachHandler(element, value, null));
 							});
-							if(value.observe){
-								value.observe(function(object, previousIndex, newIndex){
+							if(value.on){
+								value.on(function(event){
+									var object = event.object;
+									var previousIndex = event.previousIndex;
+									var newIndex = event.indx;
 									if(previousIndex > -1){
 										var oldElement = rows[previousIndex];
 										oldElement.parentNode.removeChild(oldElement);
