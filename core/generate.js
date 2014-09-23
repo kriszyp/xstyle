@@ -258,7 +258,7 @@ define('xstyle/core/generate', [
 							textNode = null;
 						}
 						if(value.isSequence){
-							forSelector(value, part.parent)(element, item, beforeElement);
+							forSelector(value, rule)(element);
 						}else{
 							element.innerHTML = '';
 							// if it is an array, we do iterative rendering
