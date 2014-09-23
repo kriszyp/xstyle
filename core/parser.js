@@ -254,6 +254,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 									newTarget.selector = '.' + (assignmentOperator == '=' ?
 											first.match(/[\w-]*$/g,'')[0] : '') + '-x-' + nextId++;
 									newTarget.creating = true;
+									doExtend = true;
 								}else{
 									newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
 								}
