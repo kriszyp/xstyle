@@ -47,20 +47,20 @@ test-class-extend2 = test-class-extend.test-class2 {
 #core-test {
 	padding:20px;
 	=>
-	test-component {
-		label: Hi there;
-		content: some content;
-	},
-	hello-world, 
-	.with-content
-	div.parent
-		div.middle1
-			div.child1 { color: red;},
-			div.child2 
-		div.middle2
-		    div.child3 
-		    div.child4
-		div.middle3#one-child
+		test-component {
+			label: Hi there;
+			content: some content;
+		},
+		hello-world, 
+		.with-content
+		div.parent
+			div.middle1
+				div.child1 { color: red;},
+				div.child2 
+			div.middle2
+			    div.child3 
+			    div.child4
+			div.middle3#one-child
 }
 
 @xstyle end;
