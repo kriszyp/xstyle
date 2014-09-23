@@ -26,7 +26,13 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			if(target && target.forElement){
 				return {
 					forElement: function(element){
-						return callback(target.forElement(element));
+						var result = target.forElement(element);
+						var targetElement = result.element;
+						result = callback(result);
+						if (result) {
+							result.element = targetElement;
+						}
+						return result;
 					}
 				};
 			}
@@ -165,7 +171,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 					var input = inputs[i];
 					values[i] = input && input.valueOf();
 				}
-				return callback.apply(this, values);
+				return callback.valueOf().apply(this, values);
 			}
 			if(someHasProperty(inputs, 'observe')){
 				var result = {
