@@ -229,7 +229,9 @@ define('xstyle/core/generate', [
 
 	function renderExpression(element, nextPart, expressionResult, rule, expression){
 		var contentProxy = element.content || (element.content = new Proxy());
+		element.xSource = expressionResult;
 		utils.when(expressionResult, function(result){
+			element.xSource = result;
 			// TODO: assess how we could propagate changes categorically
 			if(result.forElement){
 				result = result.forElement(element);

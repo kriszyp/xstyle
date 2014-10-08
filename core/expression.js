@@ -79,7 +79,6 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		return resolved(function(inputs){	
 			// handles waiting for async inputs
 			if(someHasProperty(inputs, 'then')){
-				var inputs = inputs;
 				// we have asynch inputs, do lazy loading
 				return {
 					then: function(onResolve, onError){
@@ -87,8 +86,8 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 						var readyInputs = [];
 						for(var i = 0; i < inputs.length; i++){
 							var input = inputs[i];
+							remaining++;
 							if(input && input.then){
-								remaining++;
 								(function(i){
 									input.then(function(value){
 										readyInputs[i] = value;
@@ -107,7 +106,8 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 								onResolve(callback[returnArray ? 'call' : 'apply'](this, readyInputs));
 							}
 						}
-					}
+					},
+					inputs: inputs
 				};
 			}
 			// just sync inputs
@@ -155,7 +155,8 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 							computation && (computation.element = mostSpecificElement);
 						}
 						return computation;
-					}
+					},
+					inputs: inputs
 				};
 			}
 			return callback[returnArray ? 'call' : 'apply'](this, inputs);
@@ -185,7 +186,8 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 					},
 					valueOf: function(){
 						return computeResult();
-					}
+					},
+					inputs: inputs
 				};
 				if(reverse && someHasProperty(inputs, 'put')){
 					result.put = function(value){
@@ -280,6 +282,8 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 		var lastOperatorPrecedence;
 		var stack = [];
 		var lastOperator;
+		// TODO: might only enable this in debug mode
+		var dependencies = {};
 		// now apply operators
 		for(i = 0; i < value.length; i++){
 			part = value[i];
@@ -321,6 +325,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				}else if(target === undefined){
 					throw new Error('Could not find reference "' + firstReference + '"');
 				}
+				dependencies[firstReference] = target;
 				if(propertyParts.length > 1){
 					target = get(target, propertyParts.slice(1));
 				}
@@ -341,8 +346,9 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				lastOperatorPrecedence = lastOperator && operators[lastOperator] && operators[lastOperator].precedence;
 			}
 		}
-
-		return stack[0];
+		part = stack[0];
+		part.inputs = dependencies;
+		return part;
 	}
 
 	return {
