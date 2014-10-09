@@ -285,10 +285,10 @@ define('xstyle/core/generate', [
 								rows.push(eachHandler(element, value, null));
 							});
 							if(value.on){
-								value.on(function(event){
-									var object = event.object;
+								value.on('add,delete,update', function(event){
+									var object = event.target;
 									var previousIndex = event.previousIndex;
-									var newIndex = event.indx;
+									var newIndex = event.index;
 									if(previousIndex > -1){
 										var oldElement = rows[previousIndex];
 										oldElement.parentNode.removeChild(oldElement);
