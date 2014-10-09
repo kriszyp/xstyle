@@ -177,12 +177,21 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			if(someHasProperty(inputs, 'observe')){
 				var result = {
 					observe: function(listener){
+						var handles = [];
 						for(var i = 0, l = inputs.length; i < l; i++){
 							var input = inputs[i];
-							input && input.observe && input.observe(function(){
+							handles.push(input && input.observe && input.observe(function(){
 								listener(computeResult());
-							});
+							}));
 						}
+						return {
+							remove: function () {
+								for(var i = 0, l = handles.length; i < l; i++){
+									var handle = handles[i];
+									handle && handle.remove && handle.remove();
+								}
+							}
+						};
 					},
 					valueOf: function(){
 						return computeResult();
