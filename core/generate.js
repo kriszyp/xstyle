@@ -4,8 +4,9 @@ define('xstyle/core/generate', [
 	'xstyle/core/utils',
 	'xstyle/core/expression',
 	'xstyle/core/base',
-	'xstyle/core/Proxy'
-], function(elemental, put, utils, expressionModule, root, Proxy){
+	'xstyle/core/Proxy',
+	'xstyle/core/context'
+], function(elemental, put, utils, expressionModule, root, Proxy, ElementContext){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
@@ -65,11 +66,33 @@ define('xstyle/core/generate', [
 									// apply the class for the next part so we can reference it properly
 									put(lastElement, nextPart.selector);
 								}
-								// TODO: make sure we only do this only once
 								var expression = part.getArgs()[0];
-								var expressionResult = expressionModule.evaluate(part.parent, expression);
-								
-								renderExpression(lastElement, nextPart, expressionResult, rule, expression);
+								var expressionResult = part.expression;
+								// make sure we only do this only once
+								var context = new ElementContext(lastElement, rule);
+								if(!expressionResult){
+									expressionResult = part.expression =
+										expressionModule.evaluate(part.parent, expression);
+									(function(part, context){
+										utils.when(expressionResult, function(expressionResult){
+											var cache = context.getCache(expressionResult);
+											part.expression = expressionResult;
+											// setup an invalidation object, to rerender when data changes
+											expressionResult.depend({
+												invalidate: function(context){
+													var elementsToRerender = cache.elementsForDependent(context);
+													// TODO: should we use elemental's renderer?
+													// TODO: do we need to closure the scope of any of these variables
+													for(var i = 0, l = elementsToRerender.length;i < l; i++){
+														renderExpression(elementsToRerender[i], nextPart, 
+															this, rule, expression);
+													}
+												}
+											});
+										});
+									})(part, context);
+								}
+								renderExpression(lastElement, nextPart, expressionResult, rule, expression, context);
 							}else{// brackets
 								put(lastElement, part.toString());
 							}
@@ -227,31 +250,16 @@ define('xstyle/core/generate', [
 
 	}
 
-	function renderExpression(element, nextPart, expressionResult, rule, expression){
-		var contentProxy = element.content || (element.content = new Proxy());
+	function renderExpression(element, nextPart, expressionResult, rule, expression, context){
+		/*var contentProxy = element.content || (element.content = new Proxy());
 		element.xSource = expressionResult;
-		utils.when(expressionResult, function(result){
-			element.xSource = result;
-			// TODO: assess how we could propagate changes categorically
-			if(result.forElement){
-				result = result.forElement(element);
-				// now apply.element should indicate the element that it is actually
-				// keying or varying on
-			}
-			// We want to contextualize this for the parent (forParent), but
-			// we need to differentiate it from the forParent that rules do that create
-			// a new rule-specific instances (hence the flag)
-			if(result.forParent){
-				// if the result can be specific to a rule, apply that context
-				result = result.forParent(rule, expression, true);
-			}
-			contentProxy.setSource(result);
-		});
+		var context = new ElementContext(element, rule);
+		contentProxy.setValue(expressionResult);*/
 		if(!('_defaultBinding' in element)){
 			// if we don't have any handle for content yet, we install this default handling
 			element._defaultBinding = true;
 			var textNode = element.appendChild(doc.createTextNode('Loading'));
-			contentProxy.observe(function(value){
+			utils.when(expressionResult.valueOf(context), function(value){
 				if(element._defaultBinding){ // the default binding can later be disabled
 					if(value && value.sort){
 						if(textNode){

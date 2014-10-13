@@ -215,27 +215,21 @@ define('xstyle/core/base', [
 			}
 		},
 		each: {
-			forParent: function(rule){
-				return {
-					put: function(value){
-						rule.each = value;
-					}
-				};
+			put: function(value, context){
+				context.getRule().each = value;
 			}
 		},
 		prefix: {
-			forParent: function(rule, name){
-				return {
-					put: function(value){
-						// add a vendor prefix
-						// check to see if the browser supports this feature through vendor prefixing
-						if(typeof testDiv.style[vendorPrefix + name] == 'string'){
-							// if so, handle the prefixing right here
-							rule._setStyleFromValue(vendorPrefix + name, value);
-							return true;
-						}
-					}
-				};
+			put: function(value, context){
+				// add a vendor prefix
+				// check to see if the browser supports this feature through vendor prefixing
+				var name = context.getName();
+				var rule = context.getRule();
+				if(typeof testDiv.style[vendorPrefix + name] == 'string'){
+					// if so, handle the prefixing right here
+					rule._setStyleFromValue(vendorPrefix + name, value);
+					return true;
+				}
 			}
 		},
 		// provides CSS variable support
@@ -265,40 +259,33 @@ define('xstyle/core/base', [
 			return value;
 		}),
 		on: {
-			forParent: function(rule, name){
-				return {
-					put: function(value){
-						// add listener
-						elemental.on(document, name.slice(3), rule.selector, function(event){
-							currentEvent = event;
-							// TODO: might consider this putting in a separate 'realize()' function
-							utils.when(expression.evaluate(rule, value), function(computation){
-								currentEvent = event;
-								if(computation && computation.forElement){
-									computation = computation.forElement(event.target);
-								}
-								if(computation && computation.observe){
-									// trigger observe, if it has one
-									computation = computation.observe(function(){});
-								}
-								computation && computation.stop && computation.stop();
-								computation && computation.remove && computation.remove();
-								currentEvent = null;
-							});
-						});
-					}
-				};
+			put: function(value, context){
+				// add listener
+				var rule = context.getRule();
+				elemental.on(document, context.getName().slice(3), rule.selector, function(event){
+					currentEvent = event;
+					// TODO: might consider this putting in a separate 'realize()' function
+					utils.when(expression.evaluate(rule, value), function(computation){
+						currentEvent = event;
+						if(computation && computation.forElement){
+							computation = computation.forElement(event.target);
+						}
+						if(computation && computation.observe){
+							// trigger observe, if it has one
+							computation = computation.observe(function(){});
+						}
+						computation && computation.stop && computation.stop();
+						computation && computation.remove && computation.remove();
+						currentEvent = null;
+					});
+				});
 			}
 		},
 		title: {
-			forParent: function(rule){
-				return {
-					put: function(value){
-						expression.observe(expression.evaluate(rule, value), function(value){
-							document.title = value;	
-						});	
-					}
-				};
+			put: function(value, context){
+				expression.observe(expression.evaluate(context.getRule(), value), function(value){
+					document.title = value;	
+				});	
 			}
 		},
 		'@supports': {

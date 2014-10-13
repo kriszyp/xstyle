@@ -201,13 +201,18 @@ define('xstyle/core/Rule', [
 							// call the handler to handle this rule
 							target = target.splice ? target : [target];
 							for(var i = 0; i < target.length; i++){
-								var segment = target[i];
+								var definition = target[i];
 								var returned;
-								utils.when(segment, function(segment){
-									var newProperty = segment.forParent ?
-										segment.forParent(rule, propertyName) :
-										segment;
-									returned = newProperty.put(value);
+								utils.when(definition, function(definition){
+									// TODO: create a class for the context
+									returned = definition.put(value, {
+										getName: function(){
+											return propertyName;
+										},
+										getRule: function(){
+											return rule;
+										}
+									});
 								});
 								if(returned){
 									return returned;
@@ -268,28 +273,25 @@ define('xstyle/core/Rule', [
 				this.setStyle(propertyName, value);
 			}
 		},
-		forParent: function(rule){
+		put: function(value, context){
 			// rules can be used as properties, in which case they act as mixins
 			// first extend
+			var rule = context.getRule();
 			this.extend(rule);
 			var base = this;
-			return {
-				put: function(value){
-					if(value == 'defaults'){
-						// this indicates that we should leave the mixin properties as is.
-						return;
-					}
-					if(value && typeof value == 'string' && base.values){
-						// then apply properties with comma delimiting
-						var parts = value.toString().split(/,\s*/);
-						for(var i = 0; i < parts.length; i++){
-							// TODO: take the last part and don't split on spaces
-							var name = base.values[i];
-							name && rule.setValue(name, parts[i], base);
-						}
-					}
+			if(value == 'defaults'){
+				// this indicates that we should leave the mixin properties as is.
+				return;
+			}
+			if(value && typeof value == 'string' && base.values){
+				// then apply properties with comma delimiting
+				var parts = value.toString().split(/,\s*/);
+				for(var i = 0; i < parts.length; i++){
+					// TODO: take the last part and don't split on spaces
+					var name = base.values[i];
+					name && rule.setValue(name, parts[i], base);
 				}
-			};
+			}
 		},
 		extend: function(derivative, fullExtension){
 			// we might consider removing this if it is only used from put

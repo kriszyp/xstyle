@@ -2,7 +2,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 	// handles the creation of reactive expressions
 	var nextId = 1;
 	function get(target, path){
-		return utils.when(target, contextualize(function(target){
+		return utils.when(target, function(target){
 			var name = path[0];
 			if(!target){
 				return target;
@@ -14,7 +14,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				return get(target[name], path.slice(1));
 			}
 			return target;
-		}));
+		});
 	}
 	function observe(target, callback){
 		return utils.when(target, function(target){
@@ -114,6 +114,83 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			return callback[returnArray ? 'call' : 'apply'](this, inputs);
 		}, true);
 	}
+	var nextId = 1;
+	function contextualCache(func, reverse){
+		return ready(function(inputs){
+			var caches = {};
+			var nonContextCache;
+			var variable = {
+				// TODO: make ids have a little better names
+				id: 'x-variable-' + nextId++,
+				valueOf: function(context){
+					// first check to see if we have the variable cached for this context
+					var contextualizedInputResults = [];
+					var useCache = this.dependents;
+					if(useCache){
+						if(context){
+							var cache = context.getCache(this);
+							var caches = (this.caches || (this.caches = []));
+							if(caches.indexOf(cache) == -1){
+								caches.push(cache);
+							}
+							var cached = cache.get(context);
+							// check the cache first
+							if(cached){
+								return cached;
+							}
+						}else{
+							
+						}
+					}
+					var trackedContext = context && context.track();
+					for(var i = 0, l = inputs.length; i < l; i++){
+						contextualizedInputResults[i] = inputs[i].valueOf(trackedContext);
+					}
+					var result = ready(func)(contextualizedInputResults);
+					if(useCache && cache){
+						utils.when(result, function(result){
+							cache.set(trackedContext, result);
+						});
+					}
+					return result;
+				},
+				property: function(key){
+					var propertyVariable = contextualCache(function(object){
+						Object.observe(object, function(){
+							// TODO: only invalide the property with the correct name
+							// TODO: only setup Object.observe once
+							propertyVariable.invalidate();
+						});
+						return object[key];
+					})(this);
+					// TODO: set a nice id here
+				},
+				invalidate: function(context){
+					var caches = this.caches || 0;
+					for(var i = 0, l = caches.length; i < l; i++){
+						caches[i].clear(this);
+					}
+					// TODO: invalidate all the dependentVariables
+					// TODO: invalidate any sub-properties
+					var dependents = this.dependents;
+					for(var i = 0, l = dependents.length; i < l; i++){
+						dependents[i].invalidate(context);
+					}
+				},
+				depend: function(dependent){
+					(this.dependents || (this.dependents = [])).push(dependent);
+				}
+
+			};
+			if(reverse && someHasProperty(inputs, 'put')){
+				variable.put = function(value, context){
+					reverse(value, inputs, context);
+					variable.invalidate(context);
+				};
+			}
+			return variable;
+		}, true);
+	}
 	function contextualized(callback, returnArray){
 		// this function is responsible for contextualizing a result
 		// based on the context of the arguments/inputs
@@ -174,16 +251,18 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				}
 				return callback.valueOf().apply(this, values);
 			}
-			if(someHasProperty(inputs, 'observe')){
+			if(someHasProperty(inputs, 'depend')){
+				var dependents;
 				var result = {
-					observe: function(listener){
-						var handles = [];
-						for(var i = 0, l = inputs.length; i < l; i++){
-							var input = inputs[i];
-							handles.push(input && input.observe && input.observe(function(){
-								listener(computeResult());
-							}));
+					depend: function(dependent){
+						if(!dependents){
+							for(var i = 0, l = inputs.length; i < l; i++){
+								var input = inputs[i];
+								input.depend && input.depend(this);
+							}
+							dependents = [];
 						}
+						dependents.push(dependent);
 						return {
 							remove: function () {
 								for(var i = 0, l = handles.length; i < l; i++){
@@ -192,6 +271,11 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 								}
 							}
 						};
+					},
+					invalidate: function(){
+						for(var i = 0, l = dependents.length; i < l; i++){
+							dependents[i].invalidate();
+						}
 					},
 					valueOf: function(){
 						return computeResult();
@@ -239,7 +323,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			forward = getOperatingFunction(forward);
 			reverseA = reverseA && getOperatingFunction(reverseA);
 			reverseB = reverseB && getOperatingFunction(reverseB);
-			operators[operator] = operatorReactive = react(forward, reverse);
+			operators[operator] = operatorReactive = contextualCache(forward, reverse);
 			addFlags(operatorReactive);
 			return operatorReactive.apply(this, arguments);
 		};
@@ -304,12 +388,13 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 				}else{
 					stack.pop();
 					part = (function(args){
-						return utils.when(func, function(func){
+						var result = utils.when(func, function(func){
 							if(!func.selfResolving){
-								func = react(func);
+								func = contextualCache(func);
 							}
 							return func.apply(rule, args);
 						});
+						return result;
 					})(part.getArgs());
 				}
 			}else if(operators.hasOwnProperty(part)){

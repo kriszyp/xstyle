@@ -20,12 +20,15 @@ define('xstyle/core/Proxy', ['xstyle/core/utils'], function(utils){
 			proxy.name = key;
 			return proxy;
 		},
-		observe: function(listener){
-			(this._listeners || (this._listeners = [])).push(listener);
-			if(this.source !== undefined){
-				listener(this.valueOf());
-			}
+		depend: function(dependent){
+			(this._dependents || (this._dependents = [])).push(dependent);
 			// TODO: return handle with remove method
+		},
+		invalidate: function(context){
+			var dependents = this._dependents || 0;
+			for(var i = 0; i < dependents.length; i++){
+				dependents[i].invalidate(context);
+			}
 		},
 		setSource: function(source){
 			var proxy = this;
@@ -34,28 +37,19 @@ define('xstyle/core/Proxy', ['xstyle/core/utils'], function(utils){
 			}
 			when(source, function(source){
 				proxy.source = source;
-				var listeners = proxy._listeners || 0;
-				var value = proxy.valueOf();
-				for(var i = 0; i < listeners.length; i++){
-					listeners[i](value);
-				}
-				if(source && source.observe){
-					proxy.handle = source.observe(function(value){
-						var listeners = proxy._listeners || 0;
-						for(var i = 0; i < listeners.length; i++){
-							listeners[i](value);
-						}
-					});
+				proxy.invalidate();
+				if(source && source.depend){
+					proxy.handle = source.depend(this);
 				}
 				var properties = proxy._properties;
-				for(i in properties){
+				for(var i in properties){
 					proxy.property(i).setSource(source && source.property && source.property(i));
 				}
 			});
 		},
-		valueOf: function(){
+		valueOf: function(context){
 			var source = this.source;
-			return source && source.observe ? source.valueOf() : source;
+			return source && source.observe ? source.valueOf(context) : source;
 		},
 		get: function(key){
 			var source = this.source;
@@ -79,10 +73,10 @@ define('xstyle/core/Proxy', ['xstyle/core/utils'], function(utils){
 			}
 			return value;
 		},
-		put: function(value){
+		put: function(value, context){
 			var source = this.source;
 			if(source && source.put){
-				return source.put(value);
+				return source.put(value, context);
 			}else if(this.parent){
 				this.parent[this.name] = value;
 			}
