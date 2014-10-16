@@ -39,7 +39,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 			// TODO: does this ever happen
 			// simple string split
 			parsedArgs = sequence.split(/\s*,\s*/);
-		}else{
+		}else if(sequence){
 			// need to go through the sequence to find comma splits
 			parsedArgs = [];
 			var lastPosition = 0;
@@ -58,6 +58,8 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 					}
 				}
 			}
+		}else{
+			return [];
 		}
 		return parsedArgs;
 	}

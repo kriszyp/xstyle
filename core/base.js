@@ -1,12 +1,14 @@
 define('xstyle/core/base', [
 	'xstyle/core/elemental',
 	'xstyle/core/expression',
+	'xstyle/core/Context',
+	'xstyle/core/Definition',
 	'xstyle/core/utils',
 	'put-selector/put',
 	'xstyle/core/Rule',
 	'dojo/Deferred',
 	'xstyle/core/Proxy'
-], function(elemental, expression, utils, put, Rule, Deferred, Proxy){
+], function(elemental, expression, Context, Definition, utils, put, Rule, Deferred, Proxy){
 	// this module defines the base definitions intrisincally available in xstyle stylesheets
 	var testDiv = put('div');
 	var ua = navigator.userAgent;
@@ -27,51 +29,42 @@ define('xstyle/core/base', [
 	root.root = true;
 	function elementProperty(property, rule, inherit, newElement){
 		// definition bound to an element's property
-		// TODO: allow it be bound to other names, and use prefixing to not collide with element names
-		return {
-			forElement: function(element, directReference){
-				var contentElement = element;
-				if(newElement){
-					// content needs to start at the parent
+		var definition = new Definition(function(context){
+			var element = context.getElement();
+			var contentElement = element;
+			if(newElement){
+				// content needs to start at the parent
+				element = element.parentNode;
+			}
+			if(rule){
+				while(!element.matches(rule.selector)){
 					element = element.parentNode;
-				}
-				if(rule){
-					while(!element.matches(rule.selector)){
-						element = element.parentNode;
-						if(!element){
-							throw new Error('Rule not found');
-						}
+					if(!element){
+						throw new Error('Rule not found');
 					}
 				}
-				if(inherit){
-					// we find the parent element with an item property, and key off of that 
-					while(!(property in element)){
-						element = element.parentNode;
-						if(!element){
-							throw new Error(property ? (property + ' not found') : ('Property was never defined'));
-						}
+			}
+			if(inherit){
+				// we find the parent element with an item property, and key off of that 
+				while(!(property in element)){
+					element = element.parentNode;
+					if(!element){
+						throw new Error(property ? (property + ' not found') : ('Property was never defined'));
 					}
 				}
-				// provide a means for being able to reference the target node,
-				// this primarily used by the generate model to nest content properly
-				if(directReference){
-					element['_' + property + 'Node'] = contentElement;
-				}
-				var value = element[property];
-				if(!value){
-					value = element[property] = new Proxy(null);
-				}else if(!value.observe){
-					value = new Proxy(value);
-				}
-				value.element = element;
-				value.newElement = newElement;
-				return value;
-			},
-			define: function(rule, newProperty){
-				// if we don't already have a property define, we will do so now
-				return elementProperty(property || newProperty, rule, newElement);
-			},
-			put: function(value){
+			}
+			// provide a means for being able to reference the target node,
+			// this primarily used by the generate model to nest content properly
+			/*if(directReference){
+				element['_' + property + 'Node'] = contentElement;
+			}*/
+			return element[property];
+		});
+		definition.define = function(rule, newProperty){
+			// if we don't already have a property define, we will do so now
+			return elementProperty(property || newProperty, rule, newElement);
+		};
+			/*put: function(value){
 				rule && elemental.addRenderer(rule, function(element){
 					var proxy = element[property];
 					if(proxy && proxy.put){
@@ -81,7 +74,8 @@ define('xstyle/core/base', [
 					}
 				});
 			}
-		};
+		};*/
+		return definition;
 	}
 	function observeExpressionForRule(rule, name, value, callback){
 		return utils.when(expression.evaluate(rule, value), function(result){
@@ -264,18 +258,12 @@ define('xstyle/core/base', [
 				var rule = context.getRule();
 				elemental.on(document, context.getName().slice(3), rule.selector, function(event){
 					currentEvent = event;
-					// TODO: might consider this putting in a separate 'realize()' function
-					utils.when(expression.evaluate(rule, value), function(computation){
-						currentEvent = event;
-						if(computation && computation.forElement){
-							computation = computation.forElement(event.target);
-						}
-						if(computation && computation.observe){
-							// trigger observe, if it has one
-							computation = computation.observe(function(){});
-						}
-						computation && computation.stop && computation.stop();
-						computation && computation.remove && computation.remove();
+					var context = new Context(event.target, rule, event);
+					// execute the event listener by calling valueOf
+					// note that we could define a flag on the definition to indicate that
+					// we shouldn't cache it, incidently, since their are no dependencies
+					// declared for this definition, it shouldn't end up being cached
+					utils.when(expression.evaluate(rule, value).valueOf(context), function(){
 						currentEvent = null;
 					});
 				});

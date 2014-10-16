@@ -22,7 +22,7 @@ define('xstyle/core/Rule', [
 	function Rule(){}
 	Rule.prototype = {
 		property: function(key){
-			// basic property implementation to match the reactive/dstore API
+			// basic property implementation to match the property API
 			return (this._properties || (this._properties = {}))[key] || (this._properties[key] = new Proxy(this.get(key)));
 		},
 		eachProperty: function(onProperty){

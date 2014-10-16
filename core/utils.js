@@ -1,10 +1,55 @@
 define('xstyle/core/utils', [], function(){
 	// some utility functions
 	var supportedTags = {};
+	function someHasProperty(array, property){
+		for(var i = 0, l = array.length; i < l; i++){
+			var item = array[i];
+			if(item && typeof item == 'object' && property in item){
+				return true;
+			}
+		}
+	}
 	return {
 		when: function(value, callback){
 			return value && value.then ?
 				(value.then(callback) || value) : callback(value);
+		},
+		whenAll: function(inputs, callback){
+			if(someHasProperty(inputs, 'then')){
+				// we have asynch inputs, do lazy loading
+				return {
+					then: function(onResolve, onError){
+						var remaining = 1;
+						var readyInputs = [];
+						for(var i = 0; i < inputs.length; i++){
+							var input = inputs[i];
+							remaining++;
+							if(input && input.then){
+								(function(i){
+									input.then(function(value){
+										readyInputs[i] = value;
+										onEach();
+									}, onError);
+								})(i);
+							}else{
+								readyInputs[i] = input;
+								onEach();
+							}
+						}
+						onEach();
+						function onEach(){
+							remaining--;
+							if(!remaining){
+								onResolve(callback(readyInputs));
+							}
+						}
+					},
+					inputs: inputs
+				};
+			}
+			// just sync inputs
+			return callback(inputs);
+
 		},
 		convertCssNameToJs: function(name){
 			// TODO: put this in a util module since it is duplicated in parser.js

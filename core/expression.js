@@ -1,20 +1,12 @@
-define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
+define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition'], function(utils, Definition){
 	// handles the creation of reactive expressions
 	var nextId = 1;
 	function get(target, path){
-		return utils.when(target, function(target){
-			var name = path[0];
-			if(!target){
-				return target;
-			}
-			if(name && target.property){
-				return get(target.property(name), path.slice(1));
-			}
-			if(name){
-				return get(target[name], path.slice(1));
-			}
-			return target;
-		});
+		var name = path[0];
+		if(name && target){
+			return get(target.property(name), path.slice(1));
+		}
+		return target;
 	}
 	function observe(target, callback){
 		return utils.when(target, function(target){
@@ -76,7 +68,7 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 	}
 
 	function ready(callback, returnArray){
-		return resolved(function(inputs){	
+		return resolved(function(inputs){
 			// handles waiting for async inputs
 			if(someHasProperty(inputs, 'then')){
 				// we have asynch inputs, do lazy loading
@@ -239,7 +231,33 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			return callback[returnArray ? 'call' : 'apply'](this, inputs);
 		}, true);
 	}
-	function react(callback, reverse){
+	function react(forward, reverse){
+		return function(){
+			var inputs = arguments;
+			var definition = this;
+			for(var i = 0, l = inputs.length; i < l; i++){
+				var input = inputs[i];
+				input.depend && input.depend(definition);
+			}
+			var compute = function(context){
+				var contextualizedResults = [];
+				// TODO: make an opt-out for this
+				for(var i = 0, l = inputs.length; i < l; i++){
+					contextualizedResults[i] = inputs[i].valueOf(context);
+				}
+				if(forward.selfWaiting){
+					return forward.apply(definition, contextualizedResults);
+				}
+				// wait for the values to be received
+				return utils.whenAll(contextualizedResults, function(results){
+					return forward.apply(definition, results);
+				});
+			};
+			compute.reverse = reverse;
+			return compute;
+		};
+
+
 		// based on reactive inputs, define a new reactive,
 		// that uses the callback function to compute new values
 		return contextualized(function(inputs){
@@ -323,7 +341,9 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			forward = getOperatingFunction(forward);
 			reverseA = reverseA && getOperatingFunction(reverseA);
 			reverseB = reverseB && getOperatingFunction(reverseB);
-			operators[operator] = operatorReactive = contextualCache(forward, reverse);
+			var args = arguments;
+			// TODO: depend on each argument
+			operators[operator] = operatorReactive = react(forward, reverse);
 			addFlags(operatorReactive);
 			return operatorReactive.apply(this, arguments);
 		};
@@ -387,15 +407,26 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 					part = evaluateExpression(rule, part.getArgs()[0]);
 				}else{
 					stack.pop();
-					part = (function(args){
-						var result = utils.when(func, function(func){
-							if(!func.selfResolving){
-								func = contextualCache(func);
-							}
-							return func.apply(rule, args);
+					part = (function(func, args){
+						var resolved;
+						var compute;
+						var definition = new Definition(function(context){
+							return utils.when(func.valueOf(), function(func){
+								if(!func.selfResolving){
+									if(!resolved){
+										resolved = [];
+										for(var i = 0, l = args.length; i < l; i++){
+											resolved[i] = evaluateExpression(rule, args[i]);
+										}
+										compute = react(func).apply(definition, resolved);
+									}
+									return compute(context);
+								}
+								return func.apply(definition, args).valueOf(context);
+							});
 						});
-						return result;
-					})(part.getArgs());
+						return definition;
+					})(func, part.getArgs());
 				}
 			}else if(operators.hasOwnProperty(part)){
 				// it is an operator, it has been added to the stack, but we need
@@ -434,7 +465,9 @@ define('xstyle/core/expression', ['xstyle/core/utils'], function(utils){
 			while(lastOperatorPrecedence >= operator.precedence){
 				var lastOperand = stack.pop();
 				var executingOperator = operators[stack.pop()];
-				var result = executingOperator.apply(rule, executingOperator.infix ? [stack.pop(), lastOperand] : [lastOperand]);
+				var result = new Definition();
+				result.setCompute(executingOperator.apply(result, executingOperator.infix ?
+					[stack.pop(), lastOperand] : [lastOperand]));
 				lastOperator = stack.length && stack[stack.length-1];
 				stack.push(result);
 				lastOperatorPrecedence = lastOperator && operators[lastOperator] && operators[lastOperator].precedence;

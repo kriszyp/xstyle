@@ -1,78 +1,105 @@
-define(['xstyle/core/utils'], function(utils){
-	function Definition(computeValue){
+define(['xstyle/core/utils', 'xstyle/core/Context', 'xstyle/core/observe'],
+		function(utils, Context, observe){
+	function Definition(computeValue, reverseCompute){
 		// computeValue: This is function (or promise to a function) that is called to calculate
 		// the value of this definition
 		this.computeValue = computeValue;
+		if(reverseCompute){
+			this.setReverseCompute(reverseCompute);
+		}
 	}
+	// a context with no context, for when the context is missing
+	var noContext = new Context();
+
 	var nextId = 1;
 	Definition.prototype = {
 		// TODO: make ids have a little better names
 		id: 'x-variable-' + nextId++,
 		valueOf: function(context){
+			context = context || noContext;
 			// first check to see if we have the variable cached for this context
-			var contextualizedInputResults = [];
+			var cache;
 			var useCache = this.dependents;
 			if(useCache){
-				if(context){
-					var cache = context.getCache();
-					var caches = (this.caches || (this.caches = []));
-					if(caches.indexOf(cache) == -1){
-						caches.push(cache);
-					}
-					var cached = cache.get(context);
-					// check the cache first
-					if(cached){
-						return cached;
-					}
-				}else{
-					
+				this.cache = cache = context.getCache(this, this.cache);
+				var cached = cache.get('value', context);
+				// check the cache first
+				if(cached){
+					return cached;
 				}
 			}
 			var trackedContext = context && context.track();
-			var inputs = this.inputs || 0;
-			for(var i = 0, l = inputs.length; i < l; i++){
-				contextualizedInputResults[i] = inputs[i].valueOf(trackedContext);
-			}
 			var definition = this;
 			var result = utils.when(this.computeValue, function(computeValue){
 				// skip the promise in the future
 				definition.computeValue = computeValue;
-				return ready(computeValue)(contextualizedInputResults);
+				return computeValue(trackedContext);
 			});
 			if(useCache && cache){
 				utils.when(result, function(result){
-					cache.set(trackedContext, result);
+					cache.set('value', result, trackedContext);
 				});
 			}
 			return result;
 		},
 		property: function(key){
-			// TODO: cache the properties
-			var definition = this;
-			var propertyVariable = new Definition(utils.when(this.valueOf(), function(object){
-				Object.observe(object, function(){
-					// TODO: only invalide the property with the correct name
-					// TODO: only setup Object.observe once
-					propertyVariable.invalidate();
+			var properties = this._properties || (this._properties = {});
+			var propertyDefinition = properties[key];
+			if(!propertyDefinition){
+				// create the property definition
+				var definition = this;
+				propertyDefinition = properties[key] = new Definition(function(context){
+					var trackedContext = context.track();
+					return utils.when(definition.valueOf(trackedContext), function(object){
+						var cache = context.getCache(this);
+						var observer = cache.get('observer', trackedContext);
+						if(!observer && object && typeof object == 'object'){
+							// if we haven't recorded any observer for this context, let's
+							// setup one now
+							observer = function(event){
+								var property = properties[event.name];
+								if(property && property.invalidate){
+									property.invalidate();
+								}
+							};
+							observe.observe(object, observer);
+							cache.set('observer', observer, trackedContext);
+						}
+						// used by the polyfill to setup setters
+						if(observer.addKey){
+							observer.addKey(key);
+						}
+						return object && object[key];
+					});
 				});
-				return object[key];
-			}));
-			propertyVariable.put = function(value){
-				return utils.when(definition.valueOf(), function(object){
-					object[key] = value;
-				});
-			};
-			// TODO: set a nice id here
+				propertyDefinition.put = function(value, context){
+					return utils.when(definition.valueOf(context), function(object){
+						object[key] = value;
+					});
+				};
+				propertyDefinition.id = this.id + '-' + key;
+			}
+			return propertyDefinition;
 		},
 		invalidate: function(context){
+			context = context || noContext;
 			var caches = this.caches || 0;
-			for(var i = 0, l = caches.length; i < l; i++){
-				caches[i].clear(this);
+			var i, l;
+			for(i = 0, l = caches.length; i < l; i++){
+				var cache = caches[i];
+				var observer = cache.get('observer', context);
+				// TODO: there might actually be a collection of observers
+				if(observer){
+					observe.unobserve(observer);
+				}
+				caches[i].clear(context);
 			}
-			// TODO: invalidate all the dependentVariables
-			// TODO: invalidate any sub-properties
-			var dependents = this.dependents;
-			for(var i = 0, l = dependents.length; i < l; i++){
+			var properties = this._properties;
+			for(i in properties){
+				properties[i].invalidate();
+			}
+			var dependents = this.dependents || 0;
+			for(i = 0, l = dependents.length; i < l; i++){
 				dependents[i].invalidate(context);
 			}
 		},
@@ -84,6 +111,21 @@ define(['xstyle/core/utils'], function(utils){
 				reverse(value, this.inputs, context);
 				this.invalidate(context);
 			};
+		},
+		setCompute: function(compute){
+			this.computeValue = compute;
+			this.invalidate();
+		},
+		setSource: function(value){
+			this.computeValue = function(){
+				return value;
+			};
+			this.invalidate();
+		},
+		newElement: function(context){
+			return utils.when(this.valueOf(context), function(value){
+				return value && value.newElement && value.newElement(context);
+			});
 		}
 	};
 	function someHasProperty(array, property){

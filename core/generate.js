@@ -5,8 +5,8 @@ define('xstyle/core/generate', [
 	'xstyle/core/expression',
 	'xstyle/core/base',
 	'xstyle/core/Proxy',
-	'xstyle/core/context'
-], function(elemental, put, utils, expressionModule, root, Proxy, ElementContext){
+	'xstyle/core/Context'
+], function(elemental, put, utils, expressionModule, root, Proxy, Context){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
@@ -69,28 +69,26 @@ define('xstyle/core/generate', [
 								var expression = part.getArgs()[0];
 								var expressionResult = part.expression;
 								// make sure we only do this only once
-								var context = new ElementContext(lastElement, rule);
+								var context = new Context(lastElement, rule);
 								if(!expressionResult){
 									expressionResult = part.expression =
 										expressionModule.evaluate(part.parent, expression);
-									(function(part, context){
-										utils.when(expressionResult, function(expressionResult){
-											var cache = context.getCache(expressionResult);
-											part.expression = expressionResult;
-											// setup an invalidation object, to rerender when data changes
-											expressionResult.depend({
-												invalidate: function(context){
-													var elementsToRerender = cache.elementsForDependent(context);
-													// TODO: should we use elemental's renderer?
-													// TODO: do we need to closure the scope of any of these variables
-													for(var i = 0, l = elementsToRerender.length;i < l; i++){
-														renderExpression(elementsToRerender[i], nextPart, 
-															this, rule, expression);
-													}
+									(function(nextPart, context){
+										var cache = context.getCache(expressionResult);
+										part.expression = expressionResult;
+										// setup an invalidation object, to rerender when data changes
+										expressionResult.depend({
+											invalidate: function(context){
+												var elementsToRerender = cache.elementsForDependent(context);
+												// TODO: should we use elemental's renderer?
+												// TODO: do we need to closure the scope of any of these variables
+												for(var i = 0, l = elementsToRerender.length;i < l; i++){
+													renderExpression(elementsToRerender[i], nextPart, 
+														this, rule, expression);
 												}
-											});
+											}
 										});
-									})(part, context);
+									})(nextPart, context);
 								}
 								renderExpression(lastElement, nextPart, expressionResult, rule, expression, context);
 							}else{// brackets
@@ -169,10 +167,9 @@ define('xstyle/core/generate', [
 										nextElement = (function(nextElement, beforeElement, value, tagName){
 											var newElement, placeHolder;
 											// this may be executed async, we need to be ready with a place holder
-											utils.when(target, function(target){
-												if(target.newElement){
-													newElement = target.newElement();
-
+											utils.when(target && target.newElement && target.newElement(), function(targetNewElement){
+												newElement = targetNewElement;
+												if(newElement){
 													// apply the rest of the selector
 													value = value.slice(tagName.length);
 													if(value){
@@ -253,7 +250,7 @@ define('xstyle/core/generate', [
 	function renderExpression(element, nextPart, expressionResult, rule, expression, context){
 		/*var contentProxy = element.content || (element.content = new Proxy());
 		element.xSource = expressionResult;
-		var context = new ElementContext(element, rule);
+		var context = new Context(element, rule);
 		contentProxy.setValue(expressionResult);*/
 		if(!('_defaultBinding' in element)){
 			// if we don't have any handle for content yet, we install this default handling
@@ -324,7 +321,7 @@ define('xstyle/core/generate', [
 							// so that on a change we can quickly do a put on it
 							// we might want to consider changing that in the future, to
 							// reduce memory, but for now this probably has minimal cost
-							element['-x-variable'] = contentProxy;
+//							element['-x-variable'] = contentProxy;
 						}else{
 							// put text in for Loading until we are ready
 							// TODO: we should do this after setting up the observe
