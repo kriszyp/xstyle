@@ -1,5 +1,6 @@
-define('xstyle/core/observe', ['xstyle/core/utils'], function(utils){
-	var when = utils.when;
+define('xstyle/core/observe', [], function(){
+	// This is an polyfill for Object.observe with just enough functionality
+	// for what xstyle needs
 	// An observe function, with polyfile
 	var observe = Object.observe || 
 		/*
@@ -62,6 +63,7 @@ define('xstyle/core/observe', ['xstyle/core/utils'], function(utils){
 	var listeners = [];
 	var timerStarted = false;
 	function diff(previous, current, callback){
+		// TODO: keep an array of properties for each watch for faster iteration
 		for(var i in previous){
 			if(previous.hasOwnProperty(i) && previous[i] !== current[i]){
 				// a property has changed

@@ -51,7 +51,7 @@ define(['xstyle/core/utils', 'xstyle/core/Context', 'xstyle/core/observe'],
 				propertyDefinition = properties[key] = new Definition(function(context){
 					var trackedContext = context.track();
 					return utils.when(definition.valueOf(trackedContext), function(object){
-						var cache = context.getCache(this);
+						var cache = context.getCache(this, definition.cache);
 						var observer = cache.get('observer', trackedContext);
 						if(!observer && object && typeof object == 'object'){
 							// if we haven't recorded any observer for this context, let's

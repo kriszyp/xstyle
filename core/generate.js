@@ -234,6 +234,7 @@ define('xstyle/core/generate', [
 					}
 				}catch(e){
 					console.error(e, e.stack);
+					lastElement.innerHTML = '';
 					lastElement.appendChild(doc.createTextNode(e));
 				}
 			}
