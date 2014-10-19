@@ -248,26 +248,34 @@ define('xstyle/core/Rule', [
 			var calls = value.calls;
 			if(calls){
 				var rule = this;
-				var result = evaluateText(value, this, propertyName, true);
-				// if there were new computed values, update this style
-				if(result){
-					if(result.forElement){
-						// the value is dependent on the element, so we need to do element
-						// specific rendering
-						return require(['xstyle/core/elemental'], function(elemental){
-							elemental.addRenderer(rule, function(element){
-								observe(result.forElement(element), function(value){
-									element.style[propertyName] = value;
+				value.expression = evaluateText(value, this, propertyName, true);
+				var update = function(){
+					var result = value.expression.valueOf();
+					// if there were new computed values, update this style
+					if(result){
+						if(result.forElement){
+							// the value is dependent on the element, so we need to do element
+							// specific rendering
+							return require(['xstyle/core/elemental'], function(elemental){
+								elemental.addRenderer(rule, function(element){
+									observe(result.forElement(element), function(value){
+										element.style[propertyName] = value;
+									});
 								});
 							});
-						});
-					}else{
-						// otherwise we can just do live updates to the CSS rule
-						return observe(result, function(value){
-							rule.setStyle(propertyName, value);
-						});
+						}else{
+							// otherwise we can just do live updates to the CSS rule
+							return observe(result, function(value){
+								rule.setStyle(propertyName, value);
+							});
+						}
 					}
-				}
+
+				};
+				update();
+				value.expression.depend({
+					invalidate: update
+				});
 			}
 			if(!alreadySet){
 				this.setStyle(propertyName, value);

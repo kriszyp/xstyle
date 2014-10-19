@@ -67,14 +67,22 @@ define('xstyle/core/generate', [
 									put(lastElement, nextPart.selector);
 								}
 								var expression = part.getArgs()[0];
-								var expressionResult = part.expression;
+								var expressionResult = part.expressionResult;
 								// make sure we only do this only once
-								var context = new Context(lastElement, rule);
+
 								if(!expressionResult){
-									expressionResult = part.expression =
-										expressionModule.evaluate(part.parent, expression);
+									var expressionResult = 
+									expressionModule.evaluate(part.parent, expression).valueOf();
+									if(!expressionResult){
+										// make it easy to recognize as a cached property
+										var falsyValue = expressionResult;
+										expressionResult = {
+											forElement: function(){
+												return falsyValue;
+											}
+										}
+									}
 									(function(nextPart, context){
-										var cache = context.getCache(expressionResult);
 										part.expression = expressionResult;
 										// setup an invalidation object, to rerender when data changes
 										expressionResult.depend({
@@ -90,7 +98,13 @@ define('xstyle/core/generate', [
 										});
 									})(nextPart, context);
 								}
-								renderExpression(lastElement, nextPart, expressionResult, rule, expression, context);
+								var value = expressionResult;
+								if(expressionResult.forElement){
+									value = expressionResult.forElement(lastElement);
+								}else{
+									value = expressionResult;
+								}
+								renderExpression(lastElement, nextPart, value, rule, expression, context);
 							}else{// brackets
 								put(lastElement, part.toString());
 							}

@@ -13,24 +13,6 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 			return (target && target.observe) ? target.observe(callback) : callback(target);
 		});
 	}
-	function contextualize(callback){
-		return function(target){
-			if(target && target.forElement){
-				return {
-					forElement: function(element){
-						var result = target.forElement(element);
-						var targetElement = result.element;
-						result = callback(result);
-						if (result) {
-							result.element = targetElement;
-						}
-						return result;
-					}
-				};
-			}
-			return callback(target);
-		}
-	}
 	function set(target, path, value){
 		get(target, path.slice(0, path.length - 1), function(target){
 			var property = path[path.length - 1];
@@ -231,6 +213,25 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 			return callback[returnArray ? 'call' : 'apply'](this, inputs);
 		}, true);
 	}
+	function contextualize(type, inputs, callback){
+		if(someHasProperty(inputs, type)){
+			var contextualizedObject = {};
+			contextualizedObject[type] = function(element){
+				var contextualized = [];
+				for(var i =0, l = inputs.length; i < l; i++){
+					var input = inputs[i];
+					if(input && typeof input[type] == 'function'){
+						//if(input.selectElement)
+						input = input[type](element);
+					}
+					contextualized[i] = input;
+				}
+				return callback(contextualized);
+			};
+		}
+		return callback(inputs);
+
+	}
 	function react(forward, reverse){
 		return function(){
 			var inputs = arguments;
@@ -240,17 +241,22 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				input.depend && input.depend(definition);
 			}
 			var compute = function(context){
-				var contextualizedResults = [];
+				var results = [];
 				// TODO: make an opt-out for this
 				for(var i = 0, l = inputs.length; i < l; i++){
-					contextualizedResults[i] = inputs[i].valueOf(context);
+					results[i] = inputs[i].valueOf(context);
 				}
 				if(forward.selfWaiting){
-					return forward.apply(definition, contextualizedResults);
+					return forward.apply(definition, results);
 				}
 				// wait for the values to be received
-				return utils.whenAll(contextualizedResults, function(results){
-					return forward.apply(definition, results);
+				return utils.whenAll(results, function(inputs){
+					// contextualize along each dimension
+					return contextualize('forRule', inputs, function(inputs){
+						return contextualize('forElement', inputs, function(results){
+							return forward.apply(definition, results);
+						});
+					});
 				});
 			};
 			compute.reverse = reverse;
