@@ -184,6 +184,7 @@ define('xstyle/core/Rule', [
 			// called when each property is parsed, and this determines if there is a handler for it
 			// this is called for each CSS property
 			if(name){
+				var rule = this;
 				var propertyName = name;
 				do{
 					// check for the handler
@@ -196,26 +197,22 @@ define('xstyle/core/Rule', [
 								thisStyle[name] = '';
 							}
 						}
-						var rule = this;
-						return utils.when(target, function(target){
-							// call the handler to handle this rule
-							target = target.splice ? target : [target];
-							for(var i = 0; i < target.length; i++){
-								var definition = target[i];
-								var returned;
-								utils.when(definition, function(definition){
-									// TODO: create a class for the context
-									returned = definition.put(value, {
-										getName: function(){
-											return propertyName;
-										},
-										getRule: function(){
-											return rule;
-										}
-									});
+						return utils.when(target, function(definition){
+							var returned = definition.put(value, propertyName);
+							if(returned && returned.forRule){
+								(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
+									forElement(returned.forRule(rule));
 								});
-								if(returned){
-									return returned;
+								returned = returned.forRule(rule);
+							}
+							return forElement(returned);
+							function forElement(returned){
+								if(returned && returned.forElement){
+									return require(['xstyle/core/elemental'], function(elemental){
+										elemental.addRenderer(rule, function(element){
+											returned.forElement(element);
+										});
+									});
 								}
 							}
 						});
@@ -281,25 +278,28 @@ define('xstyle/core/Rule', [
 				this.setStyle(propertyName, value);
 			}
 		},
-		put: function(value, context){
+		put: function(value){
 			// rules can be used as properties, in which case they act as mixins
 			// first extend
-			var rule = context.getRule();
-			this.extend(rule);
 			var base = this;
-			if(value == 'defaults'){
-				// this indicates that we should leave the mixin properties as is.
-				return;
-			}
-			if(value && typeof value == 'string' && base.values){
-				// then apply properties with comma delimiting
-				var parts = value.toString().split(/,\s*/);
-				for(var i = 0; i < parts.length; i++){
-					// TODO: take the last part and don't split on spaces
-					var name = base.values[i];
-					name && rule.setValue(name, parts[i], base);
+			return {
+				forRule: function(rule){
+					base.extend(rule);
+					if(value == 'defaults'){
+						// this indicates that we should leave the mixin properties as is.
+						return;
+					}
+					if(value && typeof value == 'string' && base.values){
+						// then apply properties with comma delimiting
+						var parts = value.toString().split(/,\s*/);
+						for(var i = 0; i < parts.length; i++){
+							// TODO: take the last part and don't split on spaces
+							var name = base.values[i];
+							name && rule.setValue(name, parts[i], base);
+						}
+					}
 				}
-			}
+			};
 		},
 		extend: function(derivative, fullExtension){
 			// we might consider removing this if it is only used from put
@@ -345,14 +345,20 @@ define('xstyle/core/Rule', [
 				derivative.tagName = base.tagName || derivative.tagName;
 			}
 			derivative.base = base;
-			
+			var subRuleListeners = this._subRuleListeners;
+			for(var i = 0; i < subRuleListeners.length; i++){
+				subRuleListeners[i](derivative);
+			}
 	//		var ruleStyle = derivative.getCssRule().style;
 			base.eachProperty(function(name, value){
 				if(typeof value == 'object'){
 					// make a derivative on copy
 					value = create(value);
 				}
-				derivative.setValue(name, value);
+				// just copy the native properties, the rest should be handled by rule listeners
+				if(name in testStyle){
+					derivative._setStyleFromValue(name, value);
+				}
 		/*		if(name){
 					name = convertCssNameToJs(name);
 					if(!ruleStyle[name]){

@@ -68,26 +68,19 @@ define('xstyle/core/generate', [
 								}
 								var expression = part.getArgs()[0];
 								var expressionResult = part.expressionResult;
+								var expressionDefinition = part.expressionDefinition;
 								// make sure we only do this only once
 
-								if(!expressionResult){
-									var expressionResult = 
-									expressionModule.evaluate(part.parent, expression).valueOf();
-									if(!expressionResult){
-										// make it easy to recognize as a cached property
-										var falsyValue = expressionResult;
-										expressionResult = {
-											forElement: function(){
-												return falsyValue;
-											}
-										}
-									}
-									(function(nextPart, context){
-										part.expression = expressionResult;
+								if(!expressionDefinition){
+									expressionDefinition = part.expressionDefinition =
+										expressionModule.evaluate(part.parent, expression);
+									expressionResult = expressionDefinition.valueOf();
+									(function(nextPart){
+										part.expressionResult = expressionResult;
 										// setup an invalidation object, to rerender when data changes
-										expressionResult.depend({
-											invalidate: function(context){
-												var elementsToRerender = cache.elementsForDependent(context);
+										// TODO: fix this
+										expressionDefinition.depend({
+											invalidate: function(elementsToRerender){
 												// TODO: should we use elemental's renderer?
 												// TODO: do we need to closure the scope of any of these variables
 												for(var i = 0, l = elementsToRerender.length;i < l; i++){
@@ -96,15 +89,9 @@ define('xstyle/core/generate', [
 												}
 											}
 										});
-									})(nextPart, context);
+									})(nextPart);
 								}
-								var value = expressionResult;
-								if(expressionResult.forElement){
-									value = expressionResult.forElement(lastElement);
-								}else{
-									value = expressionResult;
-								}
-								renderExpression(lastElement, nextPart, value, rule, expression, context);
+								renderExpression(lastElement, nextPart, expressionResult, rule);
 							}else{// brackets
 								put(lastElement, part.toString());
 							}
@@ -262,7 +249,7 @@ define('xstyle/core/generate', [
 
 	}
 
-	function renderExpression(element, nextPart, expressionResult, rule, expression, context){
+	function renderExpression(element, nextPart, expressionResult, rule){
 		/*var contentProxy = element.content || (element.content = new Proxy());
 		element.xSource = expressionResult;
 		var context = new Context(element, rule);
@@ -271,7 +258,13 @@ define('xstyle/core/generate', [
 			// if we don't have any handle for content yet, we install this default handling
 			element._defaultBinding = true;
 			var textNode = element.appendChild(doc.createTextNode('Loading'));
-			utils.when(expressionResult.valueOf(context), function(value){
+			utils.when(expressionResult, function(value){
+				if(value && value.forRule){
+					value = value.forRule(rule);
+				}
+				if(value && value.forElement){
+					value = value.forElement(element);
+				}
 				if(element._defaultBinding){ // the default binding can later be disabled
 					if(value && value.sort){
 						if(textNode){

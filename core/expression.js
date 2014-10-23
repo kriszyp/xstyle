@@ -228,6 +228,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				}
 				return callback(contextualized);
 			};
+			return contextualizedObject;
 		}
 		return callback(inputs);
 
@@ -240,11 +241,14 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				var input = inputs[i];
 				input.depend && input.depend(definition);
 			}
-			var compute = function(context){
+			var compute = function(){
 				var results = [];
 				// TODO: make an opt-out for this
+				if(forward.selfExecuting){
+					return forward.apply(definition, inputs);
+				}
 				for(var i = 0, l = inputs.length; i < l; i++){
-					results[i] = inputs[i].valueOf(context);
+					results[i] = inputs[i].valueOf();
 				}
 				if(forward.selfWaiting){
 					return forward.apply(definition, results);
@@ -416,7 +420,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 					part = (function(func, args){
 						var resolved;
 						var compute;
-						var definition = new Definition(function(context){
+						var definition = new Definition(function(){
 							return utils.when(func.valueOf(), function(func){
 								if(!func.selfResolving){
 									if(!resolved){
@@ -426,9 +430,9 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 										}
 										compute = react(func).apply(definition, resolved);
 									}
-									return compute(context);
+									return compute();
 								}
-								return func.apply(definition, args).valueOf(context);
+								return func.apply(definition, args);
 							});
 						});
 						return definition;

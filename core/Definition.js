@@ -12,6 +12,46 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 	// a context with no context, for when the context is missing
 
 	var nextId = 1;
+	function contextualizeElement(definition, object, key){
+		if(object && object.forElement){
+			return {
+				forElement: function(element){
+					element = object.selectElement ? object.selectElement(element) : element;
+					// TODO: use weakmap
+					var cacheProperty = ['_cache_' + definition.id];
+					if(cacheProperty in element){
+						return element[cacheProperty][key];
+					}
+					var result = element[cacheProperty] = object.forElement(element);
+					element[cacheProperty + 'observe'] = setupObserve(definition, result, key);
+					return result[key];
+				}
+			};
+		}
+		// else
+	}
+	function setupObserve(definition, object, key){
+		var properties = definition._properties;
+		var observer;
+		if(typeof object == 'object'){
+			// if we haven't recorded any observer for this context, let's
+			// setup one now
+			observer = function(events){
+				for(var i = 0; i < events.length; i++){
+					var property = properties[events[i].name];
+					if(property && property.invalidate){
+						property.invalidate();
+					}
+				}
+			};
+			observe.observe(object, observer);
+		}
+		// used by the polyfill to setup setters
+		/*if(observer.addKey){
+			observer.addKey(key);
+		}*/
+		return observer;
+	}
 	Definition.prototype = {
 		// TODO: make ids have a little better names
 		id: 'x-variable-' + nextId++,
@@ -26,11 +66,15 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 				}
 			}
 			var definition = this;
-			return (this.cache = utils.when(this.computeValue, function(computeValue){
-				// skip the promise in the future
-				definition.computeValue = computeValue;
+			var computeValue = this.computeValue;
+			if(computeValue.then){
+				return (this.cache = computeValue.then(function(computeValue){
+					definition.computeValue = computeValue;
+					return (definition.cache = computeValue());
+				}));
+			}else{
 				return (definition.cache = computeValue());
-			}));
+			}
 		},
 		property: function(key){
 			var properties = this._properties || (this._properties = {});
@@ -40,42 +84,38 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 				var definition = this;
 				propertyDefinition = properties[key] = new Definition(function(){
 					return utils.when(definition.valueOf(), function(object){
-						if(object && object.forElement){
+						if(object && object.forRule){
 							return {
-								forElement: function(element){
-									element = object.selectElement ? object.selectElement(element) : element;
+								forRule: function(rule){
+									rule = object.selectRule ? object.selectRule(rule) : rule;
 									// TODO: use weakmap
 									var cacheProperty = ['_cache_' + definition.id];
-									if(cacheProperty in element){
-										return element[cacheProperty];
-									};
-									var result = element[cacheProperty] = object.forElement(element);
-									element[cacheProperty + 'observe'] = setupObserve(result);
-									return result;
+									if(cacheProperty in rule){
+										return rule[cacheProperty];
+									}
+									var result = rule[cacheProperty] = object.forRule(rule);
+									if(result && result.forElement){
+										result = contextualizeElement(definition, result, key);
+									}else{
+										rule[cacheProperty + 'observe'] = setupObserve(definition, result, key);
+									}
+									return result[key];
 								}
 							};
 						}
-						if(!observer && object && typeof object == 'object'){
-							// if we haven't recorded any observer for this context, let's
-							// setup one now
-							observer = function(event){
-								var property = properties[event.name];
-								if(property && property.invalidate){
-									property.invalidate();
-								}
-							};
-							observe.observe(object, observer);
-							cache.set('observer', observer, trackedContext);
+						// else
+						if(object && object.forElement){
+							return contextualizeElement(definition, object, key);
 						}
-						// used by the polyfill to setup setters
-						if(observer.addKey){
-							observer.addKey(key);
-						}
-						return object && object[key];
+						// else
+						definition.cacheObserve = setupObserve(definition, object, key);
+						return object[key];
 					});
 				});
-				propertyDefinition.put = function(value, context){
-					return utils.when(definition.valueOf(context), function(object){
+				propertyDefinition.key = key;
+				propertyDefinition.parent = this;
+				propertyDefinition.put = function(value){
+					return utils.when(definition.valueOf(), function(object){
 						object[key] = value;
 					});
 				};
@@ -85,16 +125,20 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 		},
 		invalidate: function(){
 			// TODO: there might actually be a collection of observers
-			if(observer){
+			/*if(observer){
 				observe.unobserve(observer);
-			}
-			var properties = this._properties;
-			for(i in properties){
+			}*/
+			var i, l, properties = this._properties;
+			for( i in properties){
 				properties[i].invalidate();
 			}
 			var dependents = this.dependents || 0;
 			for(i = 0, l = dependents.length; i < l; i++){
-				dependents[i].invalidate(context);
+				try{
+					dependents[i].invalidate();
+				}catch(e){
+					console.error(e, 'invalidating a definition');
+				}
 			}
 		},
 		depend: function(dependent){

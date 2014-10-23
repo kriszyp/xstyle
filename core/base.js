@@ -29,36 +29,40 @@ define('xstyle/core/base', [
 	root.root = true;
 	function elementProperty(property, rule, inherit, newElement){
 		// definition bound to an element's property
-		var definition = new Definition(function(context){
-			var element = context.getElement();
-			var contentElement = element;
-			if(newElement){
-				// content needs to start at the parent
-				element = element.parentNode;
-			}
-			if(rule){
-				while(!element.matches(rule.selector)){
-					element = element.parentNode;
-					if(!element){
-						throw new Error('Rule not found');
+		var definition = new Definition(function(){
+			return {
+				forElement: function(element){
+					var contentElement = element;
+					if(newElement){
+						// content needs to start at the parent
+						element = element.parentNode;
 					}
-				}
-			}
-			if(inherit){
-				// we find the parent element with an item property, and key off of that 
-				while(!(property in element)){
-					element = element.parentNode;
-					if(!element){
-						throw new Error(property ? (property + ' not found') : ('Property was never defined'));
+					if(rule){
+						while(!element.matches(rule.selector)){
+							element = element.parentNode;
+							if(!element){
+								throw new Error('Rule not found');
+							}
+						}
 					}
+					if(inherit){
+						// we find the parent element with an item property, and key off of that 
+						while(!(property in element)){
+							element = element.parentNode;
+							if(!element){
+								throw new Error(property ? (property + ' not found') : ('Property was never defined'));
+							}
+						}
+					}
+					// provide a means for being able to reference the target node,
+					// this primarily used by the generate model to nest content properly
+					/*if(directReference){
+						element['_' + property + 'Node'] = contentElement;
+					}*/
+					return element[property];
+
 				}
-			}
-			// provide a means for being able to reference the target node,
-			// this primarily used by the generate model to nest content properly
-			/*if(directReference){
-				element['_' + property + 'Node'] = contentElement;
-			}*/
-			return element[property];
+			};
 		});
 		definition.define = function(rule, newProperty){
 			// if we don't already have a property define, we will do so now
@@ -189,15 +193,7 @@ define('xstyle/core/base', [
 		element: {
 			// definition to reference the actual element
 			forElement: function(element){
-				return {
-					element: element, // indicates the key element
-					observe: function(callback){// handle requests for the data
-						callback(element);
-					},
-					get: function(property){
-						return this.element[property];
-					}
-				};
+				return element;
 			}
 		},
 		event: {
@@ -209,21 +205,27 @@ define('xstyle/core/base', [
 			}
 		},
 		each: {
-			put: function(value, context){
-				context.getRule().each = value;
+			put: function(value){
+				return {
+					forRule: function(rule){
+						rule.each = value;
+					}
+				};
 			}
 		},
 		prefix: {
-			put: function(value, context){
+			put: function(value, name){
 				// add a vendor prefix
 				// check to see if the browser supports this feature through vendor prefixing
-				var name = context.getName();
-				var rule = context.getRule();
-				if(typeof testDiv.style[vendorPrefix + name] == 'string'){
-					// if so, handle the prefixing right here
-					rule._setStyleFromValue(vendorPrefix + name, value);
-					return true;
-				}
+				return {
+					forRule: function(rule){
+						if(typeof testDiv.style[vendorPrefix + name] == 'string'){
+							// if so, handle the prefixing right here
+							rule._setStyleFromValue(vendorPrefix + name, value);
+							return true;
+						}
+					}							
+				};
 			}
 		},
 		// provides CSS variable support
@@ -253,27 +255,39 @@ define('xstyle/core/base', [
 			return value;
 		}),
 		on: {
-			put: function(value, context){
+			put: function(value, name){
 				// add listener
-				var rule = context.getRule();
-				elemental.on(document, context.getName().slice(3), rule.selector, function(event){
-					currentEvent = event;
-					var context = new Context(event.target, rule, event);
-					// execute the event listener by calling valueOf
-					// note that we could define a flag on the definition to indicate that
-					// we shouldn't cache it, incidently, since their are no dependencies
-					// declared for this definition, it shouldn't end up being cached
-					utils.when(expression.evaluate(rule, value).valueOf(context), function(){
-						currentEvent = null;
-					});
-				});
+				return {
+					forRule: function(rule){
+						elemental.on(document, name.slice(3), rule.selector, function(event){
+							currentEvent = event;
+							// execute the event listener by calling valueOf
+							// note that we could define a flag on the definition to indicate that
+							// we shouldn't cache it, incidently, since their are no dependencies
+							// declared for this definition, it shouldn't end up being cached
+							utils.when(expression.evaluate(rule, value).valueOf(), function(result){
+								if(result && result.forRule){
+									result = result.forRule(rule);
+								}
+								if(result && result.forElement){
+									result = result.forElement(event.target);
+								}
+								currentEvent = null;
+							});
+						});
+					}
+				};
 			}
 		},
 		title: {
-			put: function(value, context){
-				expression.observe(expression.evaluate(context.getRule(), value), function(value){
-					document.title = value;	
-				});	
+			put: function(value){
+				return {
+					forRule: function(rule){
+						expression.observe(expression.evaluate(rule, value), function(value){
+							document.title = value;	
+						});
+					}
+				};
 			}
 		},
 		'@supports': {
