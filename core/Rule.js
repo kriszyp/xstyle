@@ -1,9 +1,10 @@
 define('xstyle/core/Rule', [
 	'xstyle/core/expression',
+	'xstyle/core/Definition',
 	'put-selector/put',
 	'xstyle/core/utils',
 	'xstyle/core/Proxy'
-], function(expression, put, utils, Proxy){
+], function(expression, Definition, put, utils, Proxy){
 
 	// define the Rule class, our abstraction of a CSS rule		
 	var create = Object.create || function(base){
@@ -198,14 +199,15 @@ define('xstyle/core/Rule', [
 							}
 						}
 						return utils.when(target, function(definition){
-							var returned = definition.put(value, propertyName);
-							if(returned && returned.forRule){
+							var result = definition.put(value, propertyName);
+							var putResult = result;
+							if(result && result.forRule){
 								(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
-									forElement(returned.forRule(rule));
+									forElement(putResult.forRule(rule));
 								});
-								returned = returned.forRule(rule);
+								result = result.forRule(rule);
 							}
-							return forElement(returned);
+							return forElement(result);
 							function forElement(returned){
 								if(returned && returned.forElement){
 									return require(['xstyle/core/elemental'], function(elemental){
@@ -329,7 +331,7 @@ define('xstyle/core/Rule', [
 			}else{
 				derivative.cssText += newText;
 			}
-			'values,variables,calls'.replace(/\w+/g, function(property){
+			'values,calls'.replace(/\w+/g, function(property){
 				var set = base[property];
 				if(set){
 					// TODO: need to mixin this in, if it already exists
@@ -345,7 +347,7 @@ define('xstyle/core/Rule', [
 				derivative.tagName = base.tagName || derivative.tagName;
 			}
 			derivative.base = base;
-			var subRuleListeners = this._subRuleListeners;
+			var subRuleListeners = this._subRuleListeners || 0;
 			for(var i = 0; i < subRuleListeners.length; i++){
 				subRuleListeners[i](derivative);
 			}
@@ -427,7 +429,9 @@ define('xstyle/core/Rule', [
 				return computedValue.join('');
 			});
 			computation.skipResolve = true;
-			return computation.apply(this, evaluatedCalls);
+			var definition = new Definition();
+			definition.setCompute(computation.apply(definition, evaluatedCalls));
+			return definition;
 		}
 		if(!onlyReturnEvaluated){
 			return sequence.toString();

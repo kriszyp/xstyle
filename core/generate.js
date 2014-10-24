@@ -24,6 +24,7 @@ define('xstyle/core/generate', [
 		SELECT: 1
 	};
 	var doc = document;
+	var nextId = 1;
 	function forSelector(generatingSelector, rule){
 		// this is responsible for generation of DOM elements for elements matching generative rules
 		// normalize to array
@@ -62,9 +63,13 @@ define('xstyle/core/generate', [
 						if(part.args){
 							if(part.operator == '('){ // a call (or at least parans), for now we are assuming it is a binding
 								var nextPart = generatingSelector[i+1];
+								var bindingSelector;
 								if(nextPart && nextPart.eachProperty){
 									// apply the class for the next part so we can reference it properly
-									put(lastElement, nextPart.selector);
+									put(lastElement, bindingSelector = nextPart.selector);
+								}else{
+									put(lastElement, bindingSelector = part.selector ||
+										(part.selector = '.-xbind-' + nextId++));
 								}
 								var expression = part.getArgs()[0];
 								var expressionResult = part.expressionResult;
@@ -75,21 +80,28 @@ define('xstyle/core/generate', [
 									expressionDefinition = part.expressionDefinition =
 										expressionModule.evaluate(part.parent, expression);
 									expressionResult = expressionDefinition.valueOf();
-									(function(nextPart){
+									elemental.addDefinition(bindingSelector, expressionDefinition);
+									(function(nextPart, bindingSelector, expressionDefinition){
 										part.expressionResult = expressionResult;
 										// setup an invalidation object, to rerender when data changes
 										// TODO: fix this
-										expressionDefinition.depend({
+										expressionDefinition.depend && expressionDefinition.depend({
 											invalidate: function(elementsToRerender){
 												// TODO: should we use elemental's renderer?
 												// TODO: do we need to closure the scope of any of these variables
+												// TODO: might consider calling Object.deliverChangeRecords() or
+												// polyfill equivalent here, to ensure all changes are delivered before 
+												// rendering again
+												if(!elementsToRerender){
+													elementsToRerender = document.querySelectorAll(bindingSelector);
+												}
 												for(var i = 0, l = elementsToRerender.length;i < l; i++){
 													renderExpression(elementsToRerender[i], nextPart, 
-														this, rule, expression);
+														expressionDefinition.valueOf(), rule);
 												}
 											}
 										});
-									})(nextPart);
+									})(nextPart, bindingSelector, expressionDefinition);
 								}
 								renderExpression(lastElement, nextPart, expressionResult, rule);
 							}else{// brackets
@@ -254,10 +266,12 @@ define('xstyle/core/generate', [
 		element.xSource = expressionResult;
 		var context = new Context(element, rule);
 		contentProxy.setValue(expressionResult);*/
-		if(!('_defaultBinding' in element)){
+		if(true || !('_defaultBinding' in element)){
 			// if we don't have any handle for content yet, we install this default handling
 			element._defaultBinding = true;
-			var textNode = element.appendChild(doc.createTextNode('Loading'));
+			if(expressionResult && expressionResult.then){
+				var textNode = element.appendChild(doc.createTextNode('Loading'));
+			}
 			utils.when(expressionResult, function(value){
 				if(value && value.forRule){
 					value = value.forRule(rule);
@@ -266,16 +280,14 @@ define('xstyle/core/generate', [
 					value = value.forElement(element);
 				}
 				if(element._defaultBinding){ // the default binding can later be disabled
+					if(element.childNodes.length){
+						// clear out any existing content
+						element.innerHTML = '';
+					}
 					if(value && value.sort){
-						if(textNode){
-							// remove the loading node
-							textNode.parentNode.removeChild(textNode);
-							textNode = null;
-						}
 						if(value.isSequence){
 							forSelector(value, rule)(element);
 						}else{
-							element.innerHTML = '';
 							// if it is an array, we do iterative rendering
 							var eachHandler = nextPart && nextPart.eachProperty &&
 								nextPart.each;
@@ -314,28 +326,15 @@ define('xstyle/core/generate', [
 							}
 						}
 					}else if(value && value.nodeType){
-						if(textNode){
-							// remove the loading node
-							textNode.parentNode.removeChild(textNode);
-							textNode = null;
-						}
 						element.appendChild(value);
 					}else{
 						value = value === undefined ? '' : value;
 						if(element.tagName in inputs){
-							// add the text
+							// set the text
 							element.value = value;
-							// we are going to store the variable computation on the element
-							// so that on a change we can quickly do a put on it
-							// we might want to consider changing that in the future, to
-							// reduce memory, but for now this probably has minimal cost
-//							element['-x-variable'] = contentProxy;
 						}else{
-							// put text in for Loading until we are ready
-							// TODO: we should do this after setting up the observe
-							// in case we synchronously get the data
-							// if not an array, render as plain text
-							textNode.nodeValue = value;
+							// render plain text
+							element.appendChild(doc.createTextNode(value));							
 						}
 					}
 				}

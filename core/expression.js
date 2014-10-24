@@ -416,6 +416,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				if(func === undefined || operators.hasOwnProperty(func)){
 					part = evaluateExpression(rule, part.getArgs()[0]);
 				}else{
+					// a function call
 					stack.pop();
 					part = (function(func, args){
 						var resolved;

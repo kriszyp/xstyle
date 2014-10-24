@@ -7,19 +7,23 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 	on(doc, 'change', null, function(event){
 		var element = event.target;
 		// get the variable computation so we can put the value
-		var variable = element['-x-variable'];
-		if(variable){
-			if(variable.forElement){
-				variable = variable.forElement(element);
-			}
-			if(variable && variable.put){ // if it can be put, we do so
-				var oldType = typeof variable.valueOf();
+		for(var i = 0, l = selectorDefinitions.length; i < l; i++){
+			var selectorDefinition = selectorDefinitions[i];
+			if(matchesSelector.call(element, selectorDefinition.selector)){
+				var definition = selectorDefinition.definition;
+				// TODO: use forRule/forElement on the valueOf if necessary
+				var oldType = typeof definition.valueOf();
 				var value = element.value;
 				// do type coercion
 				if(oldType === 'number' && isFinite(value)){
 					value = +value;
 				}
-				variable.put(value);
+				var result = selectorDefinition.definition.put(value);
+				// TODO: if(result.forRule){...}
+				if(result && result.forElement){
+					result.forElement(element);
+				}
+				// TODO: should we return here, now that we found a match?
 			}
 		}
 	});
@@ -50,6 +54,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 		testDiv.webkitMatchesSelector || testDiv.mozMatchesSelector ||
 		testDiv.msMatchesSelector || testDiv.oMatchesSelector;
 	var selectorRenderers = [];
+	var selectorDefinitions = [];
 	var renderQueue = [];
 	var documentQueried;
 	// probably want to inline our own DOM readiness code
@@ -162,6 +167,13 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 			}
 		}
 	}
+
+	function addDefinition(selector, definition){
+		selectorDefinitions.push({
+			selector: selector,
+			definition: definition
+		});
+	}
 	function addRenderer(rule, handler){
 		var renderer = {
 			selector: rule.selector,
@@ -195,6 +207,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 		ready: domReady,
 		on: on,
 		addRenderer: addRenderer,
+		addDefinition: addDefinition,
 		// this should be called for newly created dynamic elements to ensure the proper rules are applied
 		update: update,
 		clearRenderers: function(){

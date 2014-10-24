@@ -112,47 +112,21 @@ define('xstyle/core/base', [
 			}
 		};
 	}
-	function deriveVar(rule, name, ifExists){
-		// when we beget a var, we basically are making a property that is included in variables
-		// object for the parent object
-		var variables = (rule.variables || (!ifExists && (rule.variables = new Proxy())));
-		var proxy;
-		if(ifExists){
-			proxy = variables && variables._properties[name];
-			if(!proxy){
-				return this;
+	var variableDefinitions = {};
+	function getVarDefinition(rule, name, inherit){
+		var variables = rule.variables || (rule.variables = {});
+		var variableDefinition = variables[name] || (variables[name] = new Definition(inherit && function(){
+			// inherit from parent
+			return parentDefinition.valueOf();
+		}));
+		if(inherit && !variableDefinition.isSet){
+			var parent = rule.parent;
+			if(parent){
+				var parentDefinition = getVarDefinition(parent, name, true);
+				variableDefinition.depend(parentDefinition);
 			}
-		}else{
-			proxy = variables.property(name);
 		}
-		var varObject = this;
-		proxy.observe = function(listener){
-			// modify observe to inherit values from parents as well
-			var currentValue;
-			Proxy.prototype.observe.call(proxy, function(value){
-				currentValue = value;
-				listener(value);
-			});
-			if(currentValue === undefined && rule.parent){
-				varObject.forParent(rule.parent, name).observe(function(value){
-					if(currentValue === undefined){
-						listener(value);
-					}
-				});
-			}
-		};
-		proxy.valueOf = function(){
-			var value = variables[name];
-			if(value !== undefined){
-				return value;
-			}
-			if(rule.parent){
-				return varObject.forParent(rule.parent, name).valueOf();
-			}
-		};
-		proxy.define = deriveVar;
-		proxy.forParent = deriveVar;
-		return proxy;
+		return variableDefinition;
 	}
 	// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
 	root.definitions = {
@@ -229,14 +203,50 @@ define('xstyle/core/base', [
 			}
 		},
 		// provides CSS variable support
-		'var': derive(new Proxy(), {
-			define: deriveVar,
-			forParent: deriveVar,
-			// referencing variables
-			apply: function(rule, args){
-				return this.forParent(rule, args[0]);
+		'var': {
+			define: function(rule, name){
+				return {
+					put: function(value, name){
+						// assignment to a var
+						return {
+							forRule: function(rule){
+								var varDefinition = getVarDefinition(rule, name);
+								// indicate that we don't need to inherit past this
+								varDefinition.isSet = true;
+								varDefinition.setSource(value);
+								var variableDefinition = variableDefinitions[name];
+								if(variableDefinition){
+									variableDefinition.invalidate(rule);
+								}
+							}
+						};
+					},
+					valueOf: function(){
+						return {
+							forRule: function(rule){
+								return getVarDefinition(rule, name, true).valueOf();
+							}
+						};
+					}
+				};
+			},
+			selfResolving: true,
+			apply: function(definition, args){
+				// var(property) call
+				var name = args[0];
+				var variableDefinition = variableDefinitions[name];
+				if(!variableDefinition){
+					variableDefinition = variableDefinitions[name] = new Definition(function(){
+						return {
+							forRule: function(rule){
+								return getVarDefinition(rule, name, true).valueOf();
+							}
+						};
+					});
+				}
+				return variableDefinition;
 			}
-		}),
+		},
 		inline: conditional('inline', 'none'),
 		block: conditional('block', 'none'),
 		visible: conditional('visible', 'hidden'),

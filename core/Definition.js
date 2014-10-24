@@ -70,10 +70,22 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 			if(computeValue.then){
 				return (this.cache = computeValue.then(function(computeValue){
 					definition.computeValue = computeValue;
-					return (definition.cache = computeValue());
+					var value = definition.cache = computeValue();
+					if(value && value.then){
+						value.then(function(value){
+							definition.cache = value;
+						});
+					}
+					return value;
 				}));
 			}else{
-				return (definition.cache = computeValue());
+				var value = definition.cache = computeValue();
+				if(value && value.then){
+					value.then(function(value){
+						definition.cache = value;
+					});
+				}
+				return value;
 			}
 		},
 		property: function(key){
@@ -81,23 +93,23 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 			var propertyDefinition = properties[key];
 			if(!propertyDefinition){
 				// create the property definition
-				var definition = this;
+				var parentDefinition = this;
 				propertyDefinition = properties[key] = new Definition(function(){
-					return utils.when(definition.valueOf(), function(object){
+					return utils.when(parentDefinition.valueOf(), function(object){
 						if(object && object.forRule){
 							return {
 								forRule: function(rule){
 									rule = object.selectRule ? object.selectRule(rule) : rule;
 									// TODO: use weakmap
-									var cacheProperty = ['_cache_' + definition.id];
+									var cacheProperty = ['_cache_' + parentDefinition.id];
 									if(cacheProperty in rule){
 										return rule[cacheProperty];
 									}
 									var result = rule[cacheProperty] = object.forRule(rule);
 									if(result && result.forElement){
-										result = contextualizeElement(definition, result, key);
+										result = contextualizeElement(parentDefinition, result, key);
 									}else{
-										rule[cacheProperty + 'observe'] = setupObserve(definition, result, key);
+										rule[cacheProperty + 'observe'] = setupObserve(parentDefinition, result, key);
 									}
 									return result[key];
 								}
@@ -105,17 +117,19 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 						}
 						// else
 						if(object && object.forElement){
-							return contextualizeElement(definition, object, key);
+							return contextualizeElement(parentDefinition, object, key);
 						}
 						// else
-						definition.cacheObserve = setupObserve(definition, object, key);
+						if(!parentDefinition.cacheObserve){
+							parentDefinition.cacheObserve = setupObserve(parentDefinition, object, key);
+						}
 						return object[key];
 					});
 				});
 				propertyDefinition.key = key;
 				propertyDefinition.parent = this;
 				propertyDefinition.put = function(value){
-					return utils.when(definition.valueOf(), function(object){
+					return utils.when(parentDefinition.valueOf(), function(object){
 						object[key] = value;
 					});
 				};
@@ -123,19 +137,22 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 			}
 			return propertyDefinition;
 		},
-		invalidate: function(){
+		invalidate: function(args){
 			// TODO: there might actually be a collection of observers
-			/*if(observer){
-				observe.unobserve(observer);
-			}*/
+			var observer = this.cacheObserve;
+			if(observer){
+				observe.unobserve(this.cache, observer);
+				this.cacheObserve = null;
+			}
+			this.cache = noCacheEntry;
 			var i, l, properties = this._properties;
 			for( i in properties){
-				properties[i].invalidate();
+				properties[i].invalidate(args);
 			}
 			var dependents = this.dependents || 0;
 			for(i = 0, l = dependents.length; i < l; i++){
 				try{
-					dependents[i].invalidate();
+					dependents[i].invalidate(args);
 				}catch(e){
 					console.error(e, 'invalidating a definition');
 				}
