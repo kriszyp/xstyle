@@ -31,36 +31,43 @@ define('xstyle/core/base', [
 		// definition bound to an element's property
 		var definition = new Definition(function(){
 			return {
-				forElement: function(element){
-					var contentElement = element;
-					if(newElement){
-						// content needs to start at the parent
-						element = element.parentNode;
-					}
-					if(rule){
-						while(!element.matches(rule.selector)){
-							element = element.parentNode;
-							if(!element){
-								throw new Error('Rule not found');
+				forRule: function(rule){
+					return {
+						forElement: function(element){
+							var contentElement = element;
+							if(newElement){
+								// content needs to start at the parent
+								element = element.parentNode;
 							}
-						}
-					}
-					if(inherit){
-						// we find the parent element with an item property, and key off of that 
-						while(!(property in element)){
-							element = element.parentNode;
-							if(!element){
-								throw new Error(property ? (property + ' not found') : ('Property was never defined'));
+							if(rule && rule.selector){
+								while(!element.matches(rule.selector)){
+									element = element.parentNode;
+									if(!element){
+										throw new Error('Rule not found');
+									}
+								}
 							}
-						}
-					}
-					// provide a means for being able to reference the target node,
-					// this primarily used by the generate model to nest content properly
-					/*if(directReference){
-						element['_' + property + 'Node'] = contentElement;
-					}*/
-					return element[property];
-
+							if(inherit){
+								// we find the parent element with an item property, and key off of that 
+								while(!(property in element)){
+									element = element.parentNode;
+									if(!element){
+										throw new Error(property ? (property + ' not found') : ('Property was never defined'));
+									}
+								}
+							}
+							// provide a means for being able to reference the target node,
+							// this primarily used by the generate model to nest content properly
+							if(newElement){
+								element['_' + property + 'Node'] = contentElement;
+							}
+							var value = element[property];
+							if(!value){
+								return varBaseDefinition.define(null, 'content').valueOf().forRule(rule);
+							}
+							return value;
+						}						
+					};
 				}
 			};
 		});
@@ -68,17 +75,9 @@ define('xstyle/core/base', [
 			// if we don't already have a property define, we will do so now
 			return elementProperty(property || newProperty, rule, newElement);
 		};
-			/*put: function(value){
-				rule && elemental.addRenderer(rule, function(element){
-					var proxy = element[property];
-					if(proxy && proxy.put){
-						proxy.put(value);
-					}else{
-						element[property] = new Proxy(value);
-					}
-				});
-			}
-		};*/
+		definition.put = function(value){
+			return varBaseDefinition.define(null, 'content').put(value, 'content');
+		};
 		return definition;
 	}
 	function observeExpressionForRule(rule, name, value, callback){
@@ -112,6 +111,7 @@ define('xstyle/core/base', [
 			}
 		};
 	}
+	var varBaseDefinition;
 	var variableDefinitions = {};
 	function getVarDefinition(rule, name, inherit){
 		var variables = rule.variables || (rule.variables = {});
@@ -203,7 +203,7 @@ define('xstyle/core/base', [
 			}
 		},
 		// provides CSS variable support
-		'var': {
+		'var': varBaseDefinition = {
 			define: function(rule, name){
 				return {
 					put: function(value, name){
@@ -258,12 +258,12 @@ define('xstyle/core/base', [
 				}
 			}
 		},
-		set: expression.contextualized(function(target, value){
+		/*set: expression.contextualized(function(target, value){
 			target.put(value);
 		}),
 		get: expression.resolved(function(value){
 			return value;
-		}),
+		}),*/
 		on: {
 			put: function(value, name){
 				// add listener

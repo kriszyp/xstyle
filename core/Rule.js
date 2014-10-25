@@ -157,15 +157,15 @@ define('xstyle/core/Rule', [
 							}
 							return definition;
 						};
-						definitions[name] = applyDefine(definition);
 						if(propertyExists){
 							console.warn('Overriding existing property "' + name + '"');
 						}
+						return (definitions[name] = applyDefine(definition));
 					}
 				}
 			}else{
 				var definitions = (this.definitions || (this.definitions = {}));
-				definitions[name] = value;
+				return (definitions[name] = value);
 			}
 		},
 		onArguments: function(call, name){
@@ -198,26 +198,7 @@ define('xstyle/core/Rule', [
 								thisStyle[name] = '';
 							}
 						}
-						return utils.when(target, function(definition){
-							var result = definition.put(value, propertyName);
-							var putResult = result;
-							if(result && result.forRule){
-								(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
-									forElement(putResult.forRule(rule));
-								});
-								result = result.forRule(rule);
-							}
-							return forElement(result);
-							function forElement(returned){
-								if(returned && returned.forElement){
-									return require(['xstyle/core/elemental'], function(elemental){
-										elemental.addRenderer(rule, function(element){
-											returned.forElement(element);
-										});
-									});
-								}
-							}
-						});
+						contextualizeResultForRule(rule, target.put(value, propertyName));
 					}
 					// we progressively go through parent property names. For example if the 
 					// property name is foo-bar-baz, it first checks for foo-bar-baz, then 
@@ -251,25 +232,18 @@ define('xstyle/core/Rule', [
 				var update = function(){
 					var result = value.expression.valueOf();
 					// if there were new computed values, update this style
-					if(result){
-						if(result.forElement){
-							// the value is dependent on the element, so we need to do element
-							// specific rendering
-							return require(['xstyle/core/elemental'], function(elemental){
-								elemental.addRenderer(rule, function(element){
-									observe(result.forElement(element), function(value){
-										element.style[propertyName] = value;
-									});
-								});
-							});
-						}else{
-							// otherwise we can just do live updates to the CSS rule
-							return observe(result, function(value){
-								rule.setStyle(propertyName, value);
-							});
+					contextualizeResultForRule(rule, result, function(value, inherited){
+						// check to see if this is already overriden
+						if(!inherited ||
+							// if it is inherited, we need to check to make sure there isn't an existing property
+							!rule.getCssRule().style[propertyName] ||
+							// or if there is an existing, maybe it was inherited
+							rule.inheritedStyles[propertyName]){
+							rule.setStyle(propertyName, value);
 						}
-					}
-
+					}, function(value, element){
+						element.style[propertyName] = value;
+					});
 				};
 				update();
 				value.expression.depend({
@@ -351,14 +325,14 @@ define('xstyle/core/Rule', [
 			for(var i = 0; i < subRuleListeners.length; i++){
 				subRuleListeners[i](derivative);
 			}
-	//		var ruleStyle = derivative.getCssRule().style;
+			var ruleStyle = derivative.getCssRule().style;
 			base.eachProperty(function(name, value){
 				if(typeof value == 'object'){
 					// make a derivative on copy
 					value = create(value);
 				}
 				// just copy the native properties, the rest should be handled by rule listeners
-				if(name in testStyle){
+				if(name in testStyle && !ruleStyle[name]){
 					derivative._setStyleFromValue(name, value);
 				}
 		/*		if(name){
@@ -452,5 +426,30 @@ define('xstyle/core/Rule', [
 		var operator = this.operator;
 		return operator + this.args + operatorMatch[operator];
 	};
+
+	function contextualizeResultForRule(rule, result, callback, elementCallback){
+		return utils.when(result, function(result){
+			var startingResult = result;
+			if(result && result.forRule){
+				(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
+					forElement(startingResult.forRule(rule, true));
+				});
+				result = result.forRule(rule);
+			}
+			return forElement(result);
+			function forElement(returned){
+				if(returned && returned.forElement){
+					return require(['xstyle/core/elemental'], function(elemental){
+						elemental.addRenderer(rule, function(element){
+							var returnedFromElement = returned.forElement(element);
+							elementCallback && elementCallback(returnedFromElement, element);
+						});
+					});
+				}else{
+					callback && callback(returned);
+				}
+			}
+		});
+	}
 	return Rule;
 });

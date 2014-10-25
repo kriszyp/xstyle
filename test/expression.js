@@ -3,24 +3,30 @@ define([
 	'intern/chai!assert',
 	'xstyle/core/expression',
 	'xstyle/core/base',
-	'dstore/Model'
-], function(registerSuite, assert, expression, base, Model){
+	'xstyle/core/Definition'
+], function(registerSuite, assert, expression, base, Definition){
 	var rule, obj, a, b, c;
+	// TODO: should this go in Definition?
+	function MutableDefinition(){
+	}
+	MutableDefinition.prototype = new Definition();
+	MutableDefinition.prototype.put = MutableDefinition.prototype.setSource;
+
 	registerSuite({
-		name: 'core',
+		name: 'expression',
 		beforeEach: function(){
 			rule = base.newRule();
 			rule.parent = base;
-			obj = new Model();
-			a = obj.property('a');
+			obj = {a: 1, b: 2, c: 3};
+			a = new MutableDefinition();
+			b = new MutableDefinition();
+			c = new MutableDefinition();
 			a.put(1);
-			rule.declareDefinition('a', a);
-			b = obj.property('b');
 			b.put(2);
-			rule.declareDefinition('b', b);
-			c = obj.property('c');
 			c.put(3);
-			rule.declareDefinition('c', c);
+			a = rule.declareDefinition('a', a);
+			b = rule.declareDefinition('b', b);
+			c = rule.declareDefinition('c', c);
 		},
 		'evaluate sum': function(){
 			var aPlusB = expression.evaluate(rule, 'a + b');

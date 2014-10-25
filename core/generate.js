@@ -46,7 +46,7 @@ define('xstyle/core/generate', [
 			}
 			// temporarily store it on the element, so it can be accessed as an element-property
 			// TODO: remove it after completion
-			if(!element.content && contentFragment){
+			if(!element.content){
 				element.content = contentFragment;
 			}
 			var indentationLevel = 0;

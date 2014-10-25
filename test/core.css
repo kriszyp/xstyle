@@ -18,7 +18,7 @@ test-component = section {
 	height: 200px;
 	color: var(main-color);
 	border: 4px solid var(main-color);
-};
+}
 
 .with-content {
 	test-component: #aaa, test;
@@ -36,6 +36,7 @@ hello-world = test-component {
 	pink-background: defaults;
 	label: Hello world;
 	main-color: #888;
+	test-expression: another test;
 }
 
 test-class-extend = div.test-class1 {
@@ -51,7 +52,7 @@ test-class-extend2 = test-class-extend.test-class2 {
 			label: Hi there;
 			content: some content;
 		},
-		hello-world, 
+		hello-world,
 		.with-content
 		div.parent
 			div.middle1

@@ -1,15 +1,14 @@
 define(['xstyle/core/utils', 'xstyle/core/observe'],
 		function(utils, observe){
-	function Definition(computeValue, reverseCompute){
+	function Definition(computeValue){
 		// computeValue: This is function (or promise to a function) that is called to calculate
 		// the value of this definition
 		this.computeValue = computeValue;
-		if(reverseCompute){
-			this.setReverseCompute(reverseCompute);
+		if(computeValue && computeValue.reverse){
+			this.setReverseCompute(computeValue.reverse);
 		}
 	}
 	var noCacheEntry = {};
-	// a context with no context, for when the context is missing
 
 	var nextId = 1;
 	function contextualizeElement(definition, object, key){
@@ -57,7 +56,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 		id: 'x-variable-' + nextId++,
 		cache: noCacheEntry,
 		valueOf: function(){
-			// first check to see if we have the variable cached for this context
+			// first check to see if we have the variable already computed
 			var useCache = this.dependents;
 			if(useCache){
 				// TODO: use when
@@ -102,12 +101,14 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 									rule = object.selectRule ? object.selectRule(rule) : rule;
 									// TODO: use weakmap
 									var cacheProperty = ['_cache_' + parentDefinition.id];
+									var result;
 									if(cacheProperty in rule){
-										return rule[cacheProperty];
+										result = rule[cacheProperty];
+									}else{
+										result = rule[cacheProperty] = object.forRule(rule);
 									}
-									var result = rule[cacheProperty] = object.forRule(rule);
 									if(result && result.forElement){
-										result = contextualizeElement(parentDefinition, result, key);
+										return contextualizeElement(parentDefinition, result, key);
 									}else{
 										rule[cacheProperty + 'observe'] = setupObserve(parentDefinition, result, key);
 									}
@@ -130,6 +131,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 				propertyDefinition.parent = this;
 				propertyDefinition.put = function(value){
 					return utils.when(parentDefinition.valueOf(), function(object){
+						// TODO: check for forRule and forElement
 						object[key] = value;
 					});
 				};
@@ -162,13 +164,16 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 			(this.dependents || (this.dependents = [])).push(dependent);
 		},
 		setReverseCompute: function(reverse){
-			this.put = function(value, context){
-				reverse(value, this.inputs, context);
-				this.invalidate(context);
+			this.put = function(value){
+				reverse(value);
+				this.invalidate();
 			};
 		},
 		setCompute: function(compute){
 			this.computeValue = compute;
+			if(compute && compute.reverse){
+				this.setReverseCompute(compute.reverse);
+			}
 			this.invalidate();
 		},
 		setSource: function(value){
@@ -177,59 +182,23 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 			};
 			this.invalidate();
 		},
-		newElement: function(context){
-			return utils.when(this.valueOf(context), function(value){
-				return value && value.newElement && value.newElement(context);
+		observe: function(listener){
+			// shorthand for setting up a real invalidation scheme
+			if(this.computeValue){
+				listener(this.valueOf());
+			}
+			var definition = this;
+			return this.depend({
+				invalidate: function(){
+					listener(definition.valueOf());
+				}
+			});
+		},
+		newElement: function(){
+			return utils.when(this.valueOf(), function(value){
+				return value && value.newElement && value.newElement();
 			});
 		}
 	};
-	function someHasProperty(array, property){
-		for(var i = 0, l = array.length; i < l; i++){
-			var item = array[i];
-			if(item && typeof item == 'object' && property in item){
-				return true;
-			}
-		}
-	}
-	function ready(callback, returnArray){
-		return function(inputs){
-			// handles waiting for async inputs
-			if(someHasProperty(inputs, 'then')){
-				// we have asynch inputs, do lazy loading
-				return {
-					then: function(onResolve, onError){
-						var remaining = 1;
-						var readyInputs = [];
-						for(var i = 0; i < inputs.length; i++){
-							var input = inputs[i];
-							remaining++;
-							if(input && input.then){
-								(function(i){
-									input.then(function(value){
-										readyInputs[i] = value;
-										onEach();
-									}, onError);
-								})(i);
-							}else{
-								readyInputs[i] = input;
-								onEach();
-							}
-						}
-						onEach();
-						function onEach(){
-							remaining--;
-							if(!remaining){
-								onResolve(callback[returnArray ? 'call' : 'apply'](this, readyInputs));
-							}
-						}
-					},
-					inputs: inputs
-				};
-			}
-			// just sync inputs
-			return callback[returnArray ? 'call' : 'apply'](this, inputs);
-		};
-	}
-
 	return Definition;
 });
