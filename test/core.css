@@ -2,6 +2,9 @@ test-variable=var: 163px;
 test-expression=var: test;
 
 test-component = section {
+	main-color=var: #00f;
+	label=var: Label;
+	content=var: The default content;
 	=>
 		h1.test-class (label) { color: red},
 		p (content) {
@@ -9,9 +12,6 @@ test-component = section {
 			width: var(test-variable);
 		},
 		div (test-expression);
-	main-color=var: #00f;
-	label=var: Label;
-	content=var: The default content;
 	background-color: #ddd;
 	display: block;
 	width: 200px;

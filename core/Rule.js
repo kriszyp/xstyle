@@ -198,7 +198,7 @@ define('xstyle/core/Rule', [
 								thisStyle[name] = '';
 							}
 						}
-						contextualizeResultForRule(rule, target.put(value, propertyName));
+						contextualizeResultForRule(rule, target.put(value, rule, propertyName));
 					}
 					// we progressively go through parent property names. For example if the 
 					// property name is foo-bar-baz, it first checks for foo-bar-baz, then 

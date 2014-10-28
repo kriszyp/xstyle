@@ -114,19 +114,37 @@ define('xstyle/core/base', [
 	var varBaseDefinition;
 	var variableDefinitions = {};
 	function getVarDefinition(rule, name, inherit){
-		var variables = rule.variables || (rule.variables = {});
-		var variableDefinition = variables[name] || (variables[name] = new Definition(inherit && function(){
-			// inherit from parent
-			return parentDefinition.valueOf();
-		}));
-		if(inherit && !variableDefinition.isSet){
-			var parent = rule.parent;
-			if(parent){
-				var parentDefinition = getVarDefinition(parent, name, true);
-				variableDefinition.depend(parentDefinition);
+		var parent = rule;
+		if(inherit){
+			while(parent && !(parent.variables && parent.variables[name])){
+				parent = parent.parent;
+				if(!parent){
+					throw new Error('Variable ' + name + ' not found');
+				}
 			}
 		}
-		return variableDefinition;
+		function ensureVariable(base){
+			var variables = base.variables || (base.variables = {});
+			if(variables.hasOwnProperty(name)){
+				return variables[name];
+			}else{
+				base = base.base;
+				var definition;
+				if(base){
+					var baseDefinition = ensureVariable(base);
+					definition =  new Definition(inherit && function(){
+						// inherit from parent
+						return baseDefinition.valueOf();
+					});
+					definition.depend(baseDefinition);
+				}else{
+					definition = new Definition();
+				}
+				return (variables[name] = definition);
+			}
+		}
+		
+		return ensureVariable(parent);
 	}
 	// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
 	root.definitions = {
@@ -158,7 +176,7 @@ define('xstyle/core/base', [
 		item: elementProperty('item', null, true),
 		'page-content': new Proxy(),
 		// adds referencing to the prior contents of an element
-		content: elementProperty('content', null, true, function(target){
+		content: elementProperty('content', null, true, function(){
 			this.element;
 		}),
 		// don't define the property now let it be redefined when it is declared in another
@@ -188,7 +206,7 @@ define('xstyle/core/base', [
 			}
 		},
 		prefix: {
-			put: function(value, name){
+			put: function(value, declaringRule, name){
 				// add a vendor prefix
 				// check to see if the browser supports this feature through vendor prefixing
 				return {
@@ -206,7 +224,7 @@ define('xstyle/core/base', [
 		'var': varBaseDefinition = {
 			define: function(rule, name){
 				return {
-					put: function(value, name){
+					put: function(value, declaringRule, name){
 						// assignment to a var
 						return {
 							forRule: function(rule){
@@ -259,13 +277,13 @@ define('xstyle/core/base', [
 			}
 		},
 		/*set: expression.contextualized(function(target, value){
-			target.put(value);
+			return target.put(value);
 		}),
 		get: expression.resolved(function(value){
 			return value;
 		}),*/
 		on: {
-			put: function(value, name){
+			put: function(value, declaringRule, name){
 				// add listener
 				return {
 					forRule: function(rule){

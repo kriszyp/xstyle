@@ -3,10 +3,8 @@ define('xstyle/core/generate', [
 	'put-selector/put',
 	'xstyle/core/utils',
 	'xstyle/core/expression',
-	'xstyle/core/base',
-	'xstyle/core/Proxy',
-	'xstyle/core/Context'
-], function(elemental, put, utils, expressionModule, root, Proxy, Context){
+	'xstyle/core/base'
+], function(elemental, put, utils, expressionModule, root){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
