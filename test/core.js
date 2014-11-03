@@ -30,7 +30,7 @@ define([
 			assert.equal(contentStyle.color, 'rgb(0, 128, 0)');
 			assert.equal(contentStyle.width, '163px');
 			var testDiv = testContent.nextSibling;
-			assert.equal(testDiv.innerHTML, 'test');
+			assert.equal(testDiv.innerHTML, 'test from top');
 		},
 
 		'extend-by-property': function(){
@@ -52,7 +52,7 @@ define([
 			assert.equal(contentStyle.color, 'rgb(0, 128, 0)');
 			assert.equal(contentStyle.width, '163px');
 			var testDiv = testContent.nextSibling;
-			assert.equal(testDiv.innerHTML, 'test');
+			assert.equal(testDiv.innerHTML, 'test from top');
 		},	
 		'extend-by-selector': function(){
 			var testComponent = put(document.body, 'hello-world');
@@ -73,7 +73,7 @@ define([
 			assert.equal(contentStyle.color, 'rgb(0, 128, 0)');
 			assert.equal(contentStyle.width, '163px');
 			var testDiv = testContent.nextSibling;
-			assert.equal(testDiv.innerHTML, 'test');
+			assert.equal(testDiv.innerHTML, 'another test');
 		},
 		'extend-class': function(){
 			var testComponent = put(document.body, 'test-class-extend');

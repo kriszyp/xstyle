@@ -63,7 +63,7 @@ define('xstyle/core/base', [
 							}
 							var value = element[property];
 							if(!value){
-								return varBaseDefinition.define(null, 'content').valueOf().forRule(rule);
+								return getVarDefinition('content').valueOf().forRule(rule);
 							}
 							return value;
 						}						
@@ -76,7 +76,7 @@ define('xstyle/core/base', [
 			return elementProperty(property || newProperty, rule, newElement);
 		};
 		definition.put = function(value){
-			return varBaseDefinition.define(null, 'content').put(value, 'content');
+			return getVarDefinition('content').put(value, 'content');
 		};
 		return definition;
 	}
@@ -111,40 +111,63 @@ define('xstyle/core/base', [
 			}
 		};
 	}
-	var varBaseDefinition;
 	var variableDefinitions = {};
-	function getVarDefinition(rule, name, inherit){
-		var parent = rule;
-		if(inherit){
-			while(parent && !(parent.variables && parent.variables[name])){
-				parent = parent.parent;
-				if(!parent){
-					throw new Error('Variable ' + name + ' not found');
+	function getVarValueForParent(rule, name){
+		var variables = rule.variables;
+		if(variables && name in variables){
+			return variables[name];
+		}
+		var bases = rule.bases;
+		if(bases){
+			for(var i = 0; i < bases.length; i++){
+				var result = getVarValueForParent(bases[i], name);
+				if(result !== undefined){
+					return result;
 				}
 			}
 		}
-		function ensureVariable(base){
-			var variables = base.variables || (base.variables = {});
-			if(variables.hasOwnProperty(name)){
-				return variables[name];
-			}else{
-				base = base.base;
-				var definition;
-				if(base){
-					var baseDefinition = ensureVariable(base);
-					definition =  new Definition(inherit && function(){
-						// inherit from parent
-						return baseDefinition.valueOf();
-					});
-					definition.depend(baseDefinition);
-				}else{
-					definition = new Definition();
-				}
-				return (variables[name] = definition);
+	}
+	function getVarValue(rule, name){
+		do{
+			var value = getVarValueForParent(rule, name);
+			if(value !== undefined){
+				return value;
 			}
+			rule = rule.parent;
+		}while(rule);
+	}
+	function getVarDefinition(name){
+		var variableDefinition = variableDefinitions[name];
+		if(!variableDefinition){
+			variableDefinition = variableDefinitions[name] = new Definition(function(){
+				return {
+					forRule: function(rule){
+						return getVarValue(rule, name);
+					}
+				};
+			});
+			variableDefinition.put = function(value, declaringRule, name){
+				// assignment to a var
+				return {
+					forRule: function(rule){
+						(rule.variables || (rule.variables = {}))[name] = value;
+						var affectedRules = [];
+						function addDerivatives(rule){
+							affectedRules.push(rule);
+							for(var name in rule.rules){
+								addDerivatives(rule.rules[name]);
+							}
+						}
+						while(rule){
+							addDerivatives(rule);
+							rule = rule.parent;
+						}
+						variableDefinition.invalidate(affectedRules);
+					}
+				};
+			};
 		}
-		
-		return ensureVariable(parent);
+		return variableDefinition;
 	}
 	// the root has it's own intrinsic variables that provide important base and bootstrapping functionality 
 	root.definitions = {
@@ -221,48 +244,14 @@ define('xstyle/core/base', [
 			}
 		},
 		// provides CSS variable support
-		'var': varBaseDefinition = {
+		'var': {
 			define: function(rule, name){
-				return {
-					put: function(value, declaringRule, name){
-						// assignment to a var
-						return {
-							forRule: function(rule){
-								var varDefinition = getVarDefinition(rule, name);
-								// indicate that we don't need to inherit past this
-								varDefinition.isSet = true;
-								varDefinition.setSource(value);
-								var variableDefinition = variableDefinitions[name];
-								if(variableDefinition){
-									variableDefinition.invalidate(rule);
-								}
-							}
-						};
-					},
-					valueOf: function(){
-						return {
-							forRule: function(rule){
-								return getVarDefinition(rule, name, true).valueOf();
-							}
-						};
-					}
-				};
+				return getVarDefinition(name);
 			},
 			selfResolving: true,
 			apply: function(definition, args){
 				// var(property) call
-				var name = args[0];
-				var variableDefinition = variableDefinitions[name];
-				if(!variableDefinition){
-					variableDefinition = variableDefinitions[name] = new Definition(function(){
-						return {
-							forRule: function(rule){
-								return getVarDefinition(rule, name, true).valueOf();
-							}
-						};
-					});
-				}
-				return variableDefinition;
+				return getVarDefinition(args[0]);
 			}
 		},
 		inline: conditional('inline', 'none'),

@@ -1,5 +1,5 @@
 test-variable=var: 163px;
-test-expression=var: test;
+test-expression=var: test from top;
 
 test-component = section {
 	main-color=var: #00f;
@@ -10,6 +10,7 @@ test-component = section {
 		p (content) {
 			color: green;
 			width: var(test-variable);
+			border: 2px solid var(main-color);
 		},
 		div (test-expression);
 	background-color: #ddd;
