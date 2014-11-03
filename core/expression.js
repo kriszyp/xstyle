@@ -190,7 +190,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 									}
 									return compute();
 								}
-								return func.apply(definition, args);
+								return func.apply(definition, args).valueOf();
 							});
 						});
 						return definition;

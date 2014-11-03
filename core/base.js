@@ -63,7 +63,7 @@ define('xstyle/core/base', [
 							}
 							var value = element[property];
 							if(!value){
-								return getVarDefinition('content').valueOf().forRule(rule);
+								return getVarDefinition(property).valueOf().forRule(rule);
 							}
 							return value;
 						}						
@@ -75,8 +75,8 @@ define('xstyle/core/base', [
 			// if we don't already have a property define, we will do so now
 			return elementProperty(property || newProperty, rule, newElement);
 		};
-		definition.put = function(value){
-			return getVarDefinition('content').put(value, 'content');
+		definition.put = function(value, rule){
+			return getVarDefinition(property).put(value, rule, property);
 		};
 		return definition;
 	}
@@ -265,12 +265,15 @@ define('xstyle/core/base', [
 				}
 			}
 		},
-		/*set: expression.contextualized(function(target, value){
-			return target.put(value);
-		}),
-		get: expression.resolved(function(value){
+		set: {
+			selfExecuting: true,
+			apply: function(target, args){
+				return args[0].put(args[1].valueOf());
+			}
+		},
+		get: function(value){
 			return value;
-		}),*/
+		},
 		on: {
 			put: function(value, declaringRule, name){
 				// add listener
@@ -282,15 +285,19 @@ define('xstyle/core/base', [
 							// note that we could define a flag on the definition to indicate that
 							// we shouldn't cache it, incidently, since their are no dependencies
 							// declared for this definition, it shouldn't end up being cached
-							utils.when(expression.evaluate(rule, value).valueOf(), function(result){
-								if(result && result.forRule){
-									result = result.forRule(rule);
-								}
-								if(result && result.forElement){
-									result = result.forElement(event.target);
-								}
-								currentEvent = null;
-							});
+							try{
+								utils.when(expression.evaluate(rule, value).valueOf(), function(result){
+									if(result && result.forRule){
+										result = result.forRule(rule);
+									}
+									if(result && result.forElement){
+										result = result.forElement(event.target);
+									}
+									currentEvent = null;
+								});
+							}catch(e){
+								console.error('Error in ' + name + ' event handler, executing ' + value, e);
+							}
 						});
 					}
 				};

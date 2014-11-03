@@ -409,7 +409,9 @@ define('xstyle/core/Rule', [
 						sequence[i] = part = create(part);
 					}
 					// evaluate each call
-					var evaluated = part.ref && part.ref.apply(rule, part.getArgs(), name);
+					var evaluated = part.ref && part.ref.selfResolving ? 
+						part.ref.apply(rule, part.getArgs(), name) :
+						expression.evaluate(rule, [part.caller, part]);
 					if(evaluated !== undefined){
 						(evaluatedCalls || (evaluatedCalls = [])).push(evaluated);
 						part.evaluated = true;
@@ -465,8 +467,9 @@ define('xstyle/core/Rule', [
 			// TODO: we need to visit any derivatives
 			if(result && result.forRule){
 				(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
-					if(startingResult && startingResult.forElement){
-						forElement(rule, startingResult.forRule(rule, true), elementCallback);
+					var result = startingResult.forRule(rule, true);
+					if(result && result.forElement){
+						forElement(rule, result, elementCallback);
 					}else{
 						callback && callback(result);
 					}

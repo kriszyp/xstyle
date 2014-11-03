@@ -44,9 +44,11 @@ define('xstyle/core/generate', [
 			}
 			// temporarily store it on the element, so it can be accessed as an element-property
 			// TODO: remove it after completion
-			if(!element.content){
+			if(!('content' in element)){
 				element.content = contentFragment;
 			}
+			// need to clear the reference node, so we don't recursively try to put stuff in there 
+			element._contentNode = undefined;
 			var indentationLevel = 0;
 			var indentationLevels = [element];
 			var stackOfElementsToUpdate = [];
