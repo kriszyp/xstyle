@@ -22,9 +22,10 @@ define("xstyle/main", [
 	// traverse the @imports to load the sources 
 	function checkImports(element, callback, fixedImports){
 		var sheet = element.sheet || element.styleSheet;
-		if(!sheet){
+		if(!sheet || (sheet.processed && !fixedImports)){
 			return;
 		}
+		sheet.processed = true;
 		var needsParsing = sheet.needsParsing, // load-imports can check for the need to parse when it does it's recursive look at imports 
 			cssRules = sheet.rules || sheet.cssRules;
 		function fixImports(){
@@ -55,7 +56,7 @@ define("xstyle/main", [
 			return fixImports();
 		}
 		if(!needsParsing){
-			for(var i = 0; i < cssRules.length; i++){								
+			for(var i = 0; i < cssRules.length; i++){
 				var rule = cssRules[i];
 				if(rule.href && !fixedImports){
 					// it's an import (for non-IE browsers)
