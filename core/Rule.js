@@ -252,21 +252,27 @@ define('xstyle/core/Rule', [
 					}
 				};
 				var appliedRules = [rule];
-				if(result && result.forRule){
-					(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
-						appliedRules.push(rule);
-						applyToRule(rule);
-					});
+				utils.when(result, function(fulfilledResult){
+					result = fulfilledResult;
+					if(result && result.forRule){
+						(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
+							appliedRules.push(rule);
+							applyToRule(rule);
+						});
+					}
 					applyToRule(rule);
-				}
+				});
 
 				value.expression.depend({
 					invalidate: function(affectedRules){
 						// TODO: queue these up
 						//(rule.staleProperties || (rule.staleProperties = {}))[propertyName] =
-						for(var i = 0; i < appliedRules.length; i++){
-							applyToRule(appliedRules[i]);
-						}
+						utils.when(value.expression.valueOf(), function(fulfilledResult){
+							result = fulfilledResult;
+							for(var i = 0; i < appliedRules.length; i++){
+								applyToRule(appliedRules[i]);
+							}
+						});
 					}
 				});
 			}
