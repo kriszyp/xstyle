@@ -14,8 +14,8 @@ define([
 			var testComponent = put(document.body, 'test-component');
 			assert.equal(testComponent.tagName, 'SECTION');
 			var componentStyle = getComputedStyle(testComponent);
-			assert.equal(componentStyle.borderWidth, '4px');
-			assert.equal(componentStyle.borderColor, 'rgb(0, 0, 255)');
+			assert.equal(componentStyle.borderBottomWidth, '4px');
+			assert.equal(componentStyle.borderBottomColor, 'rgb(0, 0, 255)');
 			assert.equal(componentStyle.color, 'rgb(0, 0, 255)');
 			assert.equal(componentStyle.backgroundColor, 'rgb(221, 221, 221)');
 			var testHeader = testComponent.firstChild;
@@ -36,8 +36,8 @@ define([
 		'extend-by-property': function(){
 			var testComponent = put(document.body, '.with-content');
 			var componentStyle = getComputedStyle(testComponent);
-			assert.equal(componentStyle.borderWidth, '4px');
-			assert.equal(componentStyle.borderColor, 'rgb(170, 170, 170)');
+			assert.equal(componentStyle.borderBottomWidth, '4px');
+			assert.equal(componentStyle.borderBottomColor, 'rgb(170, 170, 170)');
 			assert.equal(componentStyle.color, 'rgb(170, 170, 170)');
 			assert.equal(componentStyle.backgroundColor, 'rgb(255, 255, 0)');
 			var testHeader = testComponent.firstChild;
@@ -57,8 +57,8 @@ define([
 		'extend-by-selector': function(){
 			var testComponent = put(document.body, 'hello-world');
 			var componentStyle = getComputedStyle(testComponent);
-			assert.equal(componentStyle.borderWidth, '4px');
-			assert.equal(componentStyle.borderColor, 'rgb(136, 136, 136)');
+			assert.equal(componentStyle.borderBottomWidth, '4px');
+			assert.equal(componentStyle.borderBottomColor, 'rgb(136, 136, 136)');
 			assert.equal(componentStyle.color, 'rgb(136, 136, 136)');
 			assert.equal(componentStyle.backgroundColor, 'rgb(255, 170, 170)');
 			var testHeader = testComponent.firstChild;

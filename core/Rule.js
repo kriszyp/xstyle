@@ -13,6 +13,19 @@ define('xstyle/core/Rule', [
 		return new Base();
 	};
 
+	function convertCssNameToJs(name){
+		return name.replace(/-(\w)/g, upperLetter);
+	}
+	function upperLetter(t, letter){
+		return letter.toUpperCase();
+	}
+	function setStyle(style, name, value){
+		// TODO: only surround with try/catch on IE
+		try{
+			style[name] = value;
+		}catch(e){
+		}
+	}
 	var operatorMatch = {
 		'{': '}',
 		'[': ']',
@@ -61,7 +74,8 @@ define('xstyle/core/Rule', [
 				var styleSheet = this.styleSheet;
 				var cssRules = styleSheet.cssRules || styleSheet.rules;
 				var ruleNumber = this.ruleIndex > -1 ? this.ruleIndex : cssRules.length;
-				styleSheet.addRule(selector, cssText, ruleNumber);
+				// IE doesn't like an empty cssText
+				styleSheet.addRule(selector, cssText || ' ', ruleNumber);
 				return cssRules[ruleNumber];
 			}
 		},
@@ -71,14 +85,14 @@ define('xstyle/core/Rule', [
 			if(this.installStyles){
 				for(var i = 0; i < this.installStyles.length;i++){
 					var pair = this.installStyles[i];
-					cssRule.style[pair[0]] = pair[1];
+					setStyle(cssRule.style, pair[0], pair[1]);
 				}
 			}
 		},
 		setStyle: function(name, value){
 			console.log('setStyle', this.selector, name, value);
 			if(this.cssRule){
-				this.cssRule.style[name] = value;
+				setStyle(this.cssRule.style, name, value);
 			}/*else if('ruleIndex' in this){
 				// TODO: inline this
 				this.getCssRule().style[name] = value;
@@ -105,6 +119,7 @@ define('xstyle/core/Rule', [
 			});
 		},
 		declareDefinition: function(name, value, conditional){
+			name = name && convertCssNameToJs(name);
 			// called by the parser when a variable assignment is encountered
 			// this creates a new definition in the current rule
 			if(this.disabled){
@@ -178,18 +193,18 @@ define('xstyle/core/Rule', [
 		},
 		setValue: function(name, value, scopeRule){
 			// called by the parser when a property is encountered
+			var jsName = convertCssNameToJs(name);
 			if(this.disabled){
 				// TODO: eventually we need to support reenabling
 				return;
 			}
 			var values = (this.values || (this.values = []));
-			values.push(name);
-			values[name] = value;
+			values.push(jsName);
+			values[jsName] = value;
 			// called when each property is parsed, and this determines if there is a handler for it
 			// this is called for each CSS property
 			if(name){
 				var rule = this;
-				var propertyName = name;
 				do{
 					// check for the handler
 					var target = (scopeRule || this).getDefinition(name);
@@ -197,11 +212,11 @@ define('xstyle/core/Rule', [
 						if(this.cssRule){
 							// delete the property if it one that the browser actually uses
 							var thisStyle = this.cssRule.style;
-							if(name in thisStyle){
-								thisStyle[name] = '';
+							if(jsName in thisStyle){
+								thisStyle[jsName] = '';
 							}
 						}
-						contextualizeResultForRule(rule, target.put(value, rule, propertyName));
+						contextualizeResultForRule(rule, target.put(value, rule, jsName));
 					}
 					// we progressively go through parent property names. For example if the 
 					// property name is foo-bar-baz, it first checks for foo-bar-baz, then 
@@ -210,10 +225,10 @@ define('xstyle/core/Rule', [
 					// try shorter name
 				}while(name);
 			}
-			if(propertyName in testStyle){
+			if(jsName in testStyle){
 				// if we don't have a handler, and this is a CSS property, we may need to
 				// setup reactive bindings
-				this._setStyleFromValue(propertyName, value, true);
+				this._setStyleFromValue(jsName, value, true);
 			}
 		},
 		_setStyleFromValue: function(propertyName, value, alreadySet){
@@ -224,7 +239,8 @@ define('xstyle/core/Rule', [
 				var values = first.values;
 				for(var i = 0; i < values.length; i++){
 					var key = values[i];
-					this._setStyleFromValue(propertyName + (key == 'main' ? '' : '-' + key), values[key]);
+					this._setStyleFromValue(propertyName + (key == 'main' ? '' :
+							key.charAt(0).toUpperCase() + key.slice(1)), values[key]);
 				}
 				return;
 			}
@@ -239,7 +255,7 @@ define('xstyle/core/Rule', [
 					var value = result && result.forRule ? result.forRule(rule, true) : result;
 					if(value && value.forElement){
 						return forElement(rule, value, function(value, element){
-							element.style[propertyName] = value;
+							setStyle(element.style, propertyName, value);
 						});
 					}
 					// check to see if this is already overriden
@@ -319,7 +335,7 @@ define('xstyle/core/Rule', [
 			var inheritedStyles = derivative.inheritedStyles || (derivative.inheritedStyles = {});
 			// now we iterate through the defined style properties, and copy them to the derivitative
 			for(var i = 0; i < baseStyle.length; i++){
-				var name = baseStyle[i];
+				var name = convertCssNameToJs(baseStyle[i]);
 				// if the derivative has a style, we assume it is set in the derivative rule. If we 
 				// inherit a rule, we have to mark it as inherited so higher precedence rules
 				// can override it without thinking it came from the derivative. 
@@ -385,6 +401,7 @@ define('xstyle/core/Rule', [
 			}
 		},
 		getDefinition: function(name, extraScope){
+			name = convertCssNameToJs(name);
 			// lookup a definition by name, which used for handling properties and other things
 			var parentRule = this;
 			do{
@@ -497,6 +514,7 @@ define('xstyle/core/Rule', [
 			});
 		});
 	}
+	Rule.convertCssNameToJs = convertCssNameToJs;
 	Rule.updateStaleProperties = function(){
 
 	};

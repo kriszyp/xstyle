@@ -18,6 +18,7 @@ define([
 		expand: function(){
 			var testElement = put(document.body, 'test-expand');
 			var style = getComputedStyle(testElement);
+			console.log("testElement", testElement.className);
 			assert.strictEqual(style.marginTop, '1px');
 			assert.strictEqual(style.marginRight, '2px');
 			assert.strictEqual(style.marginBottom, '3px');

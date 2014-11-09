@@ -62,7 +62,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 		// TODO: support IE7-8
 		if(/e/.test(doc.readyState||'')){
 			// TODO: fix the issues with sync so this can be run immediately
-			setTimeout(callback, 200);
+			callback();
 		}else{
 			doc.addEventListener('DOMContentLoaded', callback);
 		}
@@ -157,16 +157,25 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 		for(var i = 0, l = selectorRenderers.length; i < l; i++){
 			var renderer = selectorRenderers[i];
 			if((!selector || (selector == renderer.selector)) &&
-				(matchesSelector ?
-					// use matchesSelector if available
-					// TODO: determine if it is higher specificity that other  same name properties
-					matchesSelector.call(element, renderer.selector) :
-					// else use IE's custom css property inheritance mechanism
-					element.currentStyle[renderer.id])){
+				matchesRule(element, renderer.rule)){
 				renderer.render(element);
 			}
 		}
 	}
+	var matchesRule = matchesSelector?
+		function(element, rule){
+			// use matchesSelector if available
+			return matchesSelector.call(element, rule.selector);
+		} :
+		function(element, rule){
+			// so we can match this rule by checking inherited styles
+			if(!rule.ieId){
+				setStyle(rule.ieId = ('x-ie-' + nextId++), 'true');
+			}
+			// use IE's custom css property inheritance mechanism
+			// TODO: determine if it is higher specificity that other  same name properties
+			return !!element.currentStyle[rule.ieId];
+		};
 
 	function addDefinition(selector, definition){
 		selectorDefinitions.push({
@@ -177,12 +186,9 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 	function addRenderer(rule, handler){
 		var renderer = {
 			selector: rule.selector,
+			rule: rule,
 			render: handler
 		};
-		if(!matchesSelector){
-			// so we can match this rule by checking inherited styles
-			rule.setStyle(renderer.id = ('x' + nextId++), 'true');
-		}
 		// the main entry point for adding elemental handlers for a selector. The handler
 		// will be called for each element that is created that matches a given selector
 		selectorRenderers.push(renderer);
@@ -206,6 +212,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 	return {
 		ready: domReady,
 		on: on,
+		matchesRule: matchesRule,
 		addRenderer: addRenderer,
 		addDefinition: addDefinition,
 		// this should be called for newly created dynamic elements to ensure the proper rules are applied

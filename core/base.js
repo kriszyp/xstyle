@@ -26,6 +26,7 @@ define('xstyle/core/base', [
 	// we treat the stylesheet as a 'root' rule; all normal rules are children of it
 	var currentEvent;
 	var root = new Rule();
+	var matchesRule = elemental.matchesRule;
 	root.root = true;
 	function elementProperty(property, rule, inherit, newElement){
 		// definition bound to an element's property
@@ -40,7 +41,7 @@ define('xstyle/core/base', [
 								element = element.parentNode;
 							}
 							if(rule && rule.selector){
-								while(!element.matches(rule.selector)){
+								while(!matchesRule(element, rule)){
 									element = element.parentNode;
 									if(!element){
 										throw new Error('Rule not found');
@@ -197,14 +198,14 @@ define('xstyle/core/base', [
 		// TODO: add url()
 		// adds support for referencing each item in a list of items when rendering arrays 
 		item: elementProperty('item', null, true),
-		'page-content': new Proxy(),
+		pageContent: new Proxy(),
 		// adds referencing to the prior contents of an element
 		content: elementProperty('content', null, true, function(){
 			this.element;
 		}),
 		// don't define the property now let it be redefined when it is declared in another
 		// definition
-		'element-property': elementProperty(),
+		elementProperty: elementProperty(),
 		element: {
 			// definition to reference the actual element
 			forElement: function(element){
@@ -251,7 +252,7 @@ define('xstyle/core/base', [
 			selfResolving: true,
 			apply: function(definition, args){
 				// var(property) call
-				return getVarDefinition(args[0]);
+				return getVarDefinition(Rule.convertCssNameToJs(args[0]));
 			}
 		},
 		inline: conditional('inline', 'none'),
@@ -279,7 +280,7 @@ define('xstyle/core/base', [
 				// add listener
 				return {
 					forRule: function(rule){
-						elemental.on(document, name.slice(3), rule.selector, function(event){
+						elemental.on(document, name.charAt(2).toLowerCase() + name.slice(3), rule.selector, function(event){
 							currentEvent = event;
 							// execute the event listener by calling valueOf
 							// note that we could define a flag on the definition to indicate that

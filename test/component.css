@@ -15,6 +15,7 @@ popup-message = {
 			border: 1px solid #bbb;
 			border-radius: 3px;
 			box-shadow: 0 1px 5px #000;
+			left: 0;
 		};
 }
 

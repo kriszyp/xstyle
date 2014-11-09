@@ -44,11 +44,10 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 				}
 			};
 			observe.observe(object, observer);
+			if(observer.addKey){
+				observer.addKey(key);
+			}
 		}
-		// used by the polyfill to setup setters
-		/*if(observer.addKey){
-			observer.addKey(key);
-		}*/
 		return observer;
 	}
 	Definition.prototype = {
@@ -110,7 +109,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 									if(result && result.forElement){
 										return contextualizeElement(parentDefinition, result, key);
 									}else{
-										rule[cacheProperty + 'observe'] = setupObserve(parentDefinition, result, key);
+										var cacheObserve = rule[cacheProperty + 'observe'] = setupObserve(parentDefinition, result, key);
 									}
 									return result[key];
 								}
@@ -121,8 +120,12 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 							return contextualizeElement(parentDefinition, object, key);
 						}
 						// else
-						if(!parentDefinition.cacheObserve){
-							parentDefinition.cacheObserve = setupObserve(parentDefinition, object, key);
+						var cacheObserve = parentDefinition.cacheObserve;
+						if(!cacheObserve){
+							cacheObserve = parentDefinition.cacheObserve = setupObserve(parentDefinition, object, key);
+						}else if(cacheObserve.addKey){
+							// used by the polyfill to setup setters
+							cacheObserve.addKey(key);
 						}
 						return object[key];
 					});
