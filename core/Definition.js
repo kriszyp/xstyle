@@ -19,6 +19,10 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 					// TODO: use weakmap
 					var cacheProperty = ['_cache_' + definition.id];
 					if(cacheProperty in element){
+						var cacheObserver = element[cacheProperty + 'observe'];
+						if(cacheObserver.addKey){
+							cacheObserver.addKey(key);
+						}
 						return element[cacheProperty][key];
 					}
 					var result = element[cacheProperty] = object.forElement(element);
@@ -109,7 +113,14 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 									if(result && result.forElement){
 										return contextualizeElement(parentDefinition, result, key);
 									}else{
-										var cacheObserve = rule[cacheProperty + 'observe'] = setupObserve(parentDefinition, result, key);
+										var cacheObserve = rule[cacheProperty + 'observe'];
+										if(cacheObserve){
+											if(cacheObserve.addKey){
+												cacheObserve.addKey(key);
+											}else{
+												rule[cacheProperty + 'observe'] = setupObserve(parentDefinition, result, key);	
+											}
+										}
 									}
 									return result[key];
 								}

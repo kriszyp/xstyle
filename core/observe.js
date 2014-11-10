@@ -1,6 +1,6 @@
 define('xstyle/core/observe', [], function(){
 	var hasFeatures = {
-		observe: Object.observe,
+		observe: false && Object.observe,
 		defineProperty: Object.defineProperty && (function(){
 			try{
 				Object.defineProperty({}, 't', {});
@@ -17,7 +17,7 @@ define('xstyle/core/observe', [], function(){
 	// for what xstyle needs
 	// An observe function, with polyfile
 	var observe = has('observe') ? Object.observe :
-		// for the case of setter support, but no Object.observe support (like IE9, IE10)
+		// for the case of setter support, but no Object.observe support (like IE9, IE10, some FF, Safari)
 		// this is much faster than polling
 			has('defineProperty') ? 
 		function observe(target, listener){
@@ -29,6 +29,12 @@ define('xstyle/core/observe', [], function(){
 				listener = null;
 			}
 			function addKey(key){
+				var keyFlag = 'key' + key;
+				if(this[keyFlag]){
+					return;
+				}else{
+					this[keyFlag] = true;
+				}
 				var currentValue = target[key];
 				var descriptor = Object.getOwnPropertyDescriptor(target, key);
 				if(descriptor && descriptor.set){
@@ -65,6 +71,7 @@ define('xstyle/core/observe', [], function(){
 				}
 			}
 		} :
+		// and finally a polling-based solution, for the really old browsers
 		function(target, listener){
 			if(!timerStarted){
 				timerStarted = true;
@@ -111,8 +118,11 @@ define('xstyle/core/observe', [], function(){
 			properties.push(name);
 		}
 	}
-	var unobserve = Object.unobserve ||
+	var unobserve = has('observe') ? Object.unobserve :
 		function(target, listener){
+			if(listener.remove){
+				listener.remove();
+			}
 			for(var i = 0, l = watchedObjects.length; i < l; i++){
 				if(watchedObjects[i] === target && listeners[i] === listener){
 					watchedObjects.splice(i, 1);
