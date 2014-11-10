@@ -280,7 +280,7 @@ define('xstyle/core/base', [
 				// add listener
 				return {
 					forRule: function(rule){
-						elemental.on(document, name.charAt(2).toLowerCase() + name.slice(3), rule.selector, function(event){
+						elemental.on(document, name.charAt(2).toLowerCase() + name.slice(3), rule, function(event){
 							currentEvent = event;
 							// execute the event listener by calling valueOf
 							// note that we could define a flag on the definition to indicate that

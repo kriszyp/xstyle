@@ -1,11 +1,25 @@
 define('xstyle/core/observe', [], function(){
+	var hasFeatures = {
+		observe: Object.observe,
+		defineProperty: Object.defineProperty && (function(){
+			try{
+				Object.defineProperty({}, 't', {});
+				return true;
+			}catch(e){
+
+			}
+		})()
+	};
+	function has(feature){
+		return hasFeatures[feature];
+	}
 	// This is an polyfill for Object.observe with just enough functionality
 	// for what xstyle needs
 	// An observe function, with polyfile
-	var observe = Object.observe ||
+	var observe = has('observe') ? Object.observe :
 		// for the case of setter support, but no Object.observe support (like IE9, IE10)
 		// this is much faster than polling
-			(Object.getOwnPropertyDescriptor ? 
+			has('defineProperty') ? 
 		function observe(target, listener){
 			/*for(var i in target){
 				addKey(i);
@@ -69,7 +83,7 @@ define('xstyle/core/observe', [], function(){
 			watchedObjects.push(target);
 			watchedCopies.push(copy);
 			listeners.push(listener);
-		});
+		};
 	var queuedListeners;
 	function queue(listener, object, name){
 		if(queuedListeners){

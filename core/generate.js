@@ -247,7 +247,9 @@ define('xstyle/core/generate', [
 					}
 				}catch(e){
 					console.error(e, e.stack);
-					lastElement.innerHTML = '';
+					if(lastElement.innerHTML){
+						lastElement.innerHTML = '';
+					}
 					lastElement.appendChild(doc.createTextNode(e));
 				}
 			}
@@ -269,8 +271,11 @@ define('xstyle/core/generate', [
 		if(true || !('_defaultBinding' in element)){
 			// if we don't have any handle for content yet, we install this default handling
 			element._defaultBinding = true;
-			if(expressionResult && expressionResult.then){
-				var textNode = element.appendChild(doc.createTextNode('Loading'));
+			if(expressionResult && expressionResult.then && element.tagName !== 'INPUT'){
+				try{
+					var textNode = element.appendChild(doc.createTextNode('Loading'));
+				}catch(e){
+				}
 			}
 			utils.when(expressionResult, function(value){
 				if(value && value.forRule){

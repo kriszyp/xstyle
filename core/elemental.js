@@ -4,12 +4,12 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 	var doc = document;
 	var nextId = 1;
 	var hasAddEventListener = !!doc.addEventListener;
-	on(doc, 'change', null, function(event){
+	on(doc, hasAddEventListener ? 'change' : 'focusout', null, function(event){
 		var element = event.target;
 		// get the variable computation so we can put the value
 		for(var i = 0, l = selectorDefinitions.length; i < l; i++){
 			var selectorDefinition = selectorDefinitions[i];
-			if(matchesSelector.call(element, selectorDefinition.selector)){
+			if((' ' + element.className + ' ').indexOf(selectorDefinition.selector.slice(1)) > -1){
 				var definition = selectorDefinition.definition;
 				// TODO: use forRule/forElement on the valueOf if necessary
 				var oldType = typeof definition.valueOf();
@@ -27,14 +27,17 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 			}
 		}
 	});
-	function on(target, event, selector, listener){
+	function on(target, event, rule, listener){
 		// this function can be overriden to provide better event handling
 		hasAddEventListener ?
 			target.addEventListener(event, select, false) :
-			target.attachEvent(event, select);
+			target.attachEvent('on' + event, function(event){
+				event.target = event.srcElement;
+				select(event);
+			});
 		function select(event){
 			// do event delegation
-			if(!selector || matchesSelector.call(event.target, selector)){
+			if(!rule || matchesRule(event.target, rule)){
 				listener(event);
 			}
 		}
