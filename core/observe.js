@@ -1,6 +1,6 @@
 define('xstyle/core/observe', [], function(){
 	var hasFeatures = {
-		observe: false && Object.observe,
+		observe: Object.observe,
 		defineProperty: Object.defineProperty && (function(){
 			try{
 				Object.defineProperty({}, 't', {});
