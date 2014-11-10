@@ -249,8 +249,10 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								if(!nextRule){
 									// didn't find it
 									newTarget.ruleIndex = ruleIndex = lastRuleIndex;
-									newTarget.styleSheet = styleSheet;
 								}
+								// TODO: this doesn't need to be done when there is a rule, except for old IE,
+								// as most browsers, the style sheet can be retrieved the cssRule
+								newTarget.styleSheet = styleSheet;
 								if(sequence.creating){
 									// in generation, we auto-generate selectors so we can reference them
 									newTarget.selector = '.' + (assignmentOperator == '=' ?

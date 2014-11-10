@@ -213,7 +213,7 @@ define('xstyle/core/Rule', [
 							// delete the property if it one that the browser actually uses
 							var thisStyle = this.cssRule.style;
 							if(jsName in thisStyle){
-								thisStyle[jsName] = '';
+								setStyle(thisStyle, jsName, '');
 							}
 						}
 						contextualizeResultForRule(rule, target.put(value, rule, jsName));

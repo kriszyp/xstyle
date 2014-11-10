@@ -170,7 +170,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 		function(element, rule){
 			// so we can match this rule by checking inherited styles
 			if(!rule.ieId){
-				setStyle(rule.ieId = ('x-ie-' + nextId++), 'true');
+				rule.setStyle(rule.ieId = ('x-ie-' + nextId++), 'true');
 			}
 			// use IE's custom css property inheritance mechanism
 			// TODO: determine if it is higher specificity that other  same name properties
