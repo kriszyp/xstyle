@@ -1,9 +1,7 @@
-xstyle is a declarative language for defining reactive user interfaces. Xstyle extends CSS, combining 
+xstyle is a declarative language for defining reactive user interfaces. xstyle extends CSS, combining 
 familiar syntax with extensibility for creating componentized interfaces that can be used to present not only
 HTML, but data objects, with functionally reactive bindings. With xstyle you
-can define data bindings, UI elements, variables, extensions, and shims to create modern
-web applications with an elegantly simple, stylesheet driven approach. Xstyle also includes
-tools for loading CSS and building and minifying CSS-driven applications.
+can define data bindings, UI elements, variables, extensions, and shims with a simple, stylesheet-driven approach. xstyle also includes tools for loading CSS and building and minifying CSS-driven applications.
 
 xstyle is designed to maximize the maintainability and readability of applications, by allowing
 developers to define relationships and extensions, with clear, concise declarations that express
@@ -47,7 +45,7 @@ xstyle/main module to initiate the css extension parsing:
 </pre>
 
 You will also need to make sure you have installed the [put-selector](https://github.com/kriszyp/put-selector)
-package, as xstyle depends on it.
+package (if you are using xstyle extensions), as xstyle depends on it.
 
 Using a module loader is beneficial, as it provides for automatic loading of extension
 modules when they are used in CSS.
@@ -82,7 +80,7 @@ We can create such a property:
 
 	transition = prefix;
 
-New properties can be defined anywhere in a stylesheet, including at the top level (amongst
+New definitions can be defined anywhere in a stylesheet, including at the top level (amongst
 rules), within rules (or nested rules), or even directly in property names. At the top level, a new definition makes
 the definition or property available for use anywhere below the definition. Defined within a rule, the 
 new definition is available only within that rule declaration (or nested rules or extending rules) 
@@ -167,7 +165,7 @@ Would be the same as:
 
 ## Extending Rules
 
-We can also create rule definitions that extend other rule definitions. We do this simply
+We can also create rule definitions that extend other rule definitions. We do this
 by referencing the base definition after the '=' and before the rule declaration:
 
 	absolutely-green = absolutely {
@@ -192,12 +190,20 @@ property definitions or element references.
 
 The second capability that extending rules provides (that is not a part of property mixins),
 is that you can refer to any tag or class selector as the base definition, and that tag or class (or a `tag.class` combination) will be used
-when the definition is referenced in element generation (see next section). For example,
-we can create our own big-header definition that inherits from an h1:
-  
+when the definition is referenced in element generation (see section below). For example,
+we can create our own big-header definition that inherits from an `h1`:
+
 	big-header = h1 {
 		font-size: 4em;
 	}
+
+## Limitations
+
+Due to goals of performance and minimizing the size and complexity of the xstyle library, there are several key limitations that should be understood.
+
+First, definitions can only be referenced *after* they have been defined. This means that if you are going to reference a custom definition in your stylesheet, you must ensure that the definition is defined before (above) you use it.
+
+Second, we can only extend other definitions or HTML elements. Xstyle does not support extending other types of selectors (like class references, etc.).
 
 ## Element Generation
 
@@ -283,7 +289,7 @@ prefix. For example, suppose we want to define several rules for elements within
 		input {
 			/* this rule's selector is equivalent to .my-form input */ 
 		}
-		selector {
+		select {
 			/* this rule's selector is equivalent to .my-form select */ 
 		}
 	}
@@ -386,11 +392,14 @@ And then xstyle would convert this to:
 The "on" definition makes it possible to register handlers directly from rules. This property
 definition does not need to be assigned to a new name. It utilizes sub-property names
 to specify the event to listen for. The property name should be the form of <code>on-&lt;event-name></code>.
-The value of the property should be a definition (or an expression) pointing to a function,
-that should be executed in response to the event. For example, to register 
+The value of the property should be an expression that should be executed in response to the event. For example, to register 
 a <code>click</code> handler, we could write a property:
 
-	on-click: click-handler;
+	on-click: click-handler();
+
+The triggering event is also available in through the event definition:
+
+	on-click: click-handler(event);
 
 See the Data Bindings section below, as you will probably want to access sub-properties of
 definitions for your event handlers.
@@ -587,19 +596,14 @@ The JavaScript module can return an object (or provide an object to the define c
 that has methods that will be called when the property or function is used in stylesheets. The following
 methods will be called if they exist (they are all optional):
 
-* <code>object.put(value, rule, name)</code> - This is called whenever the property is used within a rule. The
+* <code>object.put(value, rule, propertyName)</code> - This is called whenever the property is used within a rule. The
 <code>value</code> argument is the property value in the rule, and the <code>rule</code>
-argument is the Rule object.  
-* <code>object.observe(callback)</code> - This is called when a property is accessed from a 
-binding, to receive the current value. The callback should be called whenever the value
-is changed in the future.
-* <code>object.forElement(element)</code> - If the value of a property is dependent on the element
-that the rule is being applied, the module object may provide a forElement(element)
-function that would return an object with the same methods as described here for the 
-module. It should be noted that there is additional processing overhead, since every
-element needs to be processed individually with this approach.  
-* <code>object.forParent(rule, name)</code> - This will be called when the definition is used
-as a property in a rule. The rule and the name of the property will be passed in.
+argument is the Rule object. This can return a contextualized object (see below).
+* <code>object.valueOf()</code> - This is called to return the value of the current object. This can be used to return
+scalar values if desired. It can also return a contextualized object (see below).
+* <code>object.depend(definition)</code> - This is called to setup a dependency on your provide object. This is called
+with another definition as the argument. If the value of this module changes, the `invalidate()` method on the definition
+can be called to indicate a change in the value.
 * <code>object.define(rule, name)</code> - This will be called when an object is assigned to a new
 definition.
 * <code>object.property(name)</code> - This is called when a property is accessed using the my-new-property/sub-property
@@ -607,6 +611,22 @@ syntax.
 * <code>object.apply(rule, args)</code> - This is called when the definition is used a function, like
 my-new-definition(). Note, you can also provide a function as the value of the module or the referenced global value,
 in which case the apply() call will execute the function.
+
+## Contextualized Objects
+
+The `valueOf()` and `put()` methods may return contextualized objects, which indicate that their value is dependent on
+context. By including one or both of the follow methods, the return object is indicating that they need additional
+information that is context-sensitive to compute their fina value:
+
+* <code>object.forElement(element)</code> - If the value of a property is dependent on the element
+that the rule is being applied, the contextualized object may provide a forElement(element)
+function that would be executed (and return a value in the case of `valueOf`) based on the provided element.
+It should be noted that there is additional processing overhead, since every
+element needs to be processed individually with this approach.  
+* <code>object.forRule(rule, name)</code> - This indicates that the method needs to be executed for
+each rule that this property applies to. The rule and the name of the property will be passed in. Note that a property
+may be declared in a rule, triggering a single call to `put()` yet, the rule may be extended to create new rules, resulting
+in multiple calls to `forRule()`
 
 The Rule object has the following properties and methods that can be used by the module:
 
@@ -685,20 +705,31 @@ We could then use this in our xstyle stylesheet:
 
 The function will be executed with the values from the model objects, and will be re-executed whenever those values change so that the sum can be recomputed.
 
-Alternately, we may wish to have greater control over the execution of a function. The `dstore/core/expression` module provides several functions for defining different types of functions.
+Alternately, we may wish to have greater control over the execution of a function. There are several flags that we can set to control how our function is executed.
 
-If you wish to have the arguments resolved for us, and contextualized, we can define a function:
+If you wish to have the argument references/expressions resolved, but you would like to directly handle the definition objects that are passed to the argument, you can do so by setting a `selfExecuting` property on the function to true. Your function will be called with definition objects for the specified arguments. You can then determine if you and when you want to retrieve the current value (by calling `valueOf()`), and if you want to declare a dependency so that you can be notified of any changes in the arguments (using `depend()`). Note that `valueOf()` may return a promise if the value is not available yet. It also may return (or resolve to) a contextual object, which generally requires returning another contextual object to retrieve each current context.
 
-	expression.contextualized(function);
+Or, you can set a `selfResolving` property on the function to true, and your function will be called with the unresolved raw arguments as strings or sequences of tokens. Our function will be executed without any argument resolution. For example, if our function is called like `func(a, b)`, the arguments will be the actual strings `'a'` and `'b'`. This gives us the greatest ultimate control of the behavior of the function, but generally requires the greatest effort if you want to achieve normal definition referencing and reactivity.
 
-A contextualized function may be called with reactive objects, rather than the values of those reactive objects when they change. This can give us access to the original reactive object, which may provide methods and properties for observing changes, metadata, and modifying the value of the reactive object.
+## Definition Object
 
-We have several other options available:
-	
-* expression.resolved(function) - This makes our function have the arguments dereferenced, but there is no waiting for promises to be resolved. This can be useful if you want to selectively request the promise values (for lazy promises).
-* expression.ready(function) - This makes our function have the arguments resolved, but not contextualized. This can be useful if you want to contextualize the values based on a certain element.
-* expression.selfResolving(function) - Our function will be executed without any argument resolution. If our function is called like func(a, b), the arguments will be the actual strings 'a' and 'b'. This gives us the greatest ultimate control of the behavior of the function.
-* expression.react(function) - This explicitly makes our function act reactively. This behaves the same as an unaltered function.
+A definition object is a core object in a xstyle. All definitions that are defined are stored in definition objects, to permit time-varying values, with dependency tracking. A definition object has the following methods:
+
+* `valueOf()` - This will return the current value of the definition. This may be a plain primitive value or objects. However, there are several important types that can be returned as well:
+	* The value may be a promise, if the data is not available yet.
+	* The value may be a contextual object. See below for more information on contextual objects. 
+* `depend(definition)` - This is a method that may be called to add a dependency on this definition. If you would like to be notified of any data changes, you can add an object with an `invalidate()` method to be notified if the argument is changed (and you can call `valueOf()` to get the latest value),
+* `invalidate()` - Called to invalidate this definition. Generally this should only be called by the `depend()` method.
+* `property(name)` - Called to retrieve a definition for a property of the value of this definition.
+* `put(value)` - Set a new value into the definition. Some definitions may not have a `put()` method, indicating that they are read-only. This may return a contextual object, if the definition needs to know the context of where the value is being set.
+
+### Contextual Object
+
+A definition's `valueOf()` or `put()` methods may return contextual objects. This indicates that their value is context-dependent, and they need to know each context it is being used to finish computing the value or setting the value. There are two cases of contextual objects:
+
+* The value may be an object with a `forRule(rule)` method. If this is the case, it indicates that the definition's value is dependent on the context of the rule, and this method must be called with a rule.
+* The value may be an object with a `forElement(element)` method. If this is the case, it indicates that the definition's value is dependent on the context of the DOM element, and this method must be called with that element.
+
 
 ## Pseudo Definitions
 
@@ -940,6 +971,15 @@ Or version IE8 through IE10:
 
 	hasClass("ie-8-10");
 
+## Philosophy
+
+Xstyle is driven by several guiding ideas:
+* Leveraging declarative transforms as functionally reactive, bidirection mechanism for mapping data to a UI
+* Integration and interoperability of CSS with JS, to facilitate separation of declarative and imperative code.
+* A pragmatic extension of CSS so that it leverage existing CSS loading and parsing facilities in the browser.
+* Extending and polyfilling with using the same extension mechanism most commonly used by browsers for new UI features.
+
+## License
 xstyle is freely available under *either* the terms of the modified BSD license *or* the
 Academic Free License version 2.1. More details can be found in the [LICENSE](LICENSE).
 The xstyle project follows the IP guidelines of Dojo foundation packages and all contributions require a Dojo CLA. 
