@@ -108,8 +108,6 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 			forward = getOperatingFunction(forward);
 			reverseA = reverseA && getOperatingFunction(reverseA);
 			reverseB = reverseB && getOperatingFunction(reverseB);
-			var args = arguments;
-			// TODO: depend on each argument
 			operators[operator] = operatorReactive = react(forward, reverse);
 			addFlags(operatorReactive);
 			return operatorReactive.apply(this, arguments);

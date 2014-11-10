@@ -30,25 +30,29 @@ define('xstyle/core/generate', [
 		// return a function that can do the generation for each element that matches
 		return function(element, item, beforeElement){
 			var lastElement = element;
-			element._defaultBinding = false;
+			// if this has been previously rendered, the content may be in the _contentNode
 			if(beforeElement === undefined){
-				var childNodes = element.childNodes;
-				var childNode = childNodes[0], contentFragment;
-				// move the children out and record the contents in a fragment
+				var childNodes = (element._contentNode || element).childNodes || 0;
+				var childNode = childNodes[0];
+				// move the children out and record the contents in our content fragment
 				if(childNode){
-					contentFragment = doc.createDocumentFragment();
+					var contentFragment = doc.createDocumentFragment();
 					do{
 						contentFragment.appendChild(childNode);
-					}while(childNode = childNodes[0]);
+					}while((childNode = childNodes[0]));
+					// temporarily store it on the element, so it can be accessed as an element-property
+					// TODO: remove it after completion
+					element.content = contentFragment;
+				}
+				if(element._contentNode){
+					// need to clear the reference node, so we don't recursively try to put stuff in there,
+					// and clean out of the current element
+					element._contentNode = undefined;
+					try{
+						element.innerHTML = '';
+					}catch(e){}
 				}
 			}
-			// temporarily store it on the element, so it can be accessed as an element-property
-			// TODO: remove it after completion
-			if(!('content' in element)){
-				element.content = contentFragment;
-			}
-			// need to clear the reference node, so we don't recursively try to put stuff in there 
-			element._contentNode = undefined;
 			var indentationLevel = 0;
 			var indentationLevels = [element];
 			var stackOfElementsToUpdate = [];

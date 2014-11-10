@@ -27,7 +27,7 @@ define('xstyle/core/observe', [], function(){
 			listener.addKey = addKey;
 			listener.remove = function(){
 				listener = null;
-			}
+			};
 			function addKey(key){
 				var keyFlag = 'key' + key;
 				if(this[keyFlag]){
