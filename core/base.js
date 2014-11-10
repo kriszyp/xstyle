@@ -1,14 +1,12 @@
 define('xstyle/core/base', [
 	'xstyle/core/elemental',
 	'xstyle/core/expression',
-	'xstyle/core/Context',
 	'xstyle/core/Definition',
 	'xstyle/core/utils',
 	'put-selector/put',
 	'xstyle/core/Rule',
-	'dojo/Deferred',
-	'xstyle/core/Proxy'
-], function(elemental, expression, Context, Definition, utils, put, Rule, Deferred, Proxy){
+	'dojo/Deferred'
+], function(elemental, expression, Definition, utils, put, Rule, Deferred){
 	// this module defines the base definitions intrisincally available in xstyle stylesheets
 	var testDiv = put('div');
 	var ua = navigator.userAgent;
@@ -16,13 +14,6 @@ define('xstyle/core/base', [
 		ua.indexOf('Firefox') > -1 ? '-moz-' :
 		ua.indexOf('MSIE') > -1 ? '-ms-' :
 		ua.indexOf('Opera') > -1 ? '-o-' : '';
-	function derive(base, mixin){
-		var derived = Object.create(base);
-		for(var i in mixin){
-			derived[i] = mixin[i];
-		}
-		return derived;
-	}
 	// we treat the stylesheet as a 'root' rule; all normal rules are children of it
 	var currentEvent;
 	var root = new Rule();
@@ -198,7 +189,7 @@ define('xstyle/core/base', [
 		// TODO: add url()
 		// adds support for referencing each item in a list of items when rendering arrays 
 		item: elementProperty('item', null, true),
-		pageContent: new Proxy(),
+		pageContent: new Definition(),
 		// adds referencing to the prior contents of an element
 		content: elementProperty('content', null, true, function(){
 			this.element;

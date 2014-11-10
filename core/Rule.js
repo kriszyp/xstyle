@@ -2,9 +2,8 @@ define('xstyle/core/Rule', [
 	'xstyle/core/expression',
 	'xstyle/core/Definition',
 	'put-selector/put',
-	'xstyle/core/utils',
-	'xstyle/core/Proxy'
-], function(expression, Definition, put, utils, Proxy){
+	'xstyle/core/utils'
+], function(expression, Definition, put, utils){
 
 	// define the Rule class, our abstraction of a CSS rule		
 	var create = Object.create || function(base){
