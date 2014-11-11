@@ -12,7 +12,11 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 			if((' ' + element.className + ' ').indexOf(selectorDefinition.selector.slice(1)) > -1){
 				var definition = selectorDefinition.definition;
 				// TODO: use forRule/forElement on the valueOf if necessary
-				var oldType = typeof definition.valueOf();
+				var currentValue = definition.valueOf();
+				if(currentValue && currentValue.forElement){
+					currentValue = currentValue.forElement(element);
+				}
+				var oldType = typeof currentValue;
 				var value = element.value;
 				// do type coercion
 				if(oldType === 'number' && isFinite(value)){

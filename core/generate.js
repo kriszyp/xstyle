@@ -90,15 +90,15 @@ define('xstyle/core/generate', [
 										// setup an invalidation object, to rerender when data changes
 										// TODO: fix this
 										expressionDefinition.depend && expressionDefinition.depend({
-											invalidate: function(elementsToRerender){
+											invalidate: function(invalidated){
 												// TODO: should we use elemental's renderer?
 												// TODO: do we need to closure the scope of any of these variables
-												// TODO: might consider calling Object.deliverChangeRecords() or
+												// TODO: might consider queueing or calling Object.deliverChangeRecords() or
 												// polyfill equivalent here, to ensure all changes are delivered before 
 												// rendering again
-												if(!elementsToRerender){
-													elementsToRerender = document.querySelectorAll(bindingSelector);
-												}
+												var elementsToRerender = invalidated ?
+													invalidated.elements :
+													document.querySelectorAll(bindingSelector);
 												for(var i = 0, l = elementsToRerender.length;i < l; i++){
 													renderExpression(elementsToRerender[i], nextPart, 
 														expressionDefinition.valueOf(), rule);

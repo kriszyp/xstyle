@@ -145,7 +145,20 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 				propertyDefinition.parent = this;
 				propertyDefinition.put = function(value){
 					return utils.when(parentDefinition.valueOf(), function(object){
-						// TODO: check for forRule and forElement
+						if(object.forRule){
+							return {
+								forRule: function(rule){
+									object.forRule(rule)[key] = value;
+								}
+							};
+						}
+						if(object.forElement){
+							return {
+								forElement: function(element){
+									object.forElement(element)[key] = value;
+								}
+							};
+						}
 						object[key] = value;
 					});
 				};

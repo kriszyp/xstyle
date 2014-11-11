@@ -250,16 +250,27 @@ define('xstyle/core/Rule', [
 
 				var result = value.expression.valueOf();
 
-				var applyToRule = function(rule, inherited){
+				var applyToRule = function(rule, invalidated){
 					var value = result && result.forRule ? result.forRule(rule, true) : result;
 					if(value && value.forElement){
-						return forElement(rule, value, function(value, element){
-							setStyle(element.style, propertyName, value);
-						});
+						var elements = invalidated && invalidated.elements;
+						if(elements){
+							for(var i = 0; i < elements.length; i++){
+								var subElements = elements[i].querySelectorAll(rule.selector);
+								for(var j = 0; j < subElements.length; j++){
+									var subElement = subElements[j];
+									setStyle(subElement.style, propertyName, value.forElement(subElement));
+								}
+							}
+						}else{
+							return forElement(rule, value, function(value, element){
+								setStyle(element.style, propertyName, value);
+							});
+						}
 					}
 					// check to see if this is already overriden
-					if(!inherited ||
-							// if it is inherited, we need to check to make sure there isn't an existing property
+					if(/*!inherited ||
+							// if it is inherited, we need to check to make sure there isn't an existing property */
 							!rule.getCssRule().style[propertyName] ||
 							// or if there is an existing, maybe it was inherited
 							rule.inheritedStyles[propertyName]){
@@ -279,13 +290,15 @@ define('xstyle/core/Rule', [
 				});
 
 				value.expression.depend({
-					invalidate: function(affectedRules){
+					invalidate: function(invalidated){
 						// TODO: queue these up
 						//(rule.staleProperties || (rule.staleProperties = {}))[propertyName] =
 						utils.when(value.expression.valueOf(), function(fulfilledResult){
 							result = fulfilledResult;
 							for(var i = 0; i < appliedRules.length; i++){
-								applyToRule(appliedRules[i]);
+								if(!invalidated || !invalidated.rules || invalidated.rules.indexOf(appliedRules)){
+									applyToRule(appliedRules[i], invalidated);
+								}
 							}
 						});
 					}

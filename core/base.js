@@ -23,71 +23,68 @@ define('xstyle/core/base', [
 		// definition bound to an element's property
 		var definition = new Definition(function(){
 			return {
-				forRule: function(rule){
-					return {
-						forElement: function(element){
-							var contentElement = element;
-							if(newElement){
-								// content needs to start at the parent
-								element = element.parentNode;
+				forElement: function(element){
+					var contentElement = element;
+					if(newElement){
+						// content needs to start at the parent
+						element = element.parentNode;
+					}
+					if(rule && rule.selector){
+						while(!matchesRule(element, rule)){
+							element = element.parentNode;
+							if(!element){
+								throw new Error('Rule not found');
 							}
-							if(rule && rule.selector){
-								while(!matchesRule(element, rule)){
-									element = element.parentNode;
-									if(!element){
-										throw new Error('Rule not found');
-									}
-								}
+						}
+					}
+					if(inherit){
+						// we find the parent element with an item property, and key off of that 
+						while(!(property in element)){
+							element = element.parentNode;
+							if(!element){
+								throw new Error(property ? (property + ' not found') : ('Property was never defined'));
 							}
-							if(inherit){
-								// we find the parent element with an item property, and key off of that 
-								while(!(property in element)){
-									element = element.parentNode;
-									if(!element){
-										throw new Error(property ? (property + ' not found') : ('Property was never defined'));
-									}
-								}
-							}
-							// provide a means for being able to reference the target node,
-							// this primarily used by the generate model to nest content properly
-							if(newElement){
-								element['_' + property + 'Node'] = contentElement;
-							}
-							var value = element[property];
-							if(!value){
-								return getVarDefinition(property).valueOf().forRule(rule);
-							}
-							return value;
-						}						
-					};
-				}
+						}
+					}
+					// provide a means for being able to reference the target node,
+					// this primarily used by the generate model to nest content properly
+					if(newElement){
+						element['_' + property + 'Node'] = contentElement;
+					}
+					var value = element[property];
+					if(!value){
+						return getVarDefinition(property).valueOf().forRule(rule);
+					}
+					return value;
+				}						
 			};
 		});
 		definition.define = function(rule, newProperty){
 			// if we don't already have a property define, we will do so now
 			return elementProperty(property || newProperty, rule, newElement);
 		};
+		definition.forRule = function(rule){
+			return elementProperty(property, rule, newElement);			
+		};
 		definition.put = inherit ? function(value, rule){
 			return getVarDefinition(property).put(value, rule, property);
 		} :
 		function(value){
+			// TODO: we may want to have forRule for define so that this can
+			// be inherited
 			// for plain element-property, we set the value on the element
 			return {
-				forRule: function(rule){
-					return {
-						forElement: function(element){
-							if(rule && rule.selector){
-								while(!matchesRule(element, rule)){
-									element = element.parentNode;
-									if(!element){
-										throw new Error('Rule not found');
-									}
-								}
+				forElement: function(element){
+					if(rule && rule.selector){
+						while(!matchesRule(element, rule)){
+							element = element.parentNode;
+							if(!element){
+								throw new Error('Rule not found');
 							}
-							element[property] = value;
-							definition.invalidate([element]);
 						}
-					};
+					}
+					element[property] = value;
+					definition.invalidate({elements: [element]});
 				}
 			};
 		};
@@ -175,7 +172,7 @@ define('xstyle/core/base', [
 							addDerivatives(rule);
 							rule = rule.parent;
 						}
-						variableDefinition.invalidate(affectedRules);
+						variableDefinition.invalidate({rules: affectedRules});
 					}
 				};
 			};
