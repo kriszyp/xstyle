@@ -202,7 +202,7 @@ define('xstyle/core/generate', [
 													var childNode;
 													// now move any children into the new element (or its content node)
 													newElement = newElement._contentNode || newElement;
-													while(childNode = childNodes[0]){
+													while((childNode = childNodes[0])){
 														newElement.appendChild(childNode);
 													}
 												}
