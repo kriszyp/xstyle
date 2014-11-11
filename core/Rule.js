@@ -271,6 +271,7 @@ define('xstyle/core/Rule', [
 					// check to see if this is already overriden
 					if(/*!inherited ||
 							// if it is inherited, we need to check to make sure there isn't an existing property */
+							true ||
 							!rule.getCssRule().style[propertyName] ||
 							// or if there is an existing, maybe it was inherited
 							rule.inheritedStyles[propertyName]){
