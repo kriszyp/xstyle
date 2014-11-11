@@ -325,7 +325,7 @@ With this function we could generate a new element that has been defined as a co
 
 	generate(target, 'div.content');
 
-## Predefined Property Definitions
+## Predefined Property and Function Definitions
 
 Xstyle includes several predefined, or intrinsic definitions for properties. These can and usually
 are assigned to other names to create property definitions for use in rules. The next 
@@ -385,8 +385,6 @@ And then xstyle would convert this to:
 
 	&lt;div class="greeting">&lt;h1>Welcome:&lt;/h1>John Doe&lt;/div>
 
-(not fully implemented)
-
 ### on - Event Handling
 
 The "on" definition makes it possible to register handlers directly from rules. This property
@@ -404,7 +402,25 @@ The triggering event is also available in through the event definition:
 See the Data Bindings section below, as you will probably want to access sub-properties of
 definitions for your event handlers.
 
-(implemented, lightly tested)
+### get - Expressions in CSS property values
+
+Normally standard CSS property values are not resolved as expressions. However, function calls in CSS properties are evaluated if a matching definition can be found. However, by using `get(expression)`, you can provide an expression to be evaluated in CSS property. For example, if we wanted to define a color that was dependent on another property value, we could write:
+
+	color: get(forecast/temperature > 80 ? 'red' : 'blue');
+
+### set - Set the value of a definition
+
+The set function can be used to set the value of a particular definition. This is particularly useful in event handlers, where you might want to set a value in response to an action. For example, we could write an `click` handler for a button to turn a flag on:
+
+	button {
+		on-click: set(enableEditing, true);
+	}
+
+### toggle - Toggle a value
+
+The `toggle` function works similar to get, but is a convience function for toggling. We could toggle a flag like:
+
+	on-click: toggle(enableEditing);
 
 ### margin, padding, border, etc. - Nested Definitions
 
@@ -717,18 +733,11 @@ A definition object is a core object in a xstyle. All definitions that are defin
 
 * `valueOf()` - This will return the current value of the definition. This may be a plain primitive value or objects. However, there are several important types that can be returned as well:
 	* The value may be a promise, if the data is not available yet.
-	* The value may be a contextual object. See below for more information on contextual objects. 
+	* The value may be a contextual object. See the contextualized object section above for more information on contextual objects. 
 * `depend(definition)` - This is a method that may be called to add a dependency on this definition. If you would like to be notified of any data changes, you can add an object with an `invalidate()` method to be notified if the argument is changed (and you can call `valueOf()` to get the latest value),
 * `invalidate()` - Called to invalidate this definition. Generally this should only be called by the `depend()` method.
 * `property(name)` - Called to retrieve a definition for a property of the value of this definition.
 * `put(value)` - Set a new value into the definition. Some definitions may not have a `put()` method, indicating that they are read-only. This may return a contextual object, if the definition needs to know the context of where the value is being set.
-
-### Contextual Object
-
-A definition's `valueOf()` or `put()` methods may return contextual objects. This indicates that their value is context-dependent, and they need to know each context it is being used to finish computing the value or setting the value. There are two cases of contextual objects:
-
-* The value may be an object with a `forRule(rule)` method. If this is the case, it indicates that the definition's value is dependent on the context of the rule, and this method must be called with a rule.
-* The value may be an object with a `forElement(element)` method. If this is the case, it indicates that the definition's value is dependent on the context of the DOM element, and this method must be called with that element.
 
 
 ## Pseudo Definitions

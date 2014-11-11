@@ -67,8 +67,29 @@ define('xstyle/core/base', [
 			// if we don't already have a property define, we will do so now
 			return elementProperty(property || newProperty, rule, newElement);
 		};
-		definition.put = function(value, rule){
+		definition.put = inherit ? function(value, rule){
 			return getVarDefinition(property).put(value, rule, property);
+		} :
+		function(value){
+			// for plain element-property, we set the value on the element
+			return {
+				forRule: function(rule){
+					return {
+						forElement: function(element){
+							if(rule && rule.selector){
+								while(!matchesRule(element, rule)){
+									element = element.parentNode;
+									if(!element){
+										throw new Error('Rule not found');
+									}
+								}
+							}
+							element[property] = value;
+							definition.invalidate([element]);
+						}
+					};
+				}
+			};
 		};
 		return definition;
 	}
@@ -265,6 +286,12 @@ define('xstyle/core/base', [
 		},
 		get: function(value){
 			return value;
+		},
+		toggle: {
+			selfExecuting: true,
+			apply: function(target, args){
+				return args[0].put(!args[0].valueOf());
+			}
 		},
 		on: {
 			put: function(value, declaringRule, name){
