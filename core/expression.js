@@ -120,14 +120,22 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 		addFlags(operatorHandler);
 		operators[operator] = operatorHandler;
 	}
-	operator('+', 5, 'a+b', 'a-b', 'a-b');
-	operator('-', 5, 'a-b', 'a+b', 'b-a');
-	operator('*', 6, 'a*b', 'a/b', 'a/b');
-	operator('/', 6, 'a/b', 'a*b', 'b/a');
+	operator('+', 6, 'a+b', 'a-b', 'a-b');
+	operator('-', 6, 'a-b', 'a+b', 'b-a');
+	operator('*', 5, 'a*b', 'a/b', 'a/b');
+	operator('/', 5, 'a/b', 'a*b', 'b/a');
 	operator('^', 7, 'a^b', 'a^(-b)', 'Math.log(a)/Math.log(b)');
-	operator('?', 2, 'b[a?0:1]', 'a===b[0]||(a===b[1]?false:deny)', '[a,b]');
-	operator(':', 3, '[a,b]', 'a[0]?a[1]:deny', 'a[1]');
-	operator('!', 8, '!a', '!a');
+	operator('?', 16, 'b[a?0:1]', 'a===b[0]||(a===b[1]?false:deny)', '[a,b]');
+	operator(':', 15, '[a,b]', 'a[0]?a[1]:deny', 'a[1]');
+	operator('!', 4, '!a', '!a');
+	operator('>', 8, 'a>b', true);
+	operator('>=', 8, 'a>=b', true);
+	operator('<', 8, 'a<b', true);
+	operator('<=', 8, 'a<=b', true);
+	operator('==', 9, 'a==b', true);
+	operator('===', 9, 'a===b', true);
+	operator('&', 8, 'a&&b', true);
+	operator('|', 8, 'a||b', true);
 
 	function evaluateExpression(rule, value){
 		// evaluate an expression
@@ -146,7 +154,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				// parse out operators
 				// TODO: change this to a replace so we can find any extra characters to report
 				// a syntax error
-				var parts = part.match(/"[^\"]*"|[+-\/\?\:^*!&|]+|[\w_$\.\/-]+/g);
+				var parts = part.match(/"[^\"]*"|[+\-\<\>\|\/\?\:^*!&|]+|[\w_$\.\/-]+/g);
 				var spliceArgs = [i, 1];
 				if(parts){
 					spliceArgs.push.apply(spliceArgs, parts);
@@ -225,16 +233,16 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 			stack.push(part);
 		}
 		// finally apply any operators still on the stack
-		windDownStack({precedence: 1});
+		windDownStack({precedence: 100});
 		function windDownStack(operator){
 			// apply waiting operators of higher precedence
-			while(lastOperatorPrecedence >= operator.precedence){
+			while(lastOperatorPrecedence <= operator.precedence){
 				var lastOperand = stack.pop();
 				var executingOperator = operators[stack.pop()];
 				var result = new Definition();
 				result.setCompute(executingOperator.apply(result, executingOperator.infix ?
 					[stack.pop(), lastOperand] : [lastOperand]));
-				lastOperator = stack.length && stack[stack.length-1];
+				lastOperator = stack.length ? stack[stack.length-1] : undefined;
 				stack.push(result);
 				lastOperatorPrecedence = lastOperator && operators[lastOperator] && operators[lastOperator].precedence;
 			}
