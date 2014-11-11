@@ -124,10 +124,11 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 	operator('-', 6, 'a-b', 'a+b', 'b-a');
 	operator('*', 5, 'a*b', 'a/b', 'a/b');
 	operator('/', 5, 'a/b', 'a*b', 'b/a');
-	operator('^', 7, 'a^b', 'a^(-b)', 'Math.log(a)/Math.log(b)');
+//	operator('^', 7, 'a^b', 'a^(-b)', 'Math.log(a)/Math.log(b)');
 	operator('?', 16, 'b[a?0:1]', 'a===b[0]||(a===b[1]?false:deny)', '[a,b]');
 	operator(':', 15, '[a,b]', 'a[0]?a[1]:deny', 'a[1]');
 	operator('!', 4, '!a', '!a');
+	operator('%', 5, 'a%b', true);
 	operator('>', 8, 'a>b', true);
 	operator('>=', 8, 'a>=b', true);
 	operator('<', 8, 'a<b', true);
