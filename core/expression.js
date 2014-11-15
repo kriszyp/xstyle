@@ -120,6 +120,8 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 		addFlags(operatorHandler);
 		operators[operator] = operatorHandler;
 	}
+	// using order precedence from:
+	// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence
 	operator('+', 6, 'a+b', 'a-b', 'a-b');
 	operator('-', 6, 'a-b', 'a+b', 'b-a');
 	operator('*', 5, 'a*b', 'a/b', 'a/b');

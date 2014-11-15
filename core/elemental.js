@@ -17,7 +17,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 					currentValue = currentValue.forElement(element);
 				}
 				var oldType = typeof currentValue;
-				var value = element.value;
+				var value = element.type === 'checkbox' ? element.checked : element.value;
 				// do type coercion
 				if(oldType === 'number' && isFinite(value)){
 					value = +value;
