@@ -314,6 +314,10 @@ define('xstyle/core/generate', [
 								};
 							}
 							var rows = [];
+							if(value.track){
+								value = value.track();
+								// TODO: cleanup routine
+							}
 							value.forEach(function(value){
 								// TODO: do this inside generate
 								rows.push(eachHandler(element, value, null));

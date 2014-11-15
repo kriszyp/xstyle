@@ -12,12 +12,7 @@ define('xstyle/core/Rule', [
 		return new Base();
 	};
 
-	function convertCssNameToJs(name){
-		return name.replace(/-(\w)/g, upperLetter);
-	}
-	function upperLetter(t, letter){
-		return letter.toUpperCase();
-	}
+	var convertCssNameToJs = utils.convertCssNameToJs;
 	function setStyle(style, name, value){
 		// TODO: only surround with try/catch on IE
 		try{
@@ -527,7 +522,6 @@ define('xstyle/core/Rule', [
 			});
 		});
 	}
-	Rule.convertCssNameToJs = convertCssNameToJs;
 	Rule.updateStaleProperties = function(){
 
 	};

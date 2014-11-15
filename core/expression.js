@@ -3,18 +3,13 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 	function get(target, path){
 		var name = path[0];
 		if(name && target){
+			name = convertCssNameToJs(name);
 			return get(target.property ? target.property(name) : target[name], path.slice(1));
 		}
 		return target;
 	}
-	function someHasProperty(array, property){
-		for(var i = 0, l = array.length; i < l; i++){
-			var item = array[i];
-			if(item && typeof item == 'object' && property in item){
-				return true;
-			}
-		}
-	}
+	var convertCssNameToJs = utils.convertCssNameToJs;
+	var someHasProperty = utils.someHasProperty;
 	function selfResolving(func){
 		func.selfResolving = true;
 		return func;

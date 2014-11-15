@@ -219,6 +219,20 @@ define('xstyle/core/base', [
 			// definition to reference the actual element
 			forElement: function(element){
 				return element;
+			},
+			define: function(rule){
+				// if it is defined, then we go from the definition
+				return {
+					forElement: function(element){
+						while(!matchesRule(element, rule)){
+							element = element.parentNode;
+							if(!element){
+								throw new Error('Rule not found');
+							}
+						}
+						return element;
+					}
+				};
 			}
 		},
 		event: {
@@ -261,7 +275,7 @@ define('xstyle/core/base', [
 			selfResolving: true,
 			apply: function(definition, args){
 				// var(property) call
-				return getVarDefinition(Rule.convertCssNameToJs(args[0]));
+				return getVarDefinition(utils.convertCssNameToJs(args[0]));
 			}
 		},
 		inline: conditional('inline', 'none'),

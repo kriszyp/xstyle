@@ -433,6 +433,18 @@ we could specify the margin-left and margin-right by writing:
 		right: 20px;
 	};
 
+### element
+
+This returns a reference to the corresponding DOM element. The element definition can be defined/reassigned in a rule, so that the element for that rule can be referenced. For example, we could create a component, with a button that references the element for the higher level component:
+
+	component = {
+		component-element = element;
+		=>
+			button {
+				on-click: do-something(component-element);
+			};
+	}
+
 ## Data Binding
 
 We can combine property definitions with element generation to create data bindings. With data
@@ -445,8 +457,8 @@ A basic example of a data binding would be to create a variable with a string va
 		=> span(first-name);
 	}
 
-The contents of the span that was created would then be set to the value of firstName. Changes in the
-value of the firstName would automatically be updated in the span's contents.
+The contents of the span that was created would then be set to the value of `firstName` (note that dashed nameds are converted to camelCase for JavaScript interaction). Changes in the
+value of the `firstName` would automatically be updated in the span's contents.
 
 We can also bind variables to inputs, and then the binding will work two ways, not only can 
 changes in the variable be reflected in the input, but user edits to the value will be updated
@@ -470,9 +482,9 @@ to properties of an object:
 	form.content {
 		=> 
 			label 'First Name:',
-			input[type=text](person/firstName),
+			input[type=text](person/first-name),
 			label 'Last Name:',
-			input[type=text](person/lastName);
+			input[type=text](person/last-name);
 	}
 
 Data models can provide a `property(name)` method to handle access to properties, and the returned
@@ -545,10 +557,8 @@ to the value of concatenation of two strings (again a live binding, automaticall
 variable or property changes):
 
 	h1.name {
-		=> span(person/firstName + person/lastName);
+		=> span(person/first-name + person/last-name);
 	}
-
-This functionality is implemented and has been lightly tested.
 
 ## Creating Components
 
@@ -628,6 +638,7 @@ syntax.
 my-new-definition(). Note, you can also provide a function as the value of the module or the referenced global value,
 in which case the apply() call will execute the function.
 
+Note that all references that use dash-style-names in xstyle are converted to camelCase for JavaScript interaction.
 ## Contextualized Objects
 
 The `valueOf()` and `put()` methods may return contextualized objects, which indicate that their value is dependent on

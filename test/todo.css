@@ -1,0 +1,45 @@
+model = module(xstyle/test/todo-model);
+controller = module(xstyle/test/todo-controller);
+tasks = model/tasks;
+
+#header {
+	=>
+		h1 'todos',
+		form {
+			=> input[placeholder='What needs to be done?'][autofocus] (model/new-item);
+			on-submit: model/add-item(event);
+		}
+}
+#main {
+	=>
+		input[type=checkbox],
+		label,
+		ul (tasks) {
+			each:
+				li div.task {
+					editing = element-property;
+					task-element = element;
+					=>
+						input.toggle[type=checkbox] (item/completed) {
+						},
+						label (item/title) {
+							display: get(editing ? 'none' : 'inline');
+							text-decoration: get(item/completed ? 'line-through' : 'none');
+							on-dblclick: set(editing, true);
+							on-dblclick: controller/focus-input(task-element);
+						},
+						/*button.destroy {
+							on-click: model/destroy(item);
+						},*/
+						input.edit (item/title) {
+							display: get(editing ? 'inline' : 'none');
+							on-focusout: set(editing, false);
+							on-change: set(editing, false);
+						};
+				},
+		};
+}
+#todo-count {
+	=> strong (model/total-todo), span ('items left');
+	visibility: var(model/total-todo > 0);
+}

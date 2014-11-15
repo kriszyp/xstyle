@@ -11,7 +11,7 @@ define(['dstore/Memory', 'dstore/Trackable'], function(Memory, Trackable){
 	// create a base binding, that we can set properties on
 	contacts = {
 		// list of contacts
-		list: contactStore.track(),
+		list: contactStore,
 		select: function(item){
 			contacts.selected = item;
 		},

@@ -9,6 +9,9 @@ define('xstyle/core/utils', [], function(){
 			}
 		}
 	}
+	function upperLetter(t, letter){
+		return letter.toUpperCase();
+	}
 	return {
 		when: function(value, callback){
 			return value && value.then ?
@@ -52,10 +55,7 @@ define('xstyle/core/utils', [], function(){
 
 		},
 		convertCssNameToJs: function(name){
-			// TODO: put this in a util module since it is duplicated in parser.js
-			return name.replace(/-(\w)/g, function(t, firstLetter){
-				return firstLetter.toUpperCase();
-			});
+			return name.replace(/-(\w)/g, upperLetter);
 		},
 		isTagSupported: function(tag){
 			// test to see if a tag is supported by the browser
@@ -97,6 +97,7 @@ define('xstyle/core/utils', [], function(){
 				}
 			}
 			
-		}
+		},
+		someHasProperty: someHasProperty
 	};
 });
