@@ -67,49 +67,27 @@ define('xstyle/core/generate', [
 						if(part.args){
 							if(part.operator == '('){ // a call (or at least parans), for now we are assuming it is a binding
 								var nextPart = generatingSelector[i+1];
-								var bindingSelector;
-								if(nextPart && nextPart.eachProperty){
-									// apply the class for the next part so we can reference it properly
-									put(lastElement, bindingSelector = nextPart.selector);
+								bind(part, nextPart, lastElement, function(element, nextPart, expressionResult){
+									renderContents(element, nextPart, expressionResult, rule);
+								});
+							}else{// brackets, set an attribute
+								var attribute = part.args[0];
+								if(typeof attribute === 'string'){
+									var parts = attribute.split('=');
+									lastElement.setAttribute(parts[0], parts[1]);
 								}else{
-									put(lastElement, bindingSelector = part.selector ||
-										(part.selector = '.-xbind-' + nextId++));
-								}
-								var expression = part.getArgs()[0];
-								var expressionResult = part.expressionResult;
-								var expressionDefinition = part.expressionDefinition;
-								// make sure we only do this only once
-
-								if(!expressionDefinition){
-									expressionDefinition = part.expressionDefinition =
-										expressionModule.evaluate(part.parent, expression);
-									expressionResult = expressionDefinition.valueOf();
-									elemental.addDefinition(bindingSelector, expressionDefinition);
-									(function(nextPart, bindingSelector, expressionDefinition){
-										part.expressionResult = expressionResult;
-										// setup an invalidation object, to rerender when data changes
-										// TODO: fix this
-										expressionDefinition.depend && expressionDefinition.depend({
-											invalidate: function(invalidated){
-												// TODO: should we use elemental's renderer?
-												// TODO: do we need to closure the scope of any of these variables
-												// TODO: might consider queueing or calling Object.deliverChangeRecords() or
-												// polyfill equivalent here, to ensure all changes are delivered before 
-												// rendering again
-												var elementsToRerender = invalidated ?
-													invalidated.elements :
-													document.querySelectorAll(bindingSelector);
-												for(var i = 0, l = elementsToRerender.length;i < l; i++){
-													renderExpression(elementsToRerender[i], nextPart, 
-														expressionDefinition.valueOf(), rule);
-												}
-											}
+									var name = attribute[0].replace(/=$/,'');
+									var value = attribute[1];
+									if(value.operator == '('){
+										// a call/binding
+										bind(attribute[1], name, lastElement, function(element, name, expressionResult){
+											renderAttribute(element, name, expressionResult, rule);
 										});
-									})(nextPart, bindingSelector, expressionDefinition);
+									}else{
+										// a string literal
+										lastElement.setAttribute(name, value.value);	
+									}
 								}
-								renderExpression(lastElement, nextPart, expressionResult, rule);
-							}else{// brackets
-								put(lastElement, part.toString());
 							}
 						}else{
 							// it is plain rule (not a call), we need to apply the 
@@ -136,7 +114,7 @@ define('xstyle/core/generate', [
 						var nextPart = generatingSelector[i + 1];
 						// parse for the sections of the selector
 						var parts = [];
-						part.replace(/([,\n]+)?([\t ]+)?(\.|#)?([-\w%$|\.\#]+)(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g, function(){
+						part.replace(/([,\n]+)?([\t ]*)?(\.|#)?([-\w%$|\.\#]+)(?:\[([^\]=]+)=?['"]?([^\]'"]*)['"]?\])?/g, function(){
 							parts.push(arguments);
 						});
 						// now iterate over these
@@ -150,25 +128,21 @@ define('xstyle/core/generate', [
 										nextElement = contentNode;
 									}
 								}
-								if(indentation){
-									if(nextLine){
-										var newIndentationLevel = indentation.length;
-										if(newIndentationLevel > indentationLevel){
-											positionForChildren();
-											// a new child
-											indentationLevels[newIndentationLevel] = nextElement;
-										}else{
-											// returning to an existing parent
-											nextElement = indentationLevels[newIndentationLevel] || nextElement;
-										}
-										indentationLevel = newIndentationLevel;
-									}else{
+								if(nextLine){
+									var newIndentationLevel = indentation ? indentation.length : 0;
+									if(newIndentationLevel > indentationLevel){
 										positionForChildren();
+										// a new child
+										indentationLevels[newIndentationLevel] = nextElement;
+									}else{
+										// returning to an existing parent
+										nextElement = indentationLevels[newIndentationLevel] || nextElement;
 									}
-	//								nextElement = element;
+									indentationLevel = newIndentationLevel;
 								}else{
 									positionForChildren();
 								}
+//								nextElement = element;
 								var selector;
 								if(prefix){// we don't want to modify the current element, we need to create a new one
 									selector = (lastPart && lastPart.args ?
@@ -259,7 +233,8 @@ define('xstyle/core/generate', [
 			}
 			// now go back through and make updates to the elements, we do it in reverse
 			// order so we can affect the children first
-			while(elementToUpdate = stackOfElementsToUpdate.pop()){
+			var elementToUpdate;
+			while((elementToUpdate = stackOfElementsToUpdate.pop())){
 				elemental.update(elementToUpdate, stackOfElementsToUpdate.pop());
 			}
 			return lastElement;
@@ -267,7 +242,69 @@ define('xstyle/core/generate', [
 
 	}
 
-	function renderExpression(element, nextPart, expressionResult, rule){
+	function bind(part, nextPart, lastElement, render){
+		var bindingSelector;
+		if(nextPart && nextPart.eachProperty){
+			// apply the class for the next part so we can reference it properly
+			put(lastElement, bindingSelector = nextPart.selector);
+		}else{
+			put(lastElement, bindingSelector = part.selector ||
+				(part.selector = '.-xbind-' + nextId++));
+		}
+		var expression = part.getArgs()[0];
+		var expressionResult = part.expressionResult;
+		var expressionDefinition = part.expressionDefinition;
+		// make sure we only do this only once
+
+		if(!expressionDefinition){
+			expressionDefinition = part.expressionDefinition =
+				expressionModule.evaluate(part.parent, expression);
+			expressionResult = expressionDefinition.valueOf();
+			elemental.addDefinition(bindingSelector, expressionDefinition);
+			(function(nextPart, bindingSelector, expressionDefinition){
+				part.expressionResult = expressionResult;
+				// setup an invalidation object, to rerender when data changes
+				// TODO: fix this
+				expressionDefinition.depend && expressionDefinition.depend({
+					invalidate: function(invalidated){
+						// TODO: should we use elemental's renderer?
+						// TODO: do we need to closure the scope of any of these variables
+						// TODO: might consider queueing or calling Object.deliverChangeRecords() or
+						// polyfill equivalent here, to ensure all changes are delivered before 
+						// rendering again
+						var elementsToRerender = invalidated ?
+							invalidated.elements :
+							document.querySelectorAll(bindingSelector);
+						for(var i = 0, l = elementsToRerender.length;i < l; i++){
+							render(elementsToRerender[i], nextPart, 
+								expressionDefinition.valueOf());
+						}
+					}
+				});
+			})(nextPart, bindingSelector, expressionDefinition);
+		}
+		render(lastElement, nextPart, expressionResult);
+	}
+
+	function contextualize(value, rule, element, callback){
+		return utils.when(value, function(value){
+			if(value && value.forRule){
+				value = value.forRule(rule);
+			}
+			if(value && value.forElement){
+				value = value.forElement(element);
+			}
+			callback(value);
+		});
+	}
+
+	function renderAttribute(element, name, expressionResult, rule){
+		contextualize(expressionResult, rule, element, function(value){
+			element.setAttribute(name, value);
+		});
+	}
+
+	function renderContents(element, nextPart, expressionResult, rule){
 		/*var contentProxy = element.content || (element.content = new Proxy());
 		element.xSource = expressionResult;
 		var context = new Context(element, rule);
@@ -277,17 +314,13 @@ define('xstyle/core/generate', [
 			element._defaultBinding = true;
 			if(expressionResult && expressionResult.then && element.tagName !== 'INPUT'){
 				try{
-					var textNode = element.appendChild(doc.createTextNode('Loading'));
+					element.appendChild(doc.createTextNode('Loading'));
 				}catch(e){
+					// IE can fail on appending text for some elements,
+					// TODO: we might want to only try/catch for IE, for performance
 				}
 			}
-			utils.when(expressionResult, function(value){
-				if(value && value.forRule){
-					value = value.forRule(rule);
-				}
-				if(value && value.forElement){
-					value = value.forElement(element);
-				}
+			contextualize(expressionResult, rule, element, function(value){
 				if(element._defaultBinding){ // the default binding can later be disabled
 					if(element.childNodes.length){
 						// clear out any existing content

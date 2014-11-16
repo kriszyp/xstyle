@@ -505,8 +505,6 @@ For example, we could bind the href of an anchor element to a variable:
 		=> a[href=(targetUrl)];
 	}
 
-This functionality is implemented and has been lightly tested.
-
 ### List Binding
 
 Not only can we bind scalar values to elements, we can also bind lists or array to elements
@@ -559,6 +557,9 @@ variable or property changes):
 	h1.name {
 		=> span(person/first-name + person/last-name);
 	}
+
+The following operators are available in expressions, and have the same meaning as in JavaScript:
++, -, *, /, ?:, !, %, (, ), >, <=, <, <=, == (same as JS ===), & (same as JS &&), | (same as JS ||).
 
 ## Creating Components
 

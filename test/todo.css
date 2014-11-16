@@ -22,7 +22,7 @@ tasks = model/tasks;
 					=>
 						input.toggle[type=checkbox] (item/completed) {
 						},
-						label (item/title) {
+						label[title=(item/title)] (item/title) {
 							display: get(editing ? 'none' : 'inline');
 							text-decoration: get(item/completed ? 'line-through' : 'none');
 							on-dblclick: set(editing, true);

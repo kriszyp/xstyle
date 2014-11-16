@@ -130,8 +130,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 	operator('>=', 8, 'a>=b', true);
 	operator('<', 8, 'a<b', true);
 	operator('<=', 8, 'a<=b', true);
-	operator('==', 9, 'a==b', true);
-	operator('===', 9, 'a===b', true);
+	operator('==', 9, 'a===b', true);
 	operator('&', 8, 'a&&b', true);
 	operator('|', 8, 'a||b', true);
 
