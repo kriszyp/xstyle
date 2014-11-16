@@ -379,11 +379,11 @@ For example:
 
 We could then have some HTML that starts as:
 
-	&lt;div class="greeting">John Doe&lt;/div>
+	<div class="greeting">John Doe</div>
 
 And then xstyle would convert this to:
 
-	&lt;div class="greeting">&lt;h1>Welcome:&lt;/h1>John Doe&lt;/div>
+	<div class="greeting"><h1>Welcome:</h1>John Doe</div>
 
 ### on - Event Handling
 
@@ -413,14 +413,14 @@ Normally standard CSS property values are not resolved as expressions. However, 
 The set function can be used to set the value of a particular definition. This is particularly useful in event handlers, where you might want to set a value in response to an action. For example, we could write an `click` handler for a button to turn a flag on:
 
 	button {
-		on-click: set(enableEditing, true);
+		on-click: set(enable-editing, true);
 	}
 
 ### toggle - Toggle a value
 
 The `toggle` function works similar to get, but is a convience function for toggling. We could toggle a flag like:
 
-	on-click: toggle(enableEditing);
+	on-click: toggle(enable-editing);
 
 ### margin, padding, border, etc. - Nested Definitions
 
@@ -432,6 +432,18 @@ we could specify the margin-left and margin-right by writing:
 		left: 10px;
 		right: 20px;
 	};
+
+We can also assign the top level value by setting the `main` property. For example:
+
+	margin: {
+		main: 10px;
+		right: 20px;
+	};
+
+Is equivalent too:
+
+	margin: 10px;
+	margin-right: 20px;
 
 ### element
 
@@ -487,10 +499,7 @@ to properties of an object:
 			input[type=text](person/last-name);
 	}
 
-Data models can provide a `property(name)` method to handle access to properties, and the returned
-property objects can provide an `observe(callback)` method to define a listener for data changes.
-This follows the same API as the [dstore](https://github.com/SitePen/dstore) project, and more details
-are in the interfacing with JavaScript section below.
+Changes in property values will be automatically reflected in the rendered elements, and for inputs, and user changes will be reflected back to the source objects.
 
 ### Attribute Binding
 
@@ -546,6 +555,8 @@ items in the array, and the second column corresponds to the "age" property:
 			};
 		};
 	}
+
+In addition to using plain arrays, [dstore](https://github.com/SitePen/dstore) stores/collections can be used, providing real-time reflection of data sources.
 
 ### Expressions
 
