@@ -25,8 +25,7 @@ both encapsulation and separation of concerns with intelligent organization.
 
 # Getting Started
 
-To start using xstyle's extensible CSS, you simply need to load the xstyle JavaScript library, <code>xstyle.js</code> 
-or <code>xstyle.min.js</code> (minified) and you can start using xstyle's CSS extensions:
+To start using xstyle's extensible CSS, you simply need to load the xstyle JavaScript library, <a href="http://kriszyp.github.io/xstyle/xstyle.js"><code>xstyle.js</code></a> and you can start using xstyle's CSS extensions:
 
 <pre>
 &lt;style>
