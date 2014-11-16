@@ -9,3 +9,13 @@ test-expand = {
 		bottom: 3px;
 	}
 }
+.test-content {
+	=> div(content)
+}
+test-event = div {
+	test-element = element;
+	=>
+		button {
+			on-click: test-event(test-element);
+		};
+}

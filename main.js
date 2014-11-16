@@ -124,6 +124,7 @@ define("xstyle/main", [
 		//	selector:
 		// 		CSS selector syntax for creating a new element
 		generate: generate,
+		update: elemental.update,
 		load:  function(resourceDef, require, callback, config){
 			// support using an AMD plugin loader
 			require(['xstyle/css'], function(plugin){
