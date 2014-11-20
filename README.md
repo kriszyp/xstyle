@@ -943,7 +943,7 @@ in the layer definition in the build profile:
 		...
 
 When the build runs, any CSS dependencies that are encountered in modules will then
-be added to main-stylesheet.js (which will be created if it does not already exist), rather 
+be added to main-stylesheet.css (which will be created if it does not already exist), rather 
 than inlined in the JavaScript build layer. One
 can still use the #inline URL directive to inline resources in combination with the AMD
 build plugin.
