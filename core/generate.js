@@ -30,6 +30,7 @@ define('xstyle/core/generate', [
 		// return a function that can do the generation for each element that matches
 		return function(element, item, beforeElement){
 			var lastElement = element;
+			var topElement;
 			// if this has been previously rendered, the content may be in the _contentNode
 			if(beforeElement === undefined){
 				var childNodes = (element._contentNode || element).childNodes || 0;
@@ -207,6 +208,7 @@ define('xstyle/core/generate', [
 									// set the item property, so the item reference will work
 									nextElement.item = item;
 								}
+								topElement = topElement || nextElement;
 								if(j < parts.length - 1 || (nextElement != lastElement &&
 									// avoid infinite loop if it is a nop selector
 									nextElement != element &&
@@ -237,7 +239,7 @@ define('xstyle/core/generate', [
 			while((elementToUpdate = stackOfElementsToUpdate.pop())){
 				elemental.update(elementToUpdate, stackOfElementsToUpdate.pop());
 			}
-			return lastElement;
+			return topElement;
 		};
 
 	}
