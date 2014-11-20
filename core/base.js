@@ -324,6 +324,8 @@ define('xstyle/core/base', [
 										result = result.forElement(event.target);
 									}
 									currentEvent = null;
+								}, function(e){
+									console.error('Error in ' + name + ' event handler, executing ' + value, e);	
 								});
 							}catch(e){
 								console.error('Error in ' + name + ' event handler, executing ' + value, e);

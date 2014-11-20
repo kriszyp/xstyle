@@ -13,9 +13,9 @@ define('xstyle/core/utils', [], function(){
 		return letter.toUpperCase();
 	}
 	return {
-		when: function(value, callback){
+		when: function(value, callback, errorHandler){
 			return value && value.then ?
-				(value.then(callback) || value) : callback(value);
+				(value.then(callback, errorHandler) || value) : callback(value);
 		},
 		whenAll: function(inputs, callback){
 			if(someHasProperty(inputs, 'then')){

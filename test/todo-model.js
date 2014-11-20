@@ -13,6 +13,9 @@ define(['dstore/Memory', 'dstore/Trackable'], function(Memory, Trackable){
 			tasks.add({title: model.newItem});
 			model.newItem = '';
 		},
+		destroy: function(item){
+			tasks.remove(item.id);
+		},
 		'total-todo':3
 	};
 	return model;
