@@ -67,7 +67,16 @@ if(typeof define == 'undefined'){
 		}
 		return function(xstyleText){
 			var define = pseudoDefine;
-			eval(xstyleText);
+			var vm;
+			try {
+				vm = require('vm');
+			} catch (e) {
+				console.log('could not load vm module');
+			}
+			console.log('vm', vm);
+			vm ?
+				vm.runInThisContext(xstyleText, 'xstyle/core/parser.js') :
+				eval(xstyleText);
 			return processCss;
 		};
 	});
@@ -128,7 +137,7 @@ function processCss(cssText, basePath, inlineAllResources){
 			}
 			return target;
 		},
-		declareProperty: function(name, value, conditional){
+		declareDefinition: function(name, value, conditional){
 			// TODO: access staticHasFeatures to check conditional
 			var valueString = {
 				toString: function(){
