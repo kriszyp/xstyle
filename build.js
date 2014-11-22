@@ -49,33 +49,51 @@ if(typeof define == 'undefined'){
 		// must create our own path module for Rhino :/
 		pathModule = {
 			resolve: function(base, target){
-				return (base.replace(/[^\/]+$/, '') + target)
-						.replace(/\/[^\/]*\/\.\./g, '')
-						.replace(/\/\./g,'');
+				target = (base.replace(/[^\/]+$/, '') + target);
+				var newTarget = target.replace(/\/[^\/]*\/\.\./g, '');
+				while(target !== (newTarget = target.replace(/\/[^\/]*\/\.\./g, ''))){
+					target = newTarget;
+				}
+				return target.replace(/\/\.\//g,'/');
 			},
 			dirname: function(path){
 				return path.replace(/[\/\\][^\/\\]*$/, '');
 			},
 			relative: function(basePath, path){
-				return path.slice(this.dirname(basePath).length + 1);
+				basePath = this.dirname(basePath);
+				var baseParts = basePath.split(/[\/\\]/);
+				var parts = path.split(/[\/\\]/);
+				var l = parts.length;
+				for (var i = 0; i < l; i++){
+					if (parts[i] !== baseParts[i]){
+						break;
+					}
+				}
+				parts.splice(0, i);
+				for (; i < baseParts.length; i++){
+					parts.unshift('..');
+				}
+				return parts.join('/');
 			},
 			join: function(base, target){
 				return ((base[base.length - 1]  == '/' ? base : (base + '/'))+ target)
 						.replace(/\/[^\/]*\/\.\./g, '')
 						.replace(/\/\./g,'');
 			}
-		}
+		};
 		return function(xstyleText){
 			var define = pseudoDefine;
 			var vm;
 			try {
-				vm = require('vm');
+				require(['dojo/node!vm']);
+				vm = require('dojo/node!vm');
 			} catch (e) {
-				console.log('could not load vm module');
 			}
-			console.log('vm', vm);
 			vm ?
-				vm.runInThisContext(xstyleText, 'xstyle/core/parser.js') :
+				vm.runInNewContext(xstyleText, {
+					define: define,
+					console: console
+				}, 'xstyle/core/parser.js') :
 				eval(xstyleText);
 			return processCss;
 		};
@@ -85,7 +103,7 @@ function main(source, target){
 	var imported = {};
 	var basePath = source.replace(/[^\/]*$/, '');
 	var cssText = fs.readFileSync(source).toString("utf-8");
-	var processed = processCss(cssText, basePath);
+	var processed = processCss(cssText, basePath, basePath);
 	var output = processed.standardCss;
 	if(processed.xstyleCss){
 		output += 'x-xstyle{content:"' + 
@@ -111,18 +129,21 @@ var mimeTypes = {
 	jpeg: "image/jpeg",
 	png: "image/png"	
 }
-function processCss(cssText, basePath, inlineAllResources){
+function processCss(cssText, basePath, cssPath, inlineAllResources){
 	function XRule(){
 	}
 	var ruleCount = 0;
 	XRule.prototype = {
 		newCall: function(name){
-			return new Call(name);
+			var call = new Call(name);
+			call.parent = this;
+			return call;
 		},
 		childRules: 0,
 		newRule: function(name){
 			var rule = (this.rules || (this.rules = {}))[name] = new XRule();
 			rule.ruleIndex = this.childRules++;
+			rule.parent = this;
 			return rule;
 		},
 		getDefinition: function(name, includeRules){
@@ -234,7 +255,7 @@ function processCss(cssText, basePath, inlineAllResources){
 				suffix = suffix && suffix[1];
 				url = url.replace(/[\?#].*/,'');
 				
-				if(base64Module){
+				if(typeof java !== 'undefined'){
 					// reading binary is hard in rhino
 					var file = new java.io.File(pathModule.join(path, url));
 					var length = file.length();
@@ -254,13 +275,14 @@ function processCss(cssText, basePath, inlineAllResources){
 					// in node base64 encoding is easy
 					var moduleText = fs.readFileSync(pathModule.join(path, url)).toString("base64");
 				}
-				return 'url(data:' + (mimeTypes[suffix] || 'application/octet-stream') + 
-							';base64,' + moduleText + ')';
+				return 'url("data:' + (mimeTypes[suffix] || 'application/octet-stream') + 
+							';base64,' + moduleText + '")';
 			}
 			// or we adjust the URL
-			return 'url("' + pathModule.join(relativePath, url).replace(/\\/g, '/') + '")';
+			var adjustedPath = pathModule.resolve(relativePath, url);
+			return 'url("' + adjustedPath + '")';
 		});
-	}
+	};
 	parse.getStyleSheet = function(importRule, sequence, styleSheet){
 		var path = pathModule.resolve(styleSheet.href, sequence[1].value);
 		var localSource = '';
@@ -269,7 +291,7 @@ function processCss(cssText, basePath, inlineAllResources){
 		}catch(e){
 			console.error(e);
 		}
-		//browserCss.push(correctUrls(localSource, path));
+		localSource = correctUrls(localSource, path);
 		return {
 			localSource: localSource,
 			href: path || '.',
@@ -280,7 +302,8 @@ function processCss(cssText, basePath, inlineAllResources){
 	var browserCss = [];//[correctUrls(cssText, basePath + "placeholder.css")];
 	var rootRule = new XRule;
 	rootRule.root = true;
-	parse(rootRule, cssText, {href:basePath || '.', cssRules:[], insertRule: insertRule});
+	parse(rootRule, correctUrls(cssText, cssPath),
+			{href: cssPath || '.', cssRules:[], insertRule: insertRule});
 	rootRule.definitions = {
 		Math:1,
 		require:1,
