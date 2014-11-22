@@ -63,7 +63,7 @@ define(["dojo/json", "build/fs", "build/transforms/writeAmd", "../build"], funct
 								
 								fs.writeFileSync(url, targetStylesheetContents);
 							}catch(e){
-								console.error('error creating css layer', e.stack);
+								console.error('error creating css layer', e.stack || e);
 							}
 							bc.currentTargetStylesheetUrl = targetStylesheetUrl = null;
 						}
@@ -142,7 +142,7 @@ define(["dojo/json", "build/fs", "build/transforms/writeAmd", "../build"], funct
 						// probably be async lazy loaded
 					//}
 				}catch(e){
-					console.error('Error processing CSS', e.stack);
+					console.error('Error processing CSS', e.stack || e);
 					processed = {standardCss: text};
 				}
 				return processed;
