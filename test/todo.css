@@ -33,7 +33,6 @@ get: controller; /* force it to load now*/
 						},
 						input.edit (item/title) {
 							display: get(editing ? 'inline' : 'none');
-							on-focusout: set(editing, false);
 							on-change: set(editing, false);
 						},
 						button.destroy 'Destroy' {
@@ -43,14 +42,17 @@ get: controller; /* force it to load now*/
 		};
 }
 #todo-count {
-	=> strong (model/total-todo), span ('items left');
-	visibility: var(model/total-todo > 0);
+	=> 
+		strong (model/total-todo)
+		span (get(model/total-todo > 1 ? ' items left' : ' item left'));
+	visibility: get(model/total-todo > 0 ? 'visible' : 'hidden');
 }
 #views {
 	=>
-		a[href='#/all'] 'All',
-		span ' ',
-		a[href='#/active'] 'Active',
-		span ' ',
+		a[href='#/all'] 'All ',
+		a[href='#/active'] 'Active ',
 		a[href='#/completed'] 'Completed';
+}
+a {
+	text-decoration: none;
 }

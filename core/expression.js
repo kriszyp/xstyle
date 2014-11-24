@@ -115,7 +115,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 		function addFlags(operatorHandler){
 			operatorHandler.skipResolve = true;
 			operatorHandler.precedence = precedence;
-			operatorHandler.infix = reverseA === true || !!reverseB;
+			operatorHandler.infix = reverseB !== false;
 		}
 		addFlags(operatorHandler);
 		operators[operator] = operatorHandler;
@@ -129,15 +129,15 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 //	operator('^', 7, 'a^b', 'a^(-b)', 'Math.log(a)/Math.log(b)');
 	operator('?', 16, 'b[a?0:1]', 'a===b[0]||(a===b[1]?false:deny)', '[a,b]');
 	operator(':', 15, '[a,b]', 'a[0]?a[1]:deny', 'a[1]');
-	operator('!', 4, '!a', '!a');
-	operator('%', 5, 'a%b', true);
-	operator('>', 8, 'a>b', true);
-	operator('>=', 8, 'a>=b', true);
-	operator('<', 8, 'a<b', true);
-	operator('<=', 8, 'a<=b', true);
-	operator('==', 9, 'a===b', true);
-	operator('&', 8, 'a&&b', true);
-	operator('|', 8, 'a||b', true);
+	operator('!', 4, '!a', '!a', false);
+	operator('%', 5, 'a%b');
+	operator('>', 8, 'a>b');
+	operator('>=', 8, 'a>=b');
+	operator('<', 8, 'a<b');
+	operator('<=', 8, 'a<=b');
+	operator('==', 9, 'a===b');
+	operator('&', 8, 'a&&b');
+	operator('|', 8, 'a||b');
 
 	function evaluateExpression(rule, value){
 		// evaluate an expression
@@ -250,6 +250,9 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				stack.push(result);
 				lastOperatorPrecedence = lastOperator && operators[lastOperator] && operators[lastOperator].precedence;
 			}
+		}
+		if(stack.length > 1){
+			throw new Error('Could not reduce expression');
 		}
 		part = stack[0];
 		part.inputs = dependencies;
