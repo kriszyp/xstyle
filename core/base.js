@@ -273,7 +273,7 @@ define('xstyle/core/base', [
 				return getVarDefinition(name);
 			},
 			selfResolving: true,
-			apply: function(definition, args){
+			apply: function(instance, args){
 				// var(property) call
 				return getVarDefinition(utils.convertCssNameToJs(args[0]));
 			}
@@ -295,8 +295,15 @@ define('xstyle/core/base', [
 				return args[0].put(args[1].valueOf());
 			}
 		},
-		get: function(value){
-			return value;
+		get: {
+			apply: function(target, args){
+				// just return the evaluated argument
+				return args[0];
+			},
+			put: function(value, rule){
+				// evaluate to trigger the expression
+				expression.evaluate(rule, value).valueOf();
+			}
 		},
 		toggle: {
 			selfExecuting: true,

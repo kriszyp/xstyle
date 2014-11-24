@@ -183,7 +183,7 @@ define('xstyle/core/Rule', [
 		onArguments: function(call, name){
 			var handler = call.ref;
 			// call the target with the parsed arguments
-			return handler && handler.apply(this, call.getArgs(), name);
+			return handler && handler.apply(this, call.getArgs(), this);
 		},
 		setValue: function(name, value, scopeRule){
 			// called by the parser when a property is encountered
@@ -441,7 +441,7 @@ define('xstyle/core/Rule', [
 					}
 					// evaluate each call
 					var evaluated = part.ref && part.ref.selfResolving ? 
-						part.ref.apply(rule, part.getArgs(), name) :
+						part.ref.apply(rule, part.getArgs(), rule) :
 						expression.evaluate(rule, [part.caller, part]);
 					if(evaluated !== undefined){
 						(evaluatedCalls || (evaluatedCalls = [])).push(evaluated);
@@ -469,7 +469,7 @@ define('xstyle/core/Rule', [
 			});
 			computation.skipResolve = true;
 			var definition = new Definition();
-			definition.setCompute(computation.apply(definition, evaluatedCalls));
+			definition.setCompute(computation.apply(definition, evaluatedCalls, definition));
 			return definition;
 		}
 		if(!onlyReturnEvaluated){

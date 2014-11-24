@@ -36,46 +36,49 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 
 	}
 	function react(forward, reverse){
-		return function(){
-			var inputs = arguments;
-			var definition = this;
-			for(var i = 0, l = inputs.length; i < l; i++){
-				var input = inputs[i];
-				input.depend && input.depend(definition);
-			}
-			var compute = function(){
-				var results = [];
-				// TODO: make an opt-out for this
-				if(forward.selfExecuting){
-					return forward.apply(definition, inputs);
-				}
+		return {
+			apply: function(instance, inputs, definition){
 				for(var i = 0, l = inputs.length; i < l; i++){
-					results[i] = inputs[i].valueOf();
+					var input = inputs[i];
+					input.depend && input.depend(definition);
 				}
-				if(forward.selfWaiting){
-					return forward.apply(definition, results);
-				}
-				// wait for the values to be received
-				return utils.whenAll(results, function(inputs){
-					// contextualize along each dimension
-					return contextualize('forRule', inputs, function(inputs){
-						return contextualize('forElement', inputs, function(results){
-							return forward.apply(definition, results);
+				var compute = function(){
+					var results = [];
+					// TODO: make an opt-out for this
+					if(forward.selfExecuting){
+						return forward.apply(instance, inputs, definition);
+					}
+					for(var i = 0, l = inputs.length; i < l; i++){
+						results[i] = inputs[i].valueOf();
+					}
+					if(forward.selfWaiting){
+						return forward.apply(instance, results, definition);
+					}
+					// include the instance in whenAll
+					results.unshift(instance);
+					// wait for the values to be received
+					return utils.whenAll(results, function(inputs){
+						var instance = inputs.shift();
+						// contextualize along each dimension
+						return contextualize('forRule', inputs, function(inputs){
+							return contextualize('forElement', inputs, function(results){
+								return forward.apply(instance, results, definition);
+							});
 						});
 					});
-				});
-			};
-			compute.reverse = function(value){
-				return reverse(value, inputs);
-			};
-			return compute;
+				};
+				compute.reverse = function(value){
+					return reverse(value, inputs);
+				};
+				return compute;
+			}
 		};
-
 	}
 	var deny = {};
 	var operatingFunctions = {};
 	var operators = {};
 	function getOperatingFunction(expression){
+		// jshint evil: true
 		return operatingFunctions[expression] ||
 			(operatingFunctions[expression] =
 				new Function('a', 'b', 'return ' + expression));
@@ -98,14 +101,16 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 		};
 		// define a function that can lazily ensure the operating function
 		// is available
-		var operatorHandler = function(){
-			var operatorReactive;
-			forward = getOperatingFunction(forward);
-			reverseA = reverseA && getOperatingFunction(reverseA);
-			reverseB = reverseB && getOperatingFunction(reverseB);
-			operators[operator] = operatorReactive = react(forward, reverse);
-			addFlags(operatorReactive);
-			return operatorReactive.apply(this, arguments);
+		var operatorHandler = {
+			apply: function(instance, args, definition){
+				var operatorReactive;
+				forward = getOperatingFunction(forward);
+				reverseA = reverseA && getOperatingFunction(reverseA);
+				reverseB = reverseB && getOperatingFunction(reverseB);
+				operators[operator] = operatorReactive = react(forward, reverse);
+				addFlags(operatorReactive);
+				return operatorReactive.apply(instance, args, definition);
+			}
 		};
 		function addFlags(operatorHandler){
 			operatorHandler.skipResolve = true;
@@ -151,7 +156,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				// parse out operators
 				// TODO: change this to a replace so we can find any extra characters to report
 				// a syntax error
-				var parts = part.match(/"[^\"]*"|[+\-\<\>\|\/\?\:^*!&|]+|[\w_$\.\/-]+/g);
+				var parts = part.match(/"[^\"]*"|[+\-<>\|\/\?\:^*!&|]+|[\w_$\.\/-]+/g);
 				var spliceArgs = [i, 1];
 				if(parts){
 					spliceArgs.push.apply(spliceArgs, parts);
@@ -171,33 +176,35 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 		for(i = 0; i < value.length; i++){
 			part = value[i];
 			if(part.operator == '('){
-				var func = stack[stack.length - 1];
+				var functionDefinition = stack[stack.length - 1];
 				// pop off the name that precedes
-				if(func === undefined || operators.hasOwnProperty(func)){
+				if(functionDefinition === undefined || operators.hasOwnProperty(functionDefinition)){
 					part = evaluateExpression(rule, part.getArgs()[0]);
 				}else{
 					// a function call
 					stack.pop();
-					part = (function(func, args){
+					part = (function(functionDefinition, args){
 						var resolved;
 						var compute;
 						var definition = new Definition(function(){
-							return utils.when(func.valueOf(), function(func){
-								if(!func.selfResolving){
+							return utils.when(functionDefinition.valueOf(), function(functionValue){
+								var instance = functionDefinition.parent &&
+									functionDefinition.parent.valueOf();
+								if(!functionValue.selfResolving){
 									if(!resolved){
 										resolved = [];
 										for(var i = 0, l = args.length; i < l; i++){
 											resolved[i] = evaluateExpression(rule, args[i]);
 										}
-										compute = react(func).apply(definition, resolved);
+										compute = react(functionValue).apply(instance, resolved, definition);
 									}
 									return compute();
 								}
-								return func.apply(definition, args).valueOf();
+								return functionValue.apply(instance, args, definition).valueOf();
 							});
 						});
 						return definition;
-					})(func, part.getArgs());
+					})(functionDefinition, part.getArgs());
 				}
 			}else if(operators.hasOwnProperty(part)){
 				// it is an operator, it has been added to the stack, but we need
@@ -237,8 +244,8 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				var lastOperand = stack.pop();
 				var executingOperator = operators[stack.pop()];
 				var result = new Definition();
-				result.setCompute(executingOperator.apply(result, executingOperator.infix ?
-					[stack.pop(), lastOperand] : [lastOperand]));
+				result.setCompute(executingOperator.apply(null, executingOperator.infix ?
+					[stack.pop(), lastOperand] : [lastOperand], result));
 				lastOperator = stack.length ? stack[stack.length-1] : undefined;
 				stack.push(result);
 				lastOperatorPrecedence = lastOperator && operators[lastOperator] && operators[lastOperator].precedence;

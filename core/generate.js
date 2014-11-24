@@ -324,6 +324,9 @@ define('xstyle/core/generate', [
 			}
 			contextualize(expressionResult, rule, element, function(value){
 				if(element._defaultBinding){ // the default binding can later be disabled
+					if(element.onxstyleempty){
+						element.onxstyleempty();
+					}
 					if(element.childNodes.length){
 						// clear out any existing content
 						element.innerHTML = '';
@@ -349,16 +352,18 @@ define('xstyle/core/generate', [
 								};
 							}
 							var rows = [];
+							var handle;
 							if(value.track){
 								value = value.track();
 								// TODO: cleanup routine
+								handle = value.tracking;
 							}
 							value.forEach(function(value){
 								// TODO: do this inside generate
 								rows.push(eachHandler(element, value, null));
 							});
 							if(value.on){
-								value.on('add,delete,update', function(event){
+								var onHandle = value.on('add,delete,update', function(event){
 									var object = event.target;
 									var previousIndex = event.previousIndex;
 									var newIndex = event.index;
@@ -370,7 +375,13 @@ define('xstyle/core/generate', [
 									if(newIndex > -1){
 										rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
 									}
-								}, true);
+								});
+							}
+							handle = handle || onHandle;
+							if(handle){
+								element.onxstyleempty = function(){
+									handle.remove();
+								};
 							}
 						}
 					}else if(value && value.nodeType){
@@ -379,7 +390,11 @@ define('xstyle/core/generate', [
 						value = value === undefined ? '' : value;
 						if(element.tagName in inputs){
 							// set the text
-							element.value = value;
+							if(element.type === 'checkbox'){
+								element.checked = value;
+							}else{
+								element.value = value;
+							}
 						}else{
 							// render plain text
 							element.appendChild(doc.createTextNode(value));							
