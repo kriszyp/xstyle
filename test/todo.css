@@ -1,6 +1,8 @@
 model = module(xstyle/test/todo-model);
 controller = module(xstyle/test/todo-controller);
 tasks = model/tasks;
+tasksView = model/tasksView;
+get: controller; /* force it to load now*/
 
 #header {
 	=>
@@ -14,13 +16,14 @@ tasks = model/tasks;
 	=>
 		input[type=checkbox],
 		label,
-		ul (tasks) {
+		ul (tasksView) {
 			each:
 				li div.task {
 					editing = element-property;
 					task-element = element;
 					=>
 						input.toggle[type=checkbox] (item/completed) {
+							on-change: tasks/put(item);
 						},
 						label[title=(item/title)] (item/title) {
 							display: get(editing ? 'none' : 'inline');
@@ -28,13 +31,13 @@ tasks = model/tasks;
 							on-dblclick: set(editing, true);
 							on-dblclick: controller/focus-input(task-element);
 						},
-						button.destroy 'Destroy' {
-							on-click: model/destroy(item);
-						},
 						input.edit (item/title) {
 							display: get(editing ? 'inline' : 'none');
 							on-focusout: set(editing, false);
 							on-change: set(editing, false);
+						},
+						button.destroy 'Destroy' {
+							on-click: model/destroy(item);
 						};
 				},
 		};
@@ -42,4 +45,12 @@ tasks = model/tasks;
 #todo-count {
 	=> strong (model/total-todo), span ('items left');
 	visibility: var(model/total-todo > 0);
+}
+#views {
+	=>
+		a[href='#/all'] 'All',
+		span ' ',
+		a[href='#/active'] 'Active',
+		span ' ',
+		a[href='#/completed'] 'Completed';
 }
