@@ -180,7 +180,7 @@ define('xstyle/core/Rule', [
 				return (definitions[name] = value);
 			}
 		},
-		onArguments: function(call, name){
+		onArguments: function(call){
 			var handler = call.ref;
 			// call the target with the parsed arguments
 			return handler && handler.apply(this, call.getArgs(), this);

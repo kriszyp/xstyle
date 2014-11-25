@@ -190,7 +190,7 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 				this.xstyleCss.push(name + ':' + value + ';');
 			}
 		},
-		onCall: function(){},
+		onArguments: function(){},
 		toString: function(mode){
 			var str = ''
 			str += this.xstyleCss ? this.xstyleCss.join('') : '';
@@ -284,12 +284,27 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 		});
 	};
 	parse.getStyleSheet = function(importRule, sequence, styleSheet){
-		var path = pathModule.resolve(styleSheet.href, sequence[1].value);
+		var importValue = sequence[1];
+		var path;
+		try{
+			if(importValue.operator === '('){
+				// a url() call
+				var firstArg = importValue.args[0];
+				// extract  from a literal string, or just grab the raw text
+				// note that the correctUrls should have already resolved this path
+				path = firstArg.length? firstArg[0].value : firstArg.toString();
+			}else{
+				// assume it is a string
+				path  = pathModule.resolve(styleSheet.href, importValue.value);
+			}
+		}catch(error){
+			console.error('Can not parse import value of ', error, importValue, firstArg);
+		}
 		var localSource = '';
 		try{
-			localSource = fs.readFileSync(path).toString("utf-8");
+			localSource = fs.readFileSync(path).toString('utf-8');
 		}catch(e){
-			console.error(e);
+			console.error(e.stack || e);
 		}
 		localSource = correctUrls(localSource, path);
 		return {
@@ -297,7 +312,7 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 			href: path || '.',
 			insertRule: insertRule,
 			cssRules: []
-		}
+		};
 	};
 	var browserCss = [];//[correctUrls(cssText, basePath + "placeholder.css")];
 	var rootRule = new XRule;
