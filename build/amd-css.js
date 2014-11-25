@@ -34,7 +34,11 @@ define(['dojo/json', 'build/fs', 'build/fileUtils', 'build/transforms/writeAmd',
 							// initialize the target stylesheet
 							var targetStylesheetContents = '';
 							try{
-								targetStylesheetContents = processCss(targetStylesheetModule).standardCss;
+								if(targetStylesheetModule){
+									targetStylesheetContents = processCss(targetStylesheetModule).standardCss;
+								}else{
+									targetStylesheetModule = moduleInfo;
+								}
 								var moduleSet = writeAmd.computeLayerContents({mid:'stylesheet-process' + i}, layer.include, layer.exclude);
 								var targetResource;
 								for (var i in moduleSet) {
