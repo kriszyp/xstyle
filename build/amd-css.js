@@ -1,5 +1,6 @@
-define(["dojo/json", "build/fs", "build/transforms/writeAmd", "../build"], function(json, fs, writeAmd, buildModule){
-	var targetStylesheet, targetDestStylesheetUrl, targetStylesheetContents = '';
+define(['dojo/json', 'build/fs', 'build/fileUtils', 'build/transforms/writeAmd', '../build'],
+		function(json, fs, fileUtils, writeAmd, buildModule){
+	var targetStylesheet;
 	return {
 		start:function(
 			mid,
@@ -61,6 +62,7 @@ define(["dojo/json", "build/fs", "build/transforms/writeAmd", "../build"], funct
 								
 								var url = targetDestStylesheetUrl.replace(/\/x$/,'');
 								
+								fileUtils.ensureDirectoryByFilename(url);
 								fs.writeFileSync(url, targetStylesheetContents);
 							}catch(e){
 								console.error('error creating css layer', e.stack || e);
