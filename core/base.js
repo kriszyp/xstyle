@@ -56,7 +56,7 @@ define('xstyle/core/base', [
 						element['_' + property + 'Node'] = contentElement;
 					}
 					var value = element[property];
-					if(!value){
+					if(value === undefined){
 						return getVarDefinition(property).valueOf().forRule(rule);
 					}
 					return value;
