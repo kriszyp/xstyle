@@ -30,8 +30,10 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 						elements: [element]
 					});
 					element.setAttribute('xcleanup', 'xcleanup');
-					element.xcleanup = function(){
-						Object.unobserve(result, observer);
+					element.xcleanup = function(destroy){
+						if(destroy){
+							Object.unobserve(result, observer);
+						}
 					};
 					return result[key];
 				}

@@ -277,7 +277,7 @@ define('xstyle/core/generate', [
 						// polyfill equivalent here, to ensure all changes are delivered before 
 						// rendering again
 						var elementsToRerender;
-						if(elemental.invalidated){
+						if(invalidated){
 							if(elemental.matchesRule(invalidated.elements[0], bindingRule)){
 								elementsToRerender = invalidated.elements;
 							}else{
