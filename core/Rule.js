@@ -84,7 +84,6 @@ define('xstyle/core/Rule', [
 			}
 		},
 		setStyle: function(name, value){
-			console.log('setStyle', this.selector, name, value);
 			if(this.cssRule){
 				setStyle(this.cssRule.style, name, value);
 			}/*else if('ruleIndex' in this){
@@ -258,10 +257,11 @@ define('xstyle/core/Rule', [
 								}
 							}
 						}else{
-							return forElement(rule, value, function(value, element){
+							forElement(rule, value, function(value, element){
 								setStyle(element.style, propertyName, value);
 							});
 						}
+						return;
 					}
 					// check to see if this is already overriden
 					if(/*!inherited ||
