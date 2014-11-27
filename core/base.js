@@ -21,7 +21,7 @@ define('xstyle/core/base', [
 	root.root = true;
 	function elementProperty(property, rule, inherit, newElement){
 		// definition bound to an element's property
-		var definition = new Definition(function(){
+		function contextualValue(rule){
 			return {
 				selectElement: function(element){
 					if(newElement){
@@ -56,19 +56,22 @@ define('xstyle/core/base', [
 						element['_' + property + 'Node'] = contentElement;
 					}
 					var value = element[property];
-					if(value === undefined){
+					if(value === undefined && rule){
 						return getVarDefinition(property).valueOf().forRule(rule);
 					}
 					return value;
-				}						
+				},
+				forRule: function(rule){
+					return contextualValue(rule);
+				}
 			};
+		}
+		var definition = new Definition(function(){
+			return contextualValue(rule);
 		});
 		definition.define = function(rule, newProperty){
 			// if we don't already have a property define, we will do so now
 			return elementProperty(property || newProperty, rule, newElement);
-		};
-		definition.forRule = function(rule){
-			return elementProperty(property, rule, newElement);			
 		};
 		definition.put = inherit ? function(value, rule){
 			return getVarDefinition(property).put(value, rule, property);

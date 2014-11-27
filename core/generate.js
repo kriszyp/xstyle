@@ -31,6 +31,10 @@ define('xstyle/core/generate', [
 		return function(element, item, beforeElement){
 			var lastElement = element;
 			var topElement;
+			if(!('content' in element)){
+				// a starting point for the content, so it can be detected by inheritance
+				element.content = undefined;
+			}
 			// if this has been previously rendered, the content may be in the _contentNode
 			if(beforeElement === undefined){
 				var childNodes = (element._contentNode || element).childNodes || 0;
@@ -264,7 +268,7 @@ define('xstyle/core/generate', [
 			expressionDefinition = part.expressionDefinition =
 				expressionModule.evaluate(part.parent, expression);
 			expressionResult = expressionDefinition.valueOf();
-			elemental.addDefinition(bindingSelector, expressionDefinition);
+			elemental.addInputConnector(bindingRule, expressionDefinition);
 			(function(nextPart, bindingSelector, expressionDefinition){
 				part.expressionResult = expressionResult;
 				// setup an invalidation object, to rerender when data changes

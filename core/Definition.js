@@ -158,18 +158,21 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 						if(object.forRule){
 							return {
 								forRule: function(rule){
-									object.forRule(rule)[key] = value;
+									return setForElement(object.forRule(rule));
 								}
 							};
 						}
-						if(object.forElement){
-							return {
-								forElement: function(element){
-									object.forElement(element)[key] = value;
-								}
-							};
+						function setForElement(object){
+							if(object.forElement){
+								return {
+									forElement: function(element){
+										object.forElement(element)[key] = value;
+									}
+								};
+							}
+							object[key] = value;
 						}
-						object[key] = value;
+						setForElement(object);
 					});
 				};
 				propertyDefinition.id = this.id + '-' + key;

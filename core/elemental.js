@@ -7,12 +7,15 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 	on(doc, hasAddEventListener ? 'change' : 'focusout', null, function(event){
 		var element = event.target;
 		// get the variable computation so we can put the value
-		for(var i = 0, l = selectorDefinitions.length; i < l; i++){
-			var selectorDefinition = selectorDefinitions[i];
-			if((' ' + element.className + ' ').indexOf(selectorDefinition.selector.slice(1)) > -1){
-				var definition = selectorDefinition.definition;
-				// TODO: use forRule/forElement on the valueOf if necessary
+		for(var i = 0, l = inputConnectors.length; i < l; i++){
+			var inputConnector = inputConnectors[i];
+			// we could alternately use the matchesRule
+			if((' ' + element.className + ' ').indexOf(inputConnector.rule.selector.slice(1)) > -1){
+				var definition = inputConnector.definition;
 				var currentValue = definition.valueOf();
+				if(currentValue && currentValue.forRule){
+					currentValue = currentValue.forRule(inputConnector.rule);
+				}
 				if(currentValue && currentValue.forElement){
 					currentValue = currentValue.forElement(element);
 				}
@@ -22,8 +25,10 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 				if(oldType === 'number' && isFinite(value)){
 					value = +value;
 				}
-				var result = selectorDefinition.definition.put(value);
-				// TODO: if(result.forRule){...}
+				var result = inputConnector.definition.put(value);
+				if(result && result.forRule){
+					result = result.forRule(inputConnector.rule);
+				}
 				if(result && result.forElement){
 					result.forElement(element);
 				}
@@ -61,7 +66,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 		testDiv.webkitMatchesSelector || testDiv.mozMatchesSelector ||
 		testDiv.msMatchesSelector || testDiv.oMatchesSelector;
 	var selectorRenderers = [];
-	var selectorDefinitions = [];
+	var inputConnectors = [];
 	var renderQueue = [];
 	var documentQueried;
 	// probably want to inline our own DOM readiness code
@@ -184,9 +189,9 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 			return !!element.currentStyle[rule.ieId];
 		};
 
-	function addDefinition(selector, definition){
-		selectorDefinitions.push({
-			selector: selector,
+	function addInputConnector(rule, definition){
+		inputConnectors.push({
+			rule: rule,
 			definition: definition
 		});
 	}
@@ -221,7 +226,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 		on: on,
 		matchesRule: matchesRule,
 		addRenderer: addRenderer,
-		addDefinition: addDefinition,
+		addInputConnector: addInputConnector,
 		// this should be called for newly created dynamic elements to ensure the proper rules are applied
 		update: update,
 		clearRenderers: function(){
