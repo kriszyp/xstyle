@@ -15,12 +15,4 @@ define(['xstyle/core/base', 'xstyle/main', 'dojo/domReady!'], function(base){
 	// jshint evil: true
 	var content = eval('(' + contentText + ')');
 	base.definitions.pageContent.put(content);
-	//(body['page-content'] || (body['page-content'] = new Proxy())).setSource(content);
-	/*base.newRule('content');
-	
-	parse(contentRule, contentText, {
-			rules: [], 
-			addRule: function(){}
-		});*/
-	
 });

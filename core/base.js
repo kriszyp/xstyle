@@ -23,8 +23,7 @@ define('xstyle/core/base', [
 		// definition bound to an element's property
 		var definition = new Definition(function(){
 			return {
-				forElement: function(element){
-					var contentElement = element;
+				selectElement: function(element){
 					if(newElement){
 						// content needs to start at the parent
 						element = element.parentNode;
@@ -46,6 +45,11 @@ define('xstyle/core/base', [
 							}
 						}
 					}
+					return element;
+				},
+				forElement: function(element){
+					var contentElement = element;
+					element = this.selectElement(element);
 					// provide a means for being able to reference the target node,
 					// this primarily used by the generate model to nest content properly
 					if(newElement){

@@ -26,14 +26,20 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 						return element[cacheProperty][key];
 					}
 					var result = element[cacheProperty] = object.forElement(element);
-					element[cacheProperty + 'observe'] = setupObserve(definition, result, key);
+					var observer = element[cacheProperty + 'observe'] = setupObserve(definition, result, key, {
+						elements: [element]
+					});
+					element.setAttribute('xcleanup', 'xcleanup');
+					element.xcleanup = function(){
+						Object.unobserve(result, observer);
+					};
 					return result[key];
 				}
 			};
 		}
 		// else
 	}
-	function setupObserve(definition, object, key){
+	function setupObserve(definition, object, key, invalidated){
 		var properties = definition._properties;
 		var observer;
 		if(typeof object == 'object'){
@@ -43,7 +49,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 				for(var i = 0; i < events.length; i++){
 					var property = properties[events[i].name];
 					if(property && property.invalidate){
-						property.invalidate();
+						property.invalidate(invalidated);
 					}
 				}
 			};
@@ -118,7 +124,9 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 											if(cacheObserve.addKey){
 												cacheObserve.addKey(key);
 											}else{
-												rule[cacheProperty + 'observe'] = setupObserve(parentDefinition, result, key);	
+												rule[cacheProperty + 'observe'] = setupObserve(parentDefinition, result, key, {
+													rules: [rule]
+												});
 											}
 										}
 									}

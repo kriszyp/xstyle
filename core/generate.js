@@ -245,13 +245,15 @@ define('xstyle/core/generate', [
 	}
 
 	function bind(part, nextPart, lastElement, render){
-		var bindingSelector;
+		var bindingSelector, bindingRule;
 		if(nextPart && nextPart.eachProperty){
 			// apply the class for the next part so we can reference it properly
 			put(lastElement, bindingSelector = nextPart.selector);
+			bindingRule = nextPart;
 		}else{
 			put(lastElement, bindingSelector = part.selector ||
 				(part.selector = '.-xbind-' + nextId++));
+			bindingRule = part;
 		}
 		var expression = part.getArgs()[0];
 		var expressionResult = part.expressionResult;
@@ -274,9 +276,16 @@ define('xstyle/core/generate', [
 						// TODO: might consider queueing or calling Object.deliverChangeRecords() or
 						// polyfill equivalent here, to ensure all changes are delivered before 
 						// rendering again
-						var elementsToRerender = invalidated ?
-							invalidated.elements :
-							document.querySelectorAll(bindingSelector);
+						var elementsToRerender;
+						if(elemental.invalidated){
+							if(elemental.matchesRule(invalidated.elements[0], bindingRule)){
+								elementsToRerender = invalidated.elements;
+							}else{
+								elementsToRerender = invalidated.elements[0].querySelectorAll(bindingSelector);
+							}
+						}else{
+							elementsToRerender = document.querySelectorAll(bindingSelector);
+						}
 						for(var i = 0, l = elementsToRerender.length;i < l; i++){
 							render(elementsToRerender[i], nextPart, 
 								expressionDefinition.valueOf());
@@ -324,9 +333,7 @@ define('xstyle/core/generate', [
 			}
 			contextualize(expressionResult, rule, element, function(value){
 				if(element._defaultBinding){ // the default binding can later be disabled
-					if(element.onxstyleempty){
-						element.onxstyleempty();
-					}
+					cleanup(element);
 					if(element.childNodes.length){
 						// clear out any existing content
 						element.innerHTML = '';
@@ -369,6 +376,7 @@ define('xstyle/core/generate', [
 									var newIndex = event.index;
 									if(previousIndex > -1){
 										var oldElement = rows[previousIndex];
+										cleanup(oldElement, true);
 										oldElement.parentNode.removeChild(oldElement);
 										rows.splice(previousIndex, 1);
 									}
@@ -379,7 +387,8 @@ define('xstyle/core/generate', [
 							}
 							handle = handle || onHandle;
 							if(handle){
-								element.onxstyleempty = function(){
+								element.setAttribute('xcleanup', 'xcleanup');
+								element.xcleanup = function(){
 									handle.remove();
 								};
 							}
@@ -402,6 +411,17 @@ define('xstyle/core/generate', [
 					}
 				}
 			});
+		}
+	}
+	function cleanup(element, destroy){
+		if(element.xcleanup){
+			element.xcleanup(destroy);
+		}
+		if(element.childNodes.length){
+			var elementsNeedingCleanup = element.querySelectorAll('[xcleanup]');
+			for(var i = 0; i < elementsNeedingCleanup.length; i++){
+				elementsNeedingCleanup[i].xcleanup(true);
+			}
 		}
 	}
 	function generate(parentElement, selector){
