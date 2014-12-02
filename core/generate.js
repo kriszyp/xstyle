@@ -79,7 +79,12 @@ define('xstyle/core/generate', [
 								var attribute = part.args[0];
 								if(typeof attribute === 'string'){
 									var parts = attribute.split('=');
-									lastElement.setAttribute(parts[0], parts[1]);
+									try{
+										lastElement.setAttribute(parts[0], parts[1]);
+									}catch(e){
+										// TODO: for older IE we need to use createElement for input names
+										console.error(e);
+									}
 								}else{
 									var name = attribute[0].replace(/=$/,'');
 									var value = attribute[1];

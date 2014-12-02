@@ -1,5 +1,6 @@
 define('xstyle/core/utils', [], function(){
 	// some utility functions
+	var isXhtml = (document.createElement('div').tagName == 'div');
 	var supportedTags = {};
 	function someHasProperty(array, property){
 		for(var i = 0, l = array.length; i < l; i++){
@@ -59,13 +60,20 @@ define('xstyle/core/utils', [], function(){
 		},
 		isTagSupported: function(tag){
 			// test to see if a tag is supported by the browser
-			var element;
 			if(tag in supportedTags){
 				return supportedTags[tag];
 			}
-			var elementString = (element = document.createElement(tag)).toString();
-			return supportedTags[tag] = !(elementString == '[object HTMLUnknownElement]' ||
-				elementString == '[object]');
+			var element = document.createElement(tag);
+			var supported;
+			if(isXhtml){
+				// should we really even support this?
+				var elementString = element.toString();
+				supported = !(elementString == '[object HTMLUnknownElement]' ||
+					elementString == '[object]');
+			}else{
+				supported = (element.tagName == tag.toUpperCase());
+			}
+			return (supportedTags[tag] = supported);
 		},
 		extend: function(target, base, error){
 			// takes the target and applies to the base, resolving the base
