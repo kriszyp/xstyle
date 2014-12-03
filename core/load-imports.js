@@ -203,7 +203,7 @@ define('xstyle/core/load-imports', [], function(){
 				}else{
 					sheet.localSource = link.innerHTML;
 				}
-				var cssRules = sheet.rules || sheet.cssRules;
+				var cssRules = sheet.rules || sheet.cssRules || [];
 				for(var i = 0; i < cssRules.length; i++){
 					var rule = cssRules[i];
 					if(rule.selectorText && rule.selectorText.substring(0,2) == 'x-'){
