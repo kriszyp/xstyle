@@ -292,8 +292,19 @@ define('xstyle/core/Rule', [
 						utils.when(value.expression.valueOf(), function(fulfilledResult){
 							result = fulfilledResult;
 							for(var i = 0; i < appliedRules.length; i++){
-								if(!invalidated || !invalidated.rules || invalidated.rules.indexOf(appliedRules)){
-									applyToRule(appliedRules[i], invalidated);
+								var apply = true;
+								var appliedRule = appliedRules[i];
+								if(invalidated && invalidated.rules){
+									apply = false;
+									for(var j = 0; j < invalidated.rules.length; j++){
+										if(invalidated.rules[j] === appliedRule){
+											apply = true;
+											break;
+										}
+									}
+								}
+								if(apply){
+									applyToRule(appliedRule, invalidated);
 								}
 							}
 						});
