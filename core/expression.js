@@ -55,10 +55,10 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 						return forward.apply(instance, results, definition);
 					}
 					// include the instance in whenAll
-					results.unshift(instance);
+					results.push(instance);
 					// wait for the values to be received
 					return utils.whenAll(results, function(inputs){
-						var instance = inputs.shift();
+						var instance = inputs.pop();
 						// contextualize along each dimension
 						return contextualize('forRule', inputs, function(inputs){
 							return contextualize('forElement', inputs, function(results){
