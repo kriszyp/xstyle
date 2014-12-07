@@ -61,7 +61,7 @@ define('xstyle/core/base', [
 					}
 					return value;
 				},
-				forRule: function(rule){
+				forRule: inherit && function(rule){
 					return contextualValue(rule);
 				}
 			};
