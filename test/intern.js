@@ -52,10 +52,9 @@ define({
 	loader: {
 		// Packages that should be registered with the loader in each testing environment
 		packages: [
-			{ name: 'dojo', location: 'dojo' },
-			{ name: 'dijit', location: 'dijit' },
-			{ name: 'put-selector', location: 'put-selector' },
-			{ name: 'xstyle', location: 'xstyle' }
+			{ name: 'dojo', location: 'node_modules/dojo' },
+			{ name: 'put-selector', location: 'node_modules/put-selector' },
+			{ name: 'xstyle', location: '../xstyle' }
 		]
 	},
 
