@@ -27,5 +27,10 @@ define([
 			parse(rule, '@xstyle end; test { property: value }');
 			assert.strictEqual(rule.rules, undefined);
 		},
+		'preserve escapes' : function () {
+			var rule = new Rule();
+			parse(rule, 'test { content: "\\e001" }');
+			assert.strictEqual(rule.rules.test.get('content')[0].value, '\\e001');
+		}
 	});
 });
