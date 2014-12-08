@@ -238,7 +238,8 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 										if((nextRule.selectorText == selector) ||
 											// CSS3 pseudo-elements can be auto-converted from CSS2 psuedo by browsers
 												(nextRule.selectorText &&
-													nextRule.selectorText.replace(/::/g, ':') == selector.replace(/::/g, ':'))){
+													nextRule.selectorText.replace(/::/g, ':').replace(/'/g, '"') ==
+														selector.replace(/::/g, ':').replace(/'/g, '"'))){
 											// found it
 											newTarget.cssRule = nextRule;
 											break;
