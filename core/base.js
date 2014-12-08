@@ -73,6 +73,8 @@ define('xstyle/core/base', [
 			// if we don't already have a property define, we will do so now
 			return elementProperty(property || newProperty, rule, newElement);
 		};
+		// don't override content in CSS rules
+		definition.keepCSSValue = true;
 		definition.put = inherit ? function(value, rule){
 			return getVarDefinition(property).put(value, rule, property);
 		} :

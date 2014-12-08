@@ -68,8 +68,15 @@ define('xstyle/core/Rule', [
 				var styleSheet = this.styleSheet;
 				var cssRules = styleSheet.cssRules || styleSheet.rules;
 				var ruleNumber = this.ruleIndex > -1 ? this.ruleIndex : cssRules.length;
-				// IE doesn't like an empty cssText
-				styleSheet.addRule(selector, cssText || ' ', ruleNumber);
+				try{
+					// IE doesn't like an empty cssText
+					styleSheet.addRule(selector, cssText || ' ', ruleNumber);
+				}catch(e){
+					// errors can be thrown for browser specific selectors
+					if(!selector.match(/-(moz|webkit|ie)-/)){
+						console.warn('Unable to add rule', selector, cssText);
+					}
+				}
 				return cssRules[ruleNumber];
 			}
 		},
@@ -201,7 +208,7 @@ define('xstyle/core/Rule', [
 				do{
 					// check for the handler
 					var target = (scopeRule || this).getDefinition(name);
-					if(target !== undefined){
+					if(target !== undefined && !(target && target.keepCSSValue)){
 						if(this.cssRule){
 							// delete the property if it one that the browser actually uses
 							var thisStyle = this.cssRule.style;
@@ -240,76 +247,77 @@ define('xstyle/core/Rule', [
 			var calls = value.calls;
 			if(calls){
 				var rule = this;
-				value.expression = evaluateText(value, this, propertyName, true);
+				var expression = value.expression = evaluateText(value, this, propertyName, true);
+				if(expression){
+					var result = value.expression && value.expression.valueOf();
 
-				var result = value.expression.valueOf();
-
-				var applyToRule = function(rule, invalidated){
-					var value = result && result.forRule ? result.forRule(rule, true) : result;
-					if(value && value.forElement){
-						var elements = invalidated && invalidated.elements;
-						if(elements){
-							for(var i = 0; i < elements.length; i++){
-								var subElements = elements[i].querySelectorAll(rule.selector);
-								for(var j = 0; j < subElements.length; j++){
-									var subElement = subElements[j];
-									setStyle(subElement.style, propertyName, value.forElement(subElement));
-								}
-							}
-						}else{
-							forElement(rule, value, function(value, element){
-								setStyle(element.style, propertyName, value);
-							});
-						}
-						return;
-					}
-					// check to see if this is already overriden
-					if(/*!inherited ||
-							// if it is inherited, we need to check to make sure there isn't an existing property */
-							true ||
-							!rule.getCssRule().style[propertyName] ||
-							// or if there is an existing, maybe it was inherited
-							rule.inheritedStyles[propertyName]){
-						rule.setStyle(propertyName, value);
-					}
-				};
-				var appliedRules = [rule];
-				utils.when(result, function(fulfilledResult){
-					result = fulfilledResult;
-					if(result && result.forRule){
-						(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
-							appliedRules.push(rule);
-							applyToRule(rule);
-						});
-					}
-					applyToRule(rule);
-				});
-
-				value.expression.depend({
-					invalidate: function(invalidated){
-						// TODO: queue these up
-						//(rule.staleProperties || (rule.staleProperties = {}))[propertyName] =
-						utils.when(value.expression.valueOf(), function(fulfilledResult){
-							result = fulfilledResult;
-							for(var i = 0; i < appliedRules.length; i++){
-								var apply = true;
-								var appliedRule = appliedRules[i];
-								if(invalidated && invalidated.rules){
-									apply = false;
-									for(var j = 0; j < invalidated.rules.length; j++){
-										if(invalidated.rules[j] === appliedRule){
-											apply = true;
-											break;
-										}
+					var applyToRule = function(rule, invalidated){
+						var value = result && result.forRule ? result.forRule(rule, true) : result;
+						if(value && value.forElement){
+							var elements = invalidated && invalidated.elements;
+							if(elements){
+								for(var i = 0; i < elements.length; i++){
+									var subElements = elements[i].querySelectorAll(rule.selector);
+									for(var j = 0; j < subElements.length; j++){
+										var subElement = subElements[j];
+										setStyle(subElement.style, propertyName, value.forElement(subElement));
 									}
 								}
-								if(apply){
-									applyToRule(appliedRule, invalidated);
-								}
+							}else{
+								forElement(rule, value, function(value, element){
+									setStyle(element.style, propertyName, value);
+								});
 							}
-						});
-					}
-				});
+							return;
+						}
+						// check to see if this is already overriden
+						if(/*!inherited ||
+								// if it is inherited, we need to check to make sure there isn't an existing property */
+								true ||
+								!rule.getCssRule().style[propertyName] ||
+								// or if there is an existing, maybe it was inherited
+								rule.inheritedStyles[propertyName]){
+							rule.setStyle(propertyName, value);
+						}
+					};
+					var appliedRules = [rule];
+					utils.when(result, function(fulfilledResult){
+						result = fulfilledResult;
+						if(result && result.forRule){
+							(rule._subRuleListeners || (rule._subRuleListeners = [])).push(function(rule){
+								appliedRules.push(rule);
+								applyToRule(rule);
+							});
+						}
+						applyToRule(rule);
+					});
+
+					value.expression.depend({
+						invalidate: function(invalidated){
+							// TODO: queue these up
+							//(rule.staleProperties || (rule.staleProperties = {}))[propertyName] =
+							utils.when(value.expression.valueOf(), function(fulfilledResult){
+								result = fulfilledResult;
+								for(var i = 0; i < appliedRules.length; i++){
+									var apply = true;
+									var appliedRule = appliedRules[i];
+									if(invalidated && invalidated.rules){
+										apply = false;
+										for(var j = 0; j < invalidated.rules.length; j++){
+											if(invalidated.rules[j] === appliedRule){
+												apply = true;
+												break;
+											}
+										}
+									}
+									if(apply){
+										applyToRule(appliedRule, invalidated);
+									}
+								}
+							});
+						}
+					});
+				}
 			}
 			if(!alreadySet){
 				this.setStyle(propertyName, value);
@@ -451,9 +459,10 @@ define('xstyle/core/Rule', [
 						sequence[i] = part = create(part);
 					}
 					// evaluate each call
-					var evaluated = part.ref && part.ref.selfResolving ? 
-						part.ref.apply(rule, part.getArgs(), rule) :
-						expression.evaluate(rule, [part.caller, part]);
+					var evaluated = part.ref && 
+						(part.ref.selfResolving ? 
+							part.ref.apply(rule, part.getArgs(), rule) :
+							expression.evaluate(rule, [part.caller, part]));
 					if(evaluated !== undefined){
 						(evaluatedCalls || (evaluatedCalls = [])).push(evaluated);
 						part.evaluated = true;
