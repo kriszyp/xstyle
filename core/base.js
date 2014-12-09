@@ -19,12 +19,12 @@ define('xstyle/core/base', [
 	var root = new Rule();
 	var matchesRule = elemental.matchesRule;
 	root.root = true;
-	function elementProperty(property, rule, inherit, newElement){
+	function elementProperty(property, rule, options){
 		// definition bound to an element's property
 		function contextualValue(rule){
 			return {
 				selectElement: function(element){
-					if(newElement){
+					if(options.newElement){
 						// content needs to start at the parent
 						element = element.parentNode;
 					}
@@ -36,7 +36,7 @@ define('xstyle/core/base', [
 							}
 						}
 					}
-					if(inherit){
+					if(options.inherit){
 						// we find the parent element with an item property, and key off of that 
 						while(!(property in element)){
 							element = element.parentNode;
@@ -52,16 +52,16 @@ define('xstyle/core/base', [
 					element = this.selectElement(element);
 					// provide a means for being able to reference the target node,
 					// this primarily used by the generate model to nest content properly
-					if(newElement){
+					if(options.newElement){
 						element['_' + property + 'Node'] = contentElement;
 					}
-					var value = element[property];
+					var value = options.get ? options.get(element, property) : element[property];
 					if(value === undefined && rule){
 						return getVarDefinition(property).valueOf().forRule(rule);
 					}
 					return value;
 				},
-				forRule: inherit && function(rule){
+				forRule: options.inherit && function(rule){
 					return contextualValue(rule);
 				}
 			};
@@ -71,11 +71,11 @@ define('xstyle/core/base', [
 		});
 		definition.define = function(rule, newProperty){
 			// if we don't already have a property define, we will do so now
-			return elementProperty(property || newProperty, rule, newElement);
+			return elementProperty(property || newProperty, rule, options);
 		};
 		// don't override content in CSS rules
 		definition.keepCSSValue = true;
-		definition.put = inherit ? function(value, rule){
+		definition.put = options.inherit ? function(value, rule){
 			return getVarDefinition(property).put(value, rule, property);
 		} :
 		function(value){
@@ -92,7 +92,11 @@ define('xstyle/core/base', [
 							}
 						}
 					}
-					element[property] = value;
+					if(options.set){
+						options.set(element, property, value);
+					}else{
+						element[property] = value;
+					}
 					definition.invalidate({elements: [element]});
 				}
 			};
@@ -215,15 +219,37 @@ define('xstyle/core/base', [
 		}),
 		// TODO: add url()
 		// adds support for referencing each item in a list of items when rendering arrays 
-		item: elementProperty('item', null, true),
+		item: elementProperty('item', null, {inherit: true}),
 		pageContent: new Definition(),
 		// adds referencing to the prior contents of an element
-		content: elementProperty('content', null, true, function(){
-			this.element;
+		content: elementProperty('content', null, {
+			inherit: true,
+			newElement: function(){
+				return this.element;
+			}
 		}),
 		// don't define the property now let it be redefined when it is declared in another
-		// definition
-		elementProperty: elementProperty(),
+		// this is a definition that can be redefined to use an element property as a variable
+		elementProperty: elementProperty(null, null, {}),
+		// this is a definition that is tied to the presence or absence of a class on an element
+		elementClass: elementProperty(null, null, {
+			get: function(element, property){
+				return (' ' + element.className + ' ').indexOf(' ' + property + ' ') > -1;
+			},
+			set: function(element, property, value){
+				// check to see if we really need to change anything first
+				if(this.get(element, property) != value){
+					// set the class name
+					if(value){
+						// add the class name
+						element.className += ' ' + property;
+					}else{
+						// remove it
+						element.className = (' ' + element.className + ' ').replace(' ' + property + ' ', '').replace(/^ +| +$/g,'');
+					}
+				}
+			}
+		}),
 		element: {
 			// definition to reference the actual element
 			forElement: function(element){
@@ -325,7 +351,9 @@ define('xstyle/core/base', [
 				// add listener
 				return {
 					forRule: function(rule){
-						elemental.on(document, name.charAt(2).toLowerCase() + name.slice(3), rule, function(event){
+						elemental.on(document, 
+								elemental.on.selector(rule.selector, name.charAt(2).toLowerCase() + name.slice(3)),
+								function(event){
 							currentEvent = event;
 							// execute the event listener by calling valueOf
 							// note that we could define a flag on the definition to indicate that
