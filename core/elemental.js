@@ -4,7 +4,10 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils', 'dojo/
 	var doc = document;
 	var nextId = 1;
 	var hasAddEventListener = !!doc.addEventListener;
-	on(doc, hasAddEventListener ? 'change' : 'focusout', function(event){
+	on(doc, hasAddEventListener ? 'change,keydown' : 'focusout,keydown', function(event){
+		if(event.type == 'keydown' && event.keyCode != 13){
+			return;
+		}
 		var element = event.target;
 		// get the variable computation so we can put the value
 		for(var i = 0, l = inputConnectors.length; i < l; i++){
