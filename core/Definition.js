@@ -29,7 +29,6 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 					var observer = element[cacheProperty + 'observe'] = setupObserve(definition, result, key, {
 						elements: [element]
 					});
-					element.setAttribute('xcleanup', 'xcleanup');
 					element.xcleanup = function(destroy){
 						if(destroy){
 							observe.unobserve(result, observer);

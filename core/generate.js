@@ -396,7 +396,6 @@ define('xstyle/core/generate', [
 							}
 							handle = handle || onHandle;
 							if(handle){
-								element.setAttribute('xcleanup', 'xcleanup');
 								element.xcleanup = function(){
 									handle.remove();
 								};
@@ -426,11 +425,10 @@ define('xstyle/core/generate', [
 		if(element.xcleanup){
 			element.xcleanup(destroy);
 		}
-		if(element.childNodes.length){
-			var elementsNeedingCleanup = element.querySelectorAll('[xcleanup]');
-			for(var i = 0; i < elementsNeedingCleanup.length; i++){
-				elementsNeedingCleanup[i].xcleanup(true);
-			}
+		var descendants = element.getElementsByTagName('*');
+		for(var i = 0, l = descendants.length; i < l; i++){
+			var descendant = descendants[i];
+			descendant.xcleanup && descendant.xcleanup(true);
 		}
 	}
 	function generate(parentElement, selector){
