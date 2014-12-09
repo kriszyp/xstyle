@@ -1,10 +1,10 @@
-define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], function(put, utils){
+define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils', 'dojo/on', 'dojo/query'], function(put, utils, on){
 	// using delegation, listen for any input changes in the document and 'put' the value  
 	// TODO: add a hook so one could add support for IE8, or maybe this event delegation isn't really that useful
 	var doc = document;
 	var nextId = 1;
 	var hasAddEventListener = !!doc.addEventListener;
-	on(doc, hasAddEventListener ? 'change' : 'focusout', null, function(event){
+	on(doc, hasAddEventListener ? 'change' : 'focusout', function(event){
 		var element = event.target;
 		// get the variable computation so we can put the value
 		for(var i = 0, l = inputConnectors.length; i < l; i++){
@@ -36,6 +36,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 			}
 		}
 	});
+/*	sometime we might reimplement this, but for now just relying on dojo/on
 	function on(target, event, rule, listener){
 		// this function can be overriden to provide better event handling
 		hasAddEventListener ?
@@ -50,7 +51,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 				listener(event);
 			}
 		}
-	}
+	}*/
 
 	// elemental section, this code is for property handlers that need to mutate the DOM for elements
 	// that match it's rule
