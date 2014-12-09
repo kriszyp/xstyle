@@ -444,6 +444,32 @@ Is equivalent too:
 	margin: 10px;
 	margin-right: 20px;
 
+### element-property
+
+This definition is mapped to a property that is stored on each element instance of the rule. This allows you to keep state information on elements, that is unique to each element. This could be mapped to an existing or native property or a custom property. For example, we could track selection state, by defining the `selected` variable as an element property, which could then be used to track the state of the element:
+
+	li {
+		selected = element-property;
+		background-color: get(selected ? 'yellow' : 'transparent');
+		button.select {
+			on-click: toggle(selected);
+		}
+	}
+
+### element-class
+
+This definition is a boolean value that corresponds to the presence or absence of a class name on each element instance of the rule. This is similar to the `element-property` definition, except that the state is stored with a class name. We could alternately write the example of tracking the selected state:
+
+	li {
+		selected = element-class;
+		button.select {
+			on-click: toggle(selected);
+		}
+	}
+	li.selected {
+		background-color: yellow;
+	}
+
 ### element
 
 This returns a reference to the corresponding DOM element. The element definition can be defined/reassigned in a rule, so that the element for that rule can be referenced. For example, we could create a component, with a button that references the element for the higher level component:
