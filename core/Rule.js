@@ -208,8 +208,8 @@ define('xstyle/core/Rule', [
 				do{
 					// check for the handler
 					var target = (scopeRule || this).getDefinition(name);
-					if(target !== undefined && !(target && target.keepCSSValue)){
-						if(this.cssRule){
+					if(target !== undefined){
+						if(this.cssRule && !(target && target.keepCSSValue)){
 							// delete the property if it one that the browser actually uses
 							var thisStyle = this.cssRule.style;
 							if(jsName in thisStyle){
