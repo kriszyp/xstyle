@@ -175,10 +175,16 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							if(!parsed){ // no match for the end of the string
 								error('unterminated string');
 							}
+							// get the real contents of the string, parsing any backslashes
+							var str = parsed[1].replace(/\\([a-fA-F\d]{0,5}[ a-fA-F\d]?)/g, function(full, unicode){
+								if(unicode){
+									return String.fromCharCode(parseInt(unicode, 16));
+								}
+							});
 							// move the css parser up to the end of the string position
 							cssScan.lastIndex = quoteScan.lastIndex;
 							// push the string on the current value and keep parsing
-							addInSequence(new LiteralString(parsed[1]));
+							addInSequence(new LiteralString(str));
 							selector += parsed[0];
 							continue;
 						case '\\':

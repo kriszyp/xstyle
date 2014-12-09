@@ -30,7 +30,7 @@ define([
 		'preserve escapes' : function () {
 			var rule = new Rule();
 			parse(rule, 'test { content: "\\e001" }');
-			assert.strictEqual(rule.rules.test.get('content')[0].value, '\\e001');
+			assert.strictEqual(rule.rules.test.get('content')[0].value, '\ue001');
 		}
 	});
 });
