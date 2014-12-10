@@ -50,11 +50,23 @@ define({
 	// Configuration options for the module loader; any AMD configuration options supported by the Dojo loader can be
 	// used here
 	loader: {
+		baseUrl: typeof process === 'undefined' ?
+				// if we are using the full path to xstyle, we assume we are running
+				// in a sibling path configuration
+				location.search.indexOf('config=xstyle') > -1 ? '../..' : '..' :
+			'./node_modules',
+
 		// Packages that should be registered with the loader in each testing environment
+		requestProvider: 'dojo/request/registry',
 		packages: [
-			{ name: 'dojo', location: 'node_modules/dojo' },
-			{ name: 'put-selector', location: 'node_modules/put-selector' },
-			{ name: 'xstyle', location: '../xstyle' }
+			{ name: 'dojo', location: 'dojo' },
+			{ name: 'put-selector', location: 'put-selector' },
+			{
+				name: 'xstyle',
+				location: typeof process === 'undefined' ?
+					location.search.indexOf('config=xstyle') > -1 ? 'xstyle' : '..' :
+					'..'
+			}
 		]
 	},
 
