@@ -186,7 +186,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 					part = (function(functionDefinition, args){
 						var resolved;
 						var compute;
-						var definition = new Definition(function(){
+						function resolveValue(reverse){
 							return utils.when(functionDefinition.valueOf(), function(functionValue){
 								var instance = functionDefinition.parent &&
 									functionDefinition.parent.valueOf();
@@ -200,7 +200,15 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 									}
 									return compute();
 								}
-								return functionValue.apply(instance, args, definition).valueOf();
+								var applied = functionValue.apply(instance, args, definition);
+								return reverse ? applied : applied.valueOf();
+							});
+						}
+						var definition = new Definition(resolveValue);
+						definition.setReverseCompute(function(){
+							var args = arguments;
+							return utils.when(resolveValue(true), function(resolved){
+								return resolved.put.apply(resolved, args);
 							});
 						});
 						return definition;

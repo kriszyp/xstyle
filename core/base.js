@@ -211,9 +211,9 @@ define('xstyle/core/base', [
 				then: function(callback){
 					var deferred = new Deferred();
 					require([mid], function(module){
-						deferred.resolve(callback(module));
+						deferred.resolve(module);
 					});
-					return deferred.promise;
+					return deferred.then(callback);
 				}
 			};
 		}),

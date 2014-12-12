@@ -203,9 +203,10 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 			(this.dependents || (this.dependents = [])).push(dependent);
 		},
 		setReverseCompute: function(reverse){
-			this.put = function(value){
-				reverse(value);
+			this.put = function(){
+				var result = reverse.apply(this, arguments);
 				this.invalidate();
+				return result;
 			};
 		},
 		setCompute: function(compute){
