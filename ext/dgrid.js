@@ -1,4 +1,11 @@
-define(['dojo/_base/declare', 'dojo/promise/all', 'dojo/Deferred', 'dojo/when', './widget', '../core/expression'], function(declare, all, Deferred, when, widgetModule, expression){
+define([
+	'dojo/_base/declare',
+	'dojo/promise/all',
+	'dojo/Deferred',
+	'dojo/when',
+	'./widget',
+	'../core/expression'
+], function(declare, all, Deferred, when, widgetModule, expression){
 	var classNeeded = {
 		'selectionMode': 'Selection',
 		'columns': 'Grid',
@@ -27,11 +34,9 @@ define(['dojo/_base/declare', 'dojo/promise/all', 'dojo/Deferred', 'dojo/when', 
 			return columns;
 		}
 	};
-	var waiting;
 	return {
 		put: function(value, rule, name){
 			name = name.slice(6);
-			var moduleName = 'dgrid/' + classNeeded[name];
 			if(!rule.constructors){
 				rule.constructors = ['dgrid/OnDemandList'];
 				rule.handlers = [];
@@ -56,5 +61,5 @@ define(['dojo/_base/declare', 'dojo/promise/all', 'dojo/Deferred', 'dojo/when', 
 				}, rule.constructors);
 			});
 		}
-	}
+	};
 });
