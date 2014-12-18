@@ -67,7 +67,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 		cache: noCacheEntry,
 		valueOf: function(){
 			// first check to see if we have the variable already computed
-			var useCache = this.dependents;
+			var useCache = this.dependents || this._properties;
 			if(useCache){
 				// TODO: use when
 				if(this.cache !== noCacheEntry){
