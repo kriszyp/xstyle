@@ -1,5 +1,5 @@
-define(['xstyle/core/utils', 'xstyle/core/observe'],
-		function(utils, observe){
+define(['xstyle/core/utils', 'xstyle/core/es6'],
+		function(utils, es6){
 	function Definition(computeValue){
 		// computeValue: This is function (or promise to a function) that is called to calculate
 		// the value of this definition
@@ -31,7 +31,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 					});
 					element.xcleanup = function(destroy){
 						if(destroy){
-							observe.unobserve(result, observer);
+							es6.unobserve(result, observer);
 						}
 					};
 					return result[key];
@@ -54,7 +54,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 					}
 				}
 			};
-			observe.observe(object, observer);
+			es6.observe(object, observer);
 			if(observer.addKey){
 				observer.addKey(key);
 			}
@@ -144,7 +144,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 						if(!cacheObserve){
 							cacheObserve = parentDefinition.cacheObserve = setupObserve(parentDefinition, object, key);
 						}else if(cacheObserve.addKey){
-							// used by the polyfill to setup setters
+							// used by the es6 to setup setters
 							cacheObserve.addKey(key);
 						}
 						return object[key];
@@ -182,7 +182,7 @@ define(['xstyle/core/utils', 'xstyle/core/observe'],
 			// TODO: there might actually be a collection of observers
 			var observer = this.cacheObserve;
 			if(observer){
-				observe.unobserve(this.cache, observer);
+				es6.unobserve(this.cache, observer);
 				this.cacheObserve = null;
 			}
 			this.cache = noCacheEntry;

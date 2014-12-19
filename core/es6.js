@@ -1,4 +1,4 @@
-define('xstyle/core/observe', [], function(){
+define('xstyle/core/es6', [], function(){
 	var hasFeatures = {
 		observe: Object.observe,
 		defineProperty: Object.defineProperty && (function(){
@@ -6,9 +6,9 @@ define('xstyle/core/observe', [], function(){
 				Object.defineProperty({}, 't', {});
 				return true;
 			}catch(e){
-
 			}
-		})()
+		})(),
+		promise: typeof Promise !== 'undefined'
 	};
 	function has(feature){
 		return hasFeatures[feature];
@@ -157,7 +157,68 @@ define('xstyle/core/observe', [], function(){
 			callback(queued);
 		}
 	}
+	if(!has('promise')){
+		var PromisePolyFill = function(execute){
+			var isResolved, resolution, errorResolution;
+			var queue = 0;
+			function resolve(value){
+				// resolve function
+				if(value.then){
+					// received a promise, wait for it
+					value.then(resolve, reject);
+				}else{
+					resolution = value;
+					finished();
+				}
+			}
+			function reject(error){
+				// reject function
+				errorResolution = error;
+				finished();
+			}
+			execute(resolve, reject);
+			function finished(){
+				isResolved = true;
+				for(var i = 0, l = queue.length; i < l; i++){
+					queue[i]();
+				}
+				// clean out the memory
+				queue = 0;
+			}
+			return {
+				then: function(callback, errback){
+					return new PromisePolyFill(function(resolve, reject){
+						function handle(){
+							// promise fulfilled, call the appropriate callback
+							try{
+								if(errorResolution && !errback){
+									// errors without a handler flow through
+									reject(errorResolution);
+								}else{
+									// resolve to the callback's result
+									resolve(errorResolution ?
+										errback(errorResolution) :
+										callback ?
+											callback(resolution) : resolution);
+								}
+							}catch(newError){
+								// caught an error, reject the returned promise
+								reject(newError);
+							}
+						}
+						if(isResolved){
+							// already resolved, immediately handle
+							handle();
+						}else{
+							(queue || (queue = [])).push(handle);
+						}
+					});
+				}
+			};
+		};
+	}
 	return {
+		Promise: has('promise') ? Promise : PromisePolyFill,
 		observe: observe,
 		unobserve: unobserve
 	};

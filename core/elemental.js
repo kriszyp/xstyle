@@ -1,13 +1,21 @@
-define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils', 'dojo/on', 'dojo/query'], function(put, utils, on){
+define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], function(put, utils){
 	// using delegation, listen for any input changes in the document and 'put' the value  
 	// TODO: add a hook so one could add support for IE8, or maybe this event delegation isn't really that useful
 	var doc = document;
 	var nextId = 1;
 	var hasAddEventListener = !!doc.addEventListener;
-	on(doc, hasAddEventListener ? 'change,keydown' : 'focusout,keydown', function(event){
-		if(event.type == 'keydown' && event.keyCode != 13){
+	var needsCapture = {
+		blur: 'focusout',
+		focus: 'focusin'
+	};
+	on(doc, hasAddEventListener ? 'change' : 'focusout', null, inputChanged);
+	on(doc, 'keydown', null, function(event){
+		if(event.keyCode != 13){
 			return;
 		}
+		inputChanged(event);
+	});
+	function inputChanged(event){
 		var element = event.target;
 		// get the variable computation so we can put the value
 		for(var i = 0, l = inputConnectors.length; i < l; i++){
@@ -38,23 +46,34 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils', 'dojo/
 				// TODO: should we return here, now that we found a match?
 			}
 		}
-	});
+	}
 /*	sometime we might reimplement this, but for now just relying on dojo/on
-	function on(target, event, rule, listener){
+right now, the main thing missing from this on implementation is the ability
+to do capture
+Have considered doing class name comparison, but any advantage is iffy:
+http://jsperf.com/matches-vs-classname-check
+*/
+	function on(target, type, rule, listener){
 		// this function can be overriden to provide better event handling
 		hasAddEventListener ?
-			target.addEventListener(event, select, false) :
-			target.attachEvent('on' + event, function(event){
+			target.addEventListener(type, select, !!needsCapture[type]) :
+			target.attachEvent('on' + (needsCapture[type] || type), function(event){
 				event.target = event.srcElement;
 				select(event);
 			});
 		function select(event){
 			// do event delegation
-			if(!rule || matchesRule(event.target, rule)){
-				listener(event);
+			if(!rule){
+				return listener(event);
 			}
+			var element = event.target;
+			do{
+				if(matchesRule(element, rule)){
+					return listener(event);
+				}
+			}while((element = element.parentNode) && element.nodeType === 1);
 		}
-	}*/
+	}
 
 	// elemental section, this code is for property handlers that need to mutate the DOM for elements
 	// that match it's rule
