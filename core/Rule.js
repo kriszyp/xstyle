@@ -90,8 +90,8 @@ define('xstyle/core/Rule', [
 				}
 			}
 		},
-		setMediaSelector: function(){
-			this.selector = '';
+		setMediaSelector: function(selector){
+			this.selector = selector;
 		},
 		setStyle: function(name, value){
 			if(this.cssRule){
