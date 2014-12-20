@@ -265,7 +265,11 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 									newTarget.creating = true;
 									doExtend = true;
 								}else{
-									newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
+									if(selector.charAt(0) == '@'){
+										newTarget.setMediaSelector(selector);	
+									}else{
+										newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
+									}
 								}
 								selector = '';
 							}else{

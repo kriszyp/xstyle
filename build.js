@@ -174,8 +174,7 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 			var browserCss = this.browserCss = this.browserCss || [];
 			if(!this.ruleStarted && !this.root){
 				this.ruleStarted = true;
-				browserCss.push(this.selector) - 1;
-				browserCss.push('{');
+				browserCss.push(this.selector, '{');
 			}
 			if(!target){
 				browserCss.push(name, ':', value, ';');
@@ -191,8 +190,13 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 			}
 		},
 		onArguments: function(){},
+		setMediaSelector: function(selector){
+			this.selector = '';
+			browserCss.push(selector, '{');
+			this.isMediaBlock = true;
+		},
 		toString: function(mode){
-			var str = ''
+			var str = '';
 			str += this.xstyleCss ? this.xstyleCss.join('') : '';
 			for(var i in this.rules){
 				var rule = this.rules[i];
@@ -211,6 +215,9 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 				this.ref=  '/' + ruleCount;
 				ruleCount++;
 				browserCss.push(this.browserCss.join(''));
+			}
+			if(this.isMediaBlock){
+				browserCss.push('}');
 			}
 		},
 		extend: function(derivative, fullExtension){
