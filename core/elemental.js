@@ -8,13 +8,22 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 		blur: 'focusout',
 		focus: 'focusin'
 	};
-	on(doc, hasAddEventListener ? 'change' : 'focusout', null, inputChanged);
-	on(doc, 'keydown', null, function(event){
-		if(event.keyCode != 13){
-			return;
-		}
-		inputChanged(event);
-	});
+	on(doc, 'change', null, inputChanged);
+	// IE doesn't change on enter, and there isn't really any feature to detect to demonstrate that
+	if (navigator.userAgent.match(/MSIE|Trident/)){
+		on(doc, 'keydown', null, function(event){
+			if(event.keyCode == 13){
+				var element = event.target;
+				if(document.createEvent){
+					event = document.createEvent('Events');
+					event.initEvent('change', true, true);
+					element.dispatchEvent(event);
+				}else{
+					document.onchange({target: element});
+				}
+			}
+		});
+	}
 	function inputChanged(event){
 		var element = event.target;
 		// get the variable computation so we can put the value
@@ -57,10 +66,7 @@ http://jsperf.com/matches-vs-classname-check
 		// this function can be overriden to provide better event handling
 		hasAddEventListener ?
 			target.addEventListener(type, select, !!needsCapture[type]) :
-			target.attachEvent('on' + (needsCapture[type] || type), function(event){
-				event.target = event.srcElement;
-				select(event);
-			});
+			ieListen(target, needsCapture[type] || type, select);
 		function select(event){
 			// do event delegation
 			if(!rule){
@@ -73,6 +79,18 @@ http://jsperf.com/matches-vs-classname-check
 				}
 			}while((element = element.parentNode) && element.nodeType === 1);
 		}
+	}
+	function ieListen(target, type, listener){
+		type = 'on' + type;
+		var previousListener = target[type];
+		target[type] = function(event){
+			event = event || window.event;
+			event.target = event.target || event.srcElement;
+			if(previousListener){
+				previousListener(event);
+			}
+			listener(event);
+		};
 	}
 
 	// elemental section, this code is for property handlers that need to mutate the DOM for elements

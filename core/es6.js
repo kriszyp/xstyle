@@ -157,68 +157,68 @@ define('xstyle/core/es6', [], function(){
 			callback(queued);
 		}
 	}
-	if(!has('promise')){
-		var PromisePolyFill = function(execute){
-			var isResolved, resolution, errorResolution;
-			var queue = 0;
-			function resolve(value){
-				// resolve function
-				if(value.then){
-					// received a promise, wait for it
-					value.then(resolve, reject);
-				}else{
-					resolution = value;
+	return {
+		Promise: has('promise') ? Promise : (function(){
+			function Promise(execute){
+				var isResolved, resolution, errorResolution;
+				var queue = 0;
+				function resolve(value){
+					// resolve function
+					if(value && value.then){
+						// received a promise, wait for it
+						value.then(resolve, reject);
+					}else{
+						resolution = value;
+						finished();
+					}
+				}
+				function reject(error){
+					// reject function
+					errorResolution = error;
 					finished();
 				}
-			}
-			function reject(error){
-				// reject function
-				errorResolution = error;
-				finished();
-			}
-			execute(resolve, reject);
-			function finished(){
-				isResolved = true;
-				for(var i = 0, l = queue.length; i < l; i++){
-					queue[i]();
+				execute(resolve, reject);
+				function finished(){
+					isResolved = true;
+					for(var i = 0, l = queue.length; i < l; i++){
+						queue[i]();
+					}
+					// clean out the memory
+					queue = 0;
 				}
-				// clean out the memory
-				queue = 0;
-			}
-			return {
-				then: function(callback, errback){
-					return new PromisePolyFill(function(resolve, reject){
-						function handle(){
-							// promise fulfilled, call the appropriate callback
-							try{
-								if(errorResolution && !errback){
-									// errors without a handler flow through
-									reject(errorResolution);
-								}else{
-									// resolve to the callback's result
-									resolve(errorResolution ?
-										errback(errorResolution) :
-										callback ?
-											callback(resolution) : resolution);
+				return {
+					then: function(callback, errback){
+						return new Promise(function(resolve, reject){
+							function handle(){
+								// promise fulfilled, call the appropriate callback
+								try{
+									if(errorResolution && !errback){
+										// errors without a handler flow through
+										reject(errorResolution);
+									}else{
+										// resolve to the callback's result
+										resolve(errorResolution ?
+											errback(errorResolution) :
+											callback ?
+												callback(resolution) : resolution);
+									}
+								}catch(newError){
+									// caught an error, reject the returned promise
+									reject(newError);
 								}
-							}catch(newError){
-								// caught an error, reject the returned promise
-								reject(newError);
 							}
-						}
-						if(isResolved){
-							// already resolved, immediately handle
-							handle();
-						}else{
-							(queue || (queue = [])).push(handle);
-						}
-					});
-				}
-			};
-		};
-	}
-	return {
-		Promise: has('promise') ? Promise : PromisePolyFill,
+							if(isResolved){
+								// already resolved, immediately handle
+								handle();
+							}else{
+								(queue || (queue = [])).push(handle);
+							}
+						});
+					}
+				};
+			}
+			return Promise;
+		}()),
 		observe: observe,
 		unobserve: unobserve
 	};
