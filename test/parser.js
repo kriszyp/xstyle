@@ -31,6 +31,11 @@ define([
 			var rule = new Rule();
 			parse(rule, 'test { content: "\\e001" }');
 			assert.strictEqual(rule.rules.test.get('content')[0].value, '\ue001');
+		},
+		'font-face' : function () {
+			var rule = new Rule();
+			parse(rule, '@font-face {font-family: "Font Name";}');
+			assert.strictEqual(rule.rules['@font-face'].get('fontFamily')[0].value, 'Font Name');
 		}
 	});
 });

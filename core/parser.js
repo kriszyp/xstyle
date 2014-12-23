@@ -265,7 +265,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 									newTarget.creating = true;
 									doExtend = true;
 								}else{
-									if(selector.charAt(0) == '@'){
+									if(/^@(?!font-face)(?!FONT-FACE)/.test(selector)){
 										newTarget.setMediaSelector(selector);	
 									}else{
 										newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
