@@ -120,7 +120,7 @@ function minify(cssText){
 	return cssText.
 			replace(/\/\*([^\*]|\*[^\/])*\*\//g, ' ').
 			replace(/\s*("(\\\\|[^\"])*"|'(\\\\|[^\'])*'|[;}{:])\s*/g,"$1").
-			replace(/[^\x00-\x7F]([0-9a-fA-F])?/, function(character, hexComesNext){
+			replace(/[^\x00-\x7F]([0-9a-fA-F])?/g, function(character, hexComesNext){
 				// escape non-ascii characters to be safe
 				return '\\' + character.charCodeAt(0).toString(16) + (hexComesNext ? ' ' + hexComesNext : '');
 			});
