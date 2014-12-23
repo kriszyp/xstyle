@@ -119,7 +119,11 @@ function main(source, target){
 function minify(cssText){
 	return cssText.
 			replace(/\/\*([^\*]|\*[^\/])*\*\//g, ' ').
-			replace(/\s*("(\\\\|[^\"])*"|'(\\\\|[^\'])*'|[;}{:])\s*/g,"$1");	
+			replace(/\s*("(\\\\|[^\"])*"|'(\\\\|[^\'])*'|[;}{:])\s*/g,"$1").
+			replace(/[^\x00-\x7F]([0-9a-fA-F])?/, function(character, hexComesNext){
+				// escape non-ascii characters to be safe
+				return '\\' + character.charCodeAt(0).toString(16) + (hexComesNext ? ' ' + hexComesNext : '');
+			});
 }
 var mimeTypes = {
 	eot: "application/vnd.ms-fontobject",
