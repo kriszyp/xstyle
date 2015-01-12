@@ -199,8 +199,16 @@ define(['xstyle/core/utils', 'xstyle/core/es6'],
 				}
 			}
 		},
-		depend: function(dependent){
+		dependencyOf: function(dependent){
 			(this.dependents || (this.dependents = [])).push(dependent);
+		},
+		notDependencyOf: function(dependent){
+			var dependents = this.dependents || 0;
+			for(var i = 0; i < dependents.length; i++){
+				if(dependents[i] === dependent){
+					dependents.splice(i--, 1);
+				}
+			}
 		},
 		setReverseCompute: function(reverse){
 			this.put = function(){
@@ -228,7 +236,7 @@ define(['xstyle/core/utils', 'xstyle/core/es6'],
 				listener(this.valueOf());
 			}
 			var definition = this;
-			return this.depend({
+			return this.dependencyOf({
 				invalidate: function(){
 					listener(definition.valueOf());
 				}

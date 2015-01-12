@@ -40,7 +40,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 			apply: function(instance, inputs, definition){
 				for(var i = 0, l = inputs.length; i < l; i++){
 					var input = inputs[i];
-					input.depend && input.depend(definition);
+					input.dependencyOf && input.dependencyOf(definition);
 				}
 				var compute = function(){
 					var results = [];
@@ -196,7 +196,11 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 										for(var i = 0, l = args.length; i < l; i++){
 											resolved[i] = evaluateExpression(rule, args[i]);
 										}
-										compute = react(functionValue).apply(instance, resolved, definition);
+										if(functionValue.selfReacting){
+											compute = functionValue.apply(instance, resolved, definition);
+										}else{
+											compute = react(functionValue).apply(instance, resolved, definition);
+										}
 									}
 									return compute();
 								}

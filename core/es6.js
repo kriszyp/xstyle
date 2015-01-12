@@ -8,7 +8,8 @@ define('xstyle/core/es6', [], function(){
 			}catch(e){
 			}
 		})(),
-		promise: typeof Promise !== 'undefined'
+		promise: typeof Promise !== 'undefined',
+		'WeakMap': typeof WeakMap === 'function'
 	};
 	function has(feature){
 		return hasFeatures[feature];
@@ -157,6 +158,18 @@ define('xstyle/core/es6', [], function(){
 			callback(queued);
 		}
 	}
+
+	var id = 1;
+	// a function that returns a function, to stop JSON serialization of an
+	// object
+	function toJSONHidden() {
+		return toJSONHidden;
+	}
+	// An object that will be hidden from JSON serialization
+	var Hidden = function () {
+	};
+	Hidden.prototype.toJSON = toJSONHidden;
+
 	return {
 		Promise: has('promise') ? Promise : (function(){
 			function Promise(execute){
@@ -219,6 +232,35 @@ define('xstyle/core/es6', [], function(){
 			}
 			return Promise;
 		}()),
+
+		WeakMap: has('WeakMap') ? WeakMap :
+	 	function (values, name) {
+	 		var mapProperty = '__' + (name || '') + id++;
+	 		return has('defineProperty') ?
+	 		{
+	 			get: function (key) {
+	 				return key[mapProperty];
+	 			},
+	 			set: function (key, value) {
+	 				Object.defineProperty(key, mapProperty, {
+	 					value: value,
+	 					enumerable: false
+	 				});
+	 			}
+	 		} :
+	 		{
+	 			get: function (key) {
+	 				var intermediary = key[mapProperty];
+	 				return intermediary && intermediary.value;
+	 			},
+	 			set: function (key, value) {
+	 				// we use an intermediary that is hidden from JSON serialization, at least
+	 				var intermediary = key[mapProperty] || (key[mapProperty] = new Hidden());
+	 				intermediary.value = value;
+	 			}
+	 		};
+	 	},
+
 		observe: observe,
 		unobserve: unobserve
 	};

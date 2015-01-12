@@ -161,7 +161,11 @@ define('xstyle/core/generate', [
 										'' :
 										'span') + prefix + value;
 								}else{
-									var tagName = value.match(/^[-\w]+/)[0];
+									var tagNameMatch = value.match(/^[-\w]+/);
+									if(!tagNameMatch){
+										throw new SyntaxError('Unable to parse selector', value);
+									}
+									var tagName = tagNameMatch[0];
 									var target = rule.getDefinition(tagName);
 									// see if we have a definition for the element
 									if(target && (target.then || target.newElement)){
@@ -278,7 +282,7 @@ define('xstyle/core/generate', [
 				part.expressionResult = expressionResult;
 				// setup an invalidation object, to rerender when data changes
 				// TODO: fix this
-				expressionDefinition.depend && expressionDefinition.depend({
+				expressionDefinition.dependencyOf && expressionDefinition.dependencyOf({
 					invalidate: function(invalidated){
 						// TODO: should we use elemental's renderer?
 						// TODO: do we need to closure the scope of any of these variables

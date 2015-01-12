@@ -664,7 +664,7 @@ methods will be called if they exist (they are all optional):
 argument is the Rule object. This can return a contextualized object (see below).
 * <code>object.valueOf()</code> - This is called to return the value of the current object. This can be used to return
 scalar values if desired. It can also return a contextualized object (see below).
-* <code>object.depend(definition)</code> - This is called to setup a dependency on your provide object. This is called
+* <code>object.dependencyOf(definition)</code> - This is called to setup a dependency on your provide object. This is called
 with another definition as the argument. If the value of this module changes, the `invalidate()` method on the definition
 can be called to indicate a change in the value.
 * <code>object.define(rule, name)</code> - This will be called when an object is assigned to a new
@@ -771,7 +771,7 @@ The function will be executed with the values from the model objects, and will b
 
 Alternately, we may wish to have greater control over the execution of a function. There are several flags that we can set to control how our function is executed.
 
-If you wish to have the argument references/expressions resolved, but you would like to directly handle the definition objects that are passed to the argument, you can do so by setting a `selfExecuting` property on the function to true. Your function will be called with definition objects for the specified arguments. You can then determine if you and when you want to retrieve the current value (by calling `valueOf()`), and if you want to declare a dependency so that you can be notified of any changes in the arguments (using `depend()`). Note that `valueOf()` may return a promise if the value is not available yet. It also may return (or resolve to) a contextual object, which generally requires returning another contextual object to retrieve each current context.
+If you wish to have the argument references/expressions resolved, but you would like to directly handle the definition objects that are passed to the argument, you can do so by setting a `selfExecuting` property on the function to true. Your function will be called with definition objects for the specified arguments. You can then determine if you and when you want to retrieve the current value (by calling `valueOf()`), and if you want to declare a dependency so that you can be notified of any changes in the arguments (using `dependencyOf()`). Note that `valueOf()` may return a promise if the value is not available yet. It also may return (or resolve to) a contextual object, which generally requires returning another contextual object to retrieve each current context.
 
 Or, you can set a `selfResolving` property on the function to true, and your function will be called with the unresolved raw arguments as strings or sequences of tokens. The function will be executed without any argument resolution. For example, if our function is called like `func(a, b)`, the arguments will be the actual strings `'a'` and `'b'`. This gives us the greatest ultimate control of the behavior of the function, but generally requires the greatest effort if you want to achieve normal definition referencing and reactivity.
 
@@ -782,8 +782,8 @@ A definition object is a core object in a xstyle. All definitions that are defin
 * `valueOf()` - This will return the current value of the definition. This may be a plain primitive value or objects. However, there are several important types that can be returned as well:
 	* The value may be a promise, if the data is not available yet.
 	* The value may be a contextual object. See the contextualized object section above for more information on contextual objects. 
-* `depend(definition)` - This is a method that may be called to add a dependency on this definition. If you would like to be notified of any data changes, you can add an object with an `invalidate()` method to be notified if the argument is changed (and you can call `valueOf()` to get the latest value),
-* `invalidate()` - Called to invalidate this definition. Generally this should only be called by the `depend()` method.
+* `dependencyOf(definition)` - This is a method that may be called to add a dependency on this definition. If you would like to be notified of any data changes, you can add an object with an `invalidate()` method to be notified if the argument is changed (and you can call `valueOf()` to get the latest value),
+* `invalidate()` - Called to invalidate this definition. Generally this should only be called by the `dependencyOf()` method.
 * `property(name)` - Called to retrieve a definition for a property of the value of this definition.
 * `put(value)` - Set a new value into the definition. Some definitions may not have a `put()` method, indicating that they are read-only. This may return a contextual object, if the definition needs to know the context of where the value is being set.
 
@@ -871,7 +871,11 @@ based on the size of the scrollbar.
 * ext/widget - This module can instantiate widgets to be applied to elements that match
 a rule's selector. This is designed to instantiate widgets with the form of Widget(params, targetNode),
 and can be used to instantiate Dojo's Dijit widgets.
+* ext/meta - This provides metadata information about fields, including validation.
 
+## Validation and Metadata
+
+The `xstyle/ext/meta` module can be used to provide metadata information about fields, including validation.
 
 ## Widgets
 

@@ -295,7 +295,7 @@ define('xstyle/core/Rule', [
 						applyToRule(rule);
 					});
 
-					value.expression.depend({
+					value.expression.dependencyOf({
 						invalidate: function(invalidated){
 							// TODO: queue these up
 							//(rule.staleProperties || (rule.staleProperties = {}))[propertyName] =
