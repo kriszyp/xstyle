@@ -48,7 +48,7 @@ define(["require"], function(moduleRequire){
 				var parser = testElementStyle('x-parse', null, 'content');
 				var sheet = styleSheetElement && 
 					(styleSheetElement.sheet || styleSheetElement.styleSheet);
-				if(parser && parser != 'none'){
+				if(parser && parser != 'none' && parser != 'normal'){
 					// TODO: wait for parser to load
 					require([eval(parser)], function(parser){
 						if(styleSheetElement){
