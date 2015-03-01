@@ -3,9 +3,9 @@ field = form/field;
 
 form-field = {
 	=>
-		label (content/label)
+		label (meta(content)/title)
 		input (content)
-		span.error (content/errors);
+		span.error (validate(content));
 }
 
 model = module(xstyle/test/form-data);

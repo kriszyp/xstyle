@@ -55,13 +55,13 @@ define('xstyle/core/base', [
 					if(options.newElement){
 						element['_' + property + 'Node'] = contentElement;
 					}
-					var value = options.get ? options.get(element, property) : element[property];
-					if(value === undefined && rule){
-						return getVarDefinition(property).valueOf().forRule(rule);
-					}
-					return value;
+					return options.get ? options.get(element, property) : element[property];
 				},
-				forRule: options.inherit && function(rule){
+				forRule: options.content && function(rule){
+					var value = getVarDefinition(property).valueOf().forRule(rule);
+					if (value) {
+						return value;
+					}
 					return contextualValue(rule);
 				}
 			};
@@ -75,7 +75,7 @@ define('xstyle/core/base', [
 		};
 		// don't override content in CSS rules
 		definition.keepCSSValue = true;
-		definition.put = options.inherit ? function(value, rule){
+		definition.put = options.content ? function(value, rule){
 			return getVarDefinition(property).put(value, rule, property);
 		} :
 		function(value){
@@ -139,6 +139,9 @@ define('xstyle/core/base', [
 		var variables = rule.variables;
 		if(variables && name in variables){
 			return variables[name];
+		}
+		if(name === 'content' && rule.args){
+			return expression.evaluate(rule, rule.args[0]);
 		}
 		var bases = rule.bases;
 		if(bases){
@@ -223,7 +226,7 @@ define('xstyle/core/base', [
 		pageContent: new Definition(),
 		// adds referencing to the prior contents of an element
 		content: elementProperty('content', null, {
-			inherit: true,
+			content: true,
 			newElement: function(){
 				return this.element;
 			}

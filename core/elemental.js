@@ -34,7 +34,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 				var definition = inputConnector.definition;
 				var currentValue = definition.valueOf();
 				if(currentValue && currentValue.forRule){
-					currentValue = currentValue.forRule(inputConnector.rule);
+					currentValue = currentValue.forRule(inputConnector.rule.parent);
 				}
 				if(currentValue && currentValue.forElement){
 					currentValue = currentValue.forElement(element);
@@ -47,7 +47,7 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 				}
 				var result = inputConnector.definition.put(value);
 				if(result && result.forRule){
-					result = result.forRule(inputConnector.rule);
+					result = result.forRule(inputConnector.rule.parent);
 				}
 				if(result && result.forElement){
 					result.forElement(element);

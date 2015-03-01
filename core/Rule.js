@@ -121,6 +121,14 @@ define('xstyle/core/Rule', [
 				});
 			});
 		},
+		defineGenerator: function(generatorTemplate){
+			this.generator = generatorTemplate;
+			var rule = this;
+			require(['xstyle/core/generate', 'xstyle/core/elemental'], function(generate, elemental){
+				var rendererForSelector = generate.forSelector(generatorTemplate, rule);
+				elemental.addRenderer(rule, rendererForSelector);
+			});
+		},
 		declareDefinition: function(name, value, conditional){
 			name = name && convertCssNameToJs(name);
 			// called by the parser when a variable assignment is encountered
@@ -133,12 +141,7 @@ define('xstyle/core/Rule', [
 				if(value[0].toString().charAt(0) == '>'){
 					// this is used to indicate that generation should be triggered
 					if(!name){
-						this.generator = value;
-						require(['xstyle/core/generate', 'xstyle/core/elemental'], function(generate, elemental){
-							value = generate.forSelector(value, rule);
-							elemental.addRenderer(rule, value);
-						});
-						return;
+						return this.defineGenerator(value);
 					}
 				}else{
 					// add it to the definitions for this rule
@@ -353,7 +356,6 @@ define('xstyle/core/Rule', [
 			// we might consider removing this if it is only used from put
 			var base = this;
 			(base.derivatives || (base.derivatives = [])).push(derivative);
-			var newText = base.cssText;
 			var extraSelector = base.extraSelector;
 			if(extraSelector){
 				// need to inherit any extra selectors by adding them to our selector
@@ -416,6 +418,7 @@ define('xstyle/core/Rule', [
 					for(var i = 0; i < generator.length; i++){
 						var segment = generator[i];
 						if(segment.operator === '{'){
+							// TODO: extend call rules
 							// TODO: determine if it is contextualized to sub-rule, to determine
 							// if we really need to extend/derive
 							// make a derivative sub-rule
@@ -427,7 +430,7 @@ define('xstyle/core/Rule', [
 						}
 					}
 				}
-				derivative.declareDefinition(null, generator);
+				derivative.defineGenerator(generator);
 			}
 		},
 		getDefinition: function(name, extraScope){

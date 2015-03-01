@@ -156,7 +156,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				// parse out operators
 				// TODO: change this to a replace so we can find any extra characters to report
 				// a syntax error
-				var parts = part.match(/"[^\"]*"|[+\-<>\|\/\?\:^*!&|]+|[\w_$\.\/-]+/g);
+				var parts = part.match(/"[^\"]*"|[+\-<>\|\/\?\:^*!&|]+|[\w_$\.-]+/g);
 				var spliceArgs = [i, 1];
 				if(parts){
 					spliceArgs.push.apply(spliceArgs, parts);
@@ -231,16 +231,21 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Definition']
 				// a quoted string
 				part = part.value;
 			}else{
-				// a reference
-				var propertyParts = part.split(/\s*\/\s*/);
+				// a reference or property
+				var propertyParts = part.split(/\s*\.\s*/);
 				var firstReference = propertyParts[0];
-				var target = rule.getDefinition(firstReference);
-				if(typeof target == 'string' || target instanceof Array){
-					target = evaluateExpression(rule, target);
-				}else if(target === undefined){
-					throw new Error('Could not find reference "' + firstReference + '"');
+				if(firstReference){
+					var target = rule.getDefinition(firstReference);
+					if(typeof target == 'string' || target instanceof Array){
+						target = evaluateExpression(rule, target);
+					}else if(target === undefined){
+						throw new Error('Could not find reference "' + firstReference + '"');
+					}
+					dependencies[firstReference] = target;
+				}else{
+					// a property reference after some other expression
+					target = stack.pop();
 				}
-				dependencies[firstReference] = target;
 				if(propertyParts.length > 1){
 					target = get(target, propertyParts.slice(1));
 				}

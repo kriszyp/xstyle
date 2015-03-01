@@ -257,7 +257,6 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								}
 								// TODO: this doesn't need to be done when there is a rule, except for old IE,
 								// as most browsers, the style sheet can be retrieved the cssRule
-								newTarget.styleSheet = styleSheet;
 								if(sequence.creating){
 									// in generation, we auto-generate selectors so we can reference them
 									newTarget.selector = '.' + (assignmentOperator == '=' ?
@@ -278,9 +277,12 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								addInSequence(newTarget = target.newCall(callParts[2], sequence, target));
 								newTarget.ref = target.getDefinition(callParts[2]);
 								newTarget.getArgs = parseArgs;
-
 								(sequence.calls || (sequence.calls = [])).push(newTarget);
+								doExtend = true;
+								newTarget.selector = '.' + (assignmentOperator == '=' ?
+										first.match(/[\w-]*$/g,'')[0] : '') + '-x-' + nextId++;
 							}
+							newTarget.styleSheet = styleSheet;
 							if(doExtend){
 	//							value.replace(/(?:^|,|>)\s*([\w-]+)/g, function(t, base){
 								value.replace(/(?:^|\s+)([\w-\.]+)\s*$/g, function(t, base){
