@@ -1,10 +1,11 @@
 define('xstyle/core/generate', [
 	'xstyle/core/elemental',
+	'xstyle/core/Context',
 	'put-selector/put',
 	'xstyle/core/utils',
 	'xstyle/core/expression',
 	'xstyle/core/base'
-], function(elemental, put, utils, expressionModule, root){
+], function(elemental, Context, put, utils, expressionModule, root){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
 	// selection of default children for given elements
@@ -311,20 +312,8 @@ define('xstyle/core/generate', [
 		render(lastElement, nextPart, expressionResult);
 	}
 
-	function contextualize(value, rule, element, callback){
-		return utils.when(value, function(value){
-			if(value && value.forRule){
-				value = value.forRule(rule);
-			}
-			if(value && value.forElement){
-				value = value.forElement(element);
-			}
-			callback(value);
-		});
-	}
-
 	function renderAttribute(element, name, expressionResult, rule){
-		contextualize(expressionResult, rule, element, function(value){
+		utils.when(expressionResult.valueOf(new Context(rule, element)), function(value){
 			element.setAttribute(name, value);
 		});
 	}
@@ -339,7 +328,7 @@ define('xstyle/core/generate', [
 				// TODO: we might want to only try/catch for IE, for performance
 			}
 		}
-		contextualize(expressionResult, rule, element, function(value){
+		utils.when(expressionResult.valueOf(new Context(rule, element)), function(value){
 			if(element._generatedChildren){
 				element.content = value;
 				root.definitions.content.invalidate({elements: [element]});

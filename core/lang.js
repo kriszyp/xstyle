@@ -1,4 +1,4 @@
-define('xstyle/core/es6', [], function(){
+define('xstyle/core/lang', [], function(){
 	var hasFeatures = {
 		observe: Object.observe,
 		defineProperty: Object.defineProperty && (function(){
@@ -262,6 +262,12 @@ define('xstyle/core/es6', [], function(){
 	 	},
 
 		observe: observe,
-		unobserve: unobserve
+		unobserve: unobserve,
+		copy: Object.assign || function(target, source){
+			for(var i in source){
+				target[i] = source[i];
+			}
+			return target;
+		}
 	};
 });

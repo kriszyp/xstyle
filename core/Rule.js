@@ -1,9 +1,9 @@
 define('xstyle/core/Rule', [
 	'xstyle/core/expression',
-	'xstyle/core/Definition',
+	'xstyle/core/Variable',
 	'put-selector/put',
 	'xstyle/core/utils'
-], function(expression, Definition, put, utils){
+], function(expression, Variable, put, utils){
 
 	// define the Rule class, our abstraction of a CSS rule		
 	var create = Object.create || function(base){
@@ -129,7 +129,7 @@ define('xstyle/core/Rule', [
 				elemental.addRenderer(rule, rendererForSelector);
 			});
 		},
-		declareDefinition: function(name, value, conditional){
+		declareVariable: function(name, value, conditional){
 			name = name && convertCssNameToJs(name);
 			// called by the parser when a variable assignment is encountered
 			// this creates a new definition in the current rule
@@ -145,7 +145,7 @@ define('xstyle/core/Rule', [
 					}
 				}else{
 					// add it to the definitions for this rule
-					var propertyExists = name in testStyle || this.getDefinition(name);
+					var propertyExists = name in testStyle || this.getVariable(name);
 					if(!conditional || !propertyExists){
 						var definitions = (this.definitions || (this.definitions = {}));
 						var first = value[0];
@@ -166,10 +166,10 @@ define('xstyle/core/Rule', [
 						if(definition.then){
 							// if we have a promise, create a new one to maintain lazy activation
 							// and still check for a define function
-							var originalDefinition = definition;
+							var originalVariable = definition;
 							definition = {
 								then: function(callback){
-									return originalDefinition.then(function(definition){
+									return originalVariable.then(function(definition){
 										return callback(applyDefine(definition));
 									});
 								}
@@ -213,7 +213,7 @@ define('xstyle/core/Rule', [
 				var rule = this;
 				do{
 					// check for the handler
-					var target = (scopeRule || this).getDefinition(name);
+					var target = (scopeRule || this).getVariable(name);
 					if(target !== undefined){
 						if(this.cssRule && !(target && target.keepCSSValue)){
 							// delete the property if it one that the browser actually uses
@@ -433,7 +433,7 @@ define('xstyle/core/Rule', [
 				derivative.defineGenerator(generator);
 			}
 		},
-		getDefinition: function(name, extraScope){
+		getVariable: function(name, extraScope){
 			name = convertCssNameToJs(name);
 			// lookup a definition by name, which used for handling properties and other things
 			var parentRule = this;
@@ -494,7 +494,7 @@ define('xstyle/core/Rule', [
 				return computedValue.join('');
 			});
 			computation.skipResolve = true;
-			var definition = new Definition();
+			var definition = new Variable();
 			definition.setCompute(computation.apply(definition, evaluatedCalls, definition));
 			return definition;
 		}
@@ -509,7 +509,7 @@ define('xstyle/core/Rule', [
 		this.args = [];
 	}
 	var CallPrototype = Call.prototype = new Rule();
-	CallPrototype.declareDefinition = CallPrototype.setValue = function(name, value){
+	CallPrototype.declareVariable = CallPrototype.setValue = function(name, value){
 		// handle these both as addition of arguments
 		this.args.push(value);
 	};

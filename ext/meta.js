@@ -8,7 +8,7 @@ define(['xstyle/core/es6', 'xstyle/core/expression', 'xstyle/core/Definition'],
 
 	function meta(metaName){
 		return {
-			selfReacting: true,
+			handlesContext: true,
 			apply: function(instance, args, definition){
 				var target = args[0];
 				var metaDefinition;

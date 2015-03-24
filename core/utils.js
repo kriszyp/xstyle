@@ -75,6 +75,13 @@ define('xstyle/core/utils', [], function(){
 			}
 			return (supportedTags[tag] = supported);
 		},
+		compose: function(Base, constructor, properties){
+			var prototype = constructor.prototype = new Base();
+			for(var i in properties){
+				prototype[i] = properties[i];
+			}
+			return constructor;
+		},
 		extend: function(target, base, error){
 			// takes the target and applies to the base, resolving the base
 			// TODO: we may want to support full evaluation of the base,

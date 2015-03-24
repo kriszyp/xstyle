@@ -63,7 +63,7 @@ making use of new definitions to develop your application within CSS.
 
 ## New Definitions
 
-The key building block in xstyle is an extension for creating new definitions for features like
+The key building block in xstyle is an extension for creating new definitions or variables for features like
 user defined properties, data sources, and functions. In traditional CSS, all properties, functions, and other 
 constructs are defined by the browser, and stylesheet rules are limited to using 
 these predefined properties. In xstyle, new properties, functions, and other elements can be defined with 
@@ -79,7 +79,7 @@ We can create such a property:
 
 	transition = prefix;
 
-New definitions can be defined anywhere in a stylesheet, including at the top level (amongst
+New definitions and variables can be defined anywhere in a stylesheet, including at the top level (amongst
 rules), within rules (or nested rules), or even directly in property names. At the top level, a new definition makes
 the definition or property available for use anywhere below the definition. Defined within a rule, the 
 new definition is available only within that rule declaration (or nested rules or extending rules) 
@@ -336,9 +336,9 @@ matches the full name, and then progressively remove the dash-delimited tokens f
 right to apply. For example, if we defined a property <code>custom</code>, than it our definition
 would be applied for <code>custom-foo</code> as well as <code>custom</code>.    
 
-### var - Variables
+### var - Variable Properties
 
-Properties can be used as variables that can be referenced from other properties in CSS stylesheets. 
+Properties can be defined as variables that can be referenced from other properties in CSS stylesheets. 
 For many, this concept may be very familiar from CSS preprocessors, 
 and the recent addition in modern browsers according to the W3C specification. 
 To create a variable property, we define our property by assigning it <code>var</code>. For 
@@ -353,7 +353,7 @@ syntax, referencing the variable with a <code>var(variable-name)</code> syntax:
 		background-color: var(highlight-color);
 	}
 
-A variable can be declared at the top level, as well inside rules. A variable can referenced
+A variable property can be declared at the top level, as well inside rules. A variable property can referenced
 that is within the current rule or any parent rule (see nested rules) including the top level.
 
 ### prefix - Vendor Prefixing
@@ -832,8 +832,8 @@ create nested scopes. For example, you might wish to apply to a shim to all CSS 
 nesting it in an inner rule), and you can do so by using this directive:
 
 	@xstyle start;
-	some-variable=var: some value;
-	@import 'stylesheet-that-uses-some-variable.css';
+	some-property=var: some value;
+	@import 'stylesheet-that-uses-some-property.css';
 	@xstyle end;
 	/* any definition above won't affect CSS below */
 	

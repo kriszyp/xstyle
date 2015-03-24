@@ -1,4 +1,4 @@
-define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], function(put, utils){
+define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils', 'xstyle/core/Context'], function(put, utils, Context){
 	// using delegation, listen for any input changes in the document and 'put' the value  
 	// TODO: add a hook so one could add support for IE8, or maybe this event delegation isn't really that useful
 	var doc = document;
@@ -31,27 +31,16 @@ define('xstyle/core/elemental', ['put-selector/put', 'xstyle/core/utils'], funct
 			var inputConnector = inputConnectors[i];
 			// we could alternately use the matchesRule
 			if((' ' + element.className + ' ').indexOf(inputConnector.rule.selector.slice(1)) > -1){
-				var definition = inputConnector.definition;
-				var currentValue = definition.valueOf();
-				if(currentValue && currentValue.forRule){
-					currentValue = currentValue.forRule(inputConnector.rule.parent);
-				}
-				if(currentValue && currentValue.forElement){
-					currentValue = currentValue.forElement(element);
-				}
+				var variable = inputConnector.variable;
+				var context = new Context(inputConnector.rule.parent, element);
+				var currentValue = variable.valueOf(context);
 				var oldType = typeof currentValue;
 				var value = element.type === 'checkbox' ? element.checked : element.value;
 				// do type coercion
 				if(oldType === 'number' && isFinite(value)){
 					value = +value;
 				}
-				var result = inputConnector.definition.put(value);
-				if(result && result.forRule){
-					result = result.forRule(inputConnector.rule.parent);
-				}
-				if(result && result.forElement){
-					result.forElement(element);
-				}
+				var result = variable.put(value, context);
 				// TODO: should we return here, now that we found a match?
 			}
 		}
@@ -230,10 +219,10 @@ http://jsperf.com/matches-vs-classname-check
 			return !!element.currentStyle[rule.ieId];
 		};
 
-	function addInputConnector(rule, definition){
+	function addInputConnector(rule, variable){
 		inputConnectors.push({
 			rule: rule,
-			definition: definition
+			variable: variable
 		});
 	}
 	function addRenderer(rule, handler){
