@@ -1,3 +1,4 @@
+
 test-variable=var: 163px;
 test-expression=var: test from top;
 
@@ -37,7 +38,7 @@ hello-world = test-component {
 	pink-background: defaults;
 	label: Hello world;
 	main-color: #888;
-	test-expression: another test;
+	test-expression: another test
 }
 
 test-class-extend = div.test-class1 {

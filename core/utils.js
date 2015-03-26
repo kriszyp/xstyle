@@ -75,7 +75,7 @@ define('xstyle/core/utils', [], function(){
 			}
 			return (supportedTags[tag] = supported);
 		},
-		extend: function(target, base, error){
+		extend: function(target, base){
 			// takes the target and applies to the base, resolving the base
 			// TODO: we may want to support full evaluation of the base,
 			// at least if it is in paranthesis (to continue to support
@@ -101,7 +101,7 @@ define('xstyle/core/utils', [], function(){
 				// extending a native element
 				target.tagName = base;
 				if(!this.isTagSupported(base)){
-					error('Extending undefined definition ' + base);
+					throw new Error('Extending undefined definition ' + base);
 				}
 			}
 			

@@ -2,8 +2,9 @@ define('xstyle/core/Rule', [
 	'xstyle/core/expression',
 	'xstyle/core/Definition',
 	'put-selector/put',
+	'xstyle/core/es6',
 	'xstyle/core/utils'
-], function(expression, Definition, put, utils){
+], function(expression, Definition, put, lang, utils){
 
 	// define the Rule class, our abstraction of a CSS rule		
 	var create = Object.create || function(base){
@@ -91,6 +92,7 @@ define('xstyle/core/Rule', [
 			}
 		},
 		setMediaSelector: function(selector){
+			this.isMediaBlock = true;
 			this.selector = selector;
 		},
 		setStyle: function(name, value){
@@ -158,6 +160,7 @@ define('xstyle/core/Rule', [
 							definition = value[0];
 						}else if(value[1] && value[1].operator == '{'){
 							definition = value[1];
+							utils.extend(definition, value[0]);
 						}
 						definition = definition || expression.evaluate(this, value);
 						if(definition.then){
@@ -202,8 +205,8 @@ define('xstyle/core/Rule', [
 				return;
 			}
 			var values = (this.values || (this.values = []));
-			values.push(jsName);
-			values[jsName] = value;
+			values.push(name);
+			values[name] = value;
 			// called when each property is parsed, and this determines if there is a handler for it
 			// this is called for each CSS property
 			if(name){
@@ -374,15 +377,20 @@ define('xstyle/core/Rule', [
 					inheritedStyles[name] = true;
 				}
 			}
-			if(base.values){
-				// TODO: need to mixin this in, if it already exists
-				derivative.values = create(base.values);
+			var baseValues = base.values;
+			if(baseValues){
+				baseValues = create(baseValues);
+				var existingValues = derivative.values;
+				derivative.values = existingValues ?
+					lang.copy(baseValues, existingValues) : baseValues;
 			}
 			if(fullExtension){
-				var definitions = base.definitions;
-				if(definitions){
-					// TODO: need to mixin this in, if it already exists
-					derivative.definitions = create(definitions);
+				var baseDefinitions = base.definitions;
+				if(baseDefinitions){
+					baseDefinitions = create(baseDefinitions);
+					var existingDefinitions = derivative.definitions;
+					derivative.definitions = existingDefinitions ?
+						lang.copy(baseDefinitions, existingDefinitions) : baseDefinitions;
 				}
 				derivative.tagName = base.tagName || derivative.tagName;
 			}
@@ -393,13 +401,15 @@ define('xstyle/core/Rule', [
 			}
 			var ruleStyle = derivative.getCssRule().style;
 			base.eachProperty(function(name, value){
+				var jsName = convertCssNameToJs(name);
 				if(typeof value == 'object'){
 					// make a derivative on copy
 					value = create(value);
 				}
 				// just copy the native properties, the rest should be handled by rule listeners
-				if(name in testStyle && !ruleStyle[name]){
-					derivative._setStyleFromValue(name, value);
+				
+				if(jsName in testStyle && !ruleStyle[jsName]){
+					derivative._setStyleFromValue(jsName, value);
 				}
 		/*		if(name){
 					name = convertCssNameToJs(name);
@@ -408,6 +418,17 @@ define('xstyle/core/Rule', [
 					}
 				}*/
 			});
+
+			if(existingValues && derivative.definitions){
+				// now copy existing values, so any definition are properly applied
+				for(var i = 0, l = existingValues.length; i < l; i++){
+					var name = existingValues[i];
+					var jsName = convertCssNameToJs(name);
+					if(derivative.definitions[jsName] !== (existingDefinitions && existingDefinitions[jsName])){
+						derivative.setValue(name, existingValues[jsName]);
+					}
+				}
+			}
 			var generator = base.generator;
 			if(generator){
 				// copy and subclass rules

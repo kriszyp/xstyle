@@ -175,12 +175,11 @@ http://jsperf.com/matches-vs-classname-check
 	var isCurrent;
 	function renderWaiting(){
 		// render all the elements in the queue to be rendered
-		for(var i = 0; i < renderQueue.length; i++){
-			var element = renderQueue[i];
+		while(renderQueue.length){
+			var element = renderQueue.shift();
 			var renderings = element.renderings, currentStyle = element.elementalStyle;
-			delete element.renderings;
-			for(var j = 0; j < renderings.length; j++){
-				var rendering = renderings[j];
+			while(renderings.length){
+				var rendering = renderings.shift();
 				var renderer = rendering.renderer;
 				var rendered = renderer.rendered;
 				// determine if this renderer matches the current computed style
@@ -195,11 +194,11 @@ http://jsperf.com/matches-vs-classname-check
 				}
 				if(rendered && !isCurrent && renderer.unrender){
 					renderer.unrender(element);
-					renderings.splice(j--, 1); // TODO: need to remove duplicate rendered items as well
+					//renderings.splice(j--, 1); // TODO: need to remove duplicate rendered items as well
 				}
 			}
+			element.renderings = undefined;
 		}
-		renderQueue = [];
 	}
 	function update(element, selector){
 		/* TODO: At some point, might want to use getMatchedCSSRules for faster access to matching rules

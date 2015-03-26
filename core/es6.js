@@ -262,6 +262,12 @@ define('xstyle/core/es6', [], function(){
 	 	},
 
 		observe: observe,
-		unobserve: unobserve
+		unobserve: unobserve,
+		copy: function(target, source){
+			for(var i in source){
+				target[i] = source[i];
+			}
+			return target;
+		}
 	};
 });
