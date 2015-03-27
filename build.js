@@ -171,7 +171,7 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 			};
 			(this.xstyleCss = this.xstyleCss || []).push(name + '=', valueString, ';');
 			var definitions = (this.definitions || (this.definitions = {}));
-			definitions[name] = value || new XRule;
+			definitions[name] = value || new XRule();
 		},
 		setValue: function(name, value){
 			var target = this.getDefinition(name);
@@ -183,13 +183,11 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 			if(!target){
 				browserCss.push(name, ':', value, ';');
 			}
-			if(target || !this.cssRule){
+			if(target || typeof value == 'object'){
 				if(!this.xstyleStarted){
 					this.xstyleStarted = true;
 					this.xstyleCss = this.xstyleCss || [];
 				}
-			}
-			if(target || typeof value == 'object'){
 				this.xstyleCss.push(name + ':' + value + ';');
 			}
 		},
@@ -208,15 +206,15 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 					str += rule.toString(1);
 				}
 			}
-			if(!this.root && (str || mode != 1)){
-				str = ((mode == 2 && this.bases) || this.tagName || '') + '{' + this.ref + str.replace(/\s+/g, ' ') + '}'; 
+			if(!this.root && !this.isMediaBlock && this.xstyleStarted && (str || mode != 1)){
+				str = ((mode == 2 && this.bases) || this.tagName || '') + '{' + this.ref + str.replace(/\s+/g, ' ') + '}';
 			}
 			return str;
 		},
 		onRule: function(){
 			if(this.browserCss){
 				this.browserCss.push('}');
-				this.ref=  '/' + ruleCount;
+				this.ref = '/' + ruleCount;
 				ruleCount++;
 				browserCss.push(this.browserCss.join(''));
 			}

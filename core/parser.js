@@ -1,4 +1,4 @@
-define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
+define('xstyle/core/parser', [], function(){
 	// regular expressions used to parse CSS
 	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
@@ -68,7 +68,7 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 		styleSheet = styleSheet || {addRule: function(){}, cssRules: []};
 		var mainScan;
 		var cssScan = mainScan = /(\s*)((?:[^{\}\[\]\(\)\\'":=;]|\[(?:[^\]'"]|'(?:\\.|[^'])*'|"(?:\\.|[^"])*")\])*)([=:]\??\s*([^{\}\[\]\(\)\\'":;]*))?(?:([{\}\[\]\(\)\\'":;])(\/\d+)?|$)/g;
-									// name: value 	operator
+		                   // whitespace          name          or attribute or  'string'    or  "string"          assignmentOperator  value                operator           build ref
 		// tracks the stack of rules as they get nested
 		var stack = [model];
 		model.parse = parseSheet;
@@ -198,7 +198,6 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 						case '[':
 							// encountered a new contents of a rule or a function call
 							var newTarget;
-							var doExtend = false;
 							if(operator == '{'){
 								// it's a rule
 								assignNextName = true; // enter into the beginning of property mode
@@ -214,15 +213,6 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								// todo: check the type
 								if(assignmentOperator == '='){
 									browserUnderstoodRule = false;
-									sequence.creating = true;
-									if(value && value.match(/^\w/)){
-										// extend the referenced target value
-										doExtend = true;
-									}
-								}
-								if(assignmentOperator == ':' && !target.root){
-									// we will assume that we are in a property in this case. We will need to
-									// do some adjustments to support nested pseudo selectors
 									sequence.creating = true;
 								}
 								var cssRules, nextRule = null;
@@ -262,10 +252,9 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 									newTarget.selector = '.' + (assignmentOperator == '=' ?
 											first.match(/[\w-]*$/g,'')[0] : '') + '-x-' + nextId++;
 									newTarget.creating = true;
-									doExtend = true;
 								}else{
 									if(/^@(?!font-face)(?!FONT-FACE)/.test(selector)){
-										newTarget.setMediaSelector(selector);	
+										newTarget.setMediaSelector(selector);
 									}else{
 										newTarget.selector = target.root ? selector : target.selector + ' ' + selector;
 									}
@@ -281,16 +270,6 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								doExtend = true;
 								newTarget.selector = '.' + (assignmentOperator == '=' ?
 										first.match(/[\w-]*$/g,'')[0] : '') + '-x-' + nextId++;
-							}
-							newTarget.styleSheet = styleSheet;
-							if(doExtend){
-	//							value.replace(/(?:^|,|>)\s*([\w-]+)/g, function(t, base){
-								value.replace(/(?:^|\s+)([\w-\.]+)\s*$/g, function(t, base){
-									var result = utils.extend(newTarget, base, error);
-									if(result && result.then){
-										resumeOnComplete(result);
-									}
-								});
 							}
 							
 							// store the current state information so we can restore it when exiting this rule or call
@@ -349,11 +328,10 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							}
 							// TODO: implement this
 							// else if(directive == 'supports'){
-						}else if(assignmentOperator){
+						}else if(assignmentOperator === '='){
 							// need to do an assignment
 							try{
-								var result = target[assignmentOperator == ':' ? 'setValue' : 'declareDefinition']
-									(name, sequence, conditionalAssignment);
+								var result = target.declareDefinition(name, sequence, conditionalAssignment);
 								if(result && result.then){
 									resumeOnComplete(result);
 								}
@@ -374,6 +352,16 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							}
 							break;
 						case '}':
+							if(name && !(target.root || target.isMediaBlock)){
+								// CSS ASI at the end of the inside of a rule
+								try{
+									target[assignmentOperator == ':' ? 'setValue' : 'declareDefinition']
+										(name, sequence, conditionalAssignment);
+								}catch(e){
+									error(e);
+								}
+							}
+							// fall through
 						case ')':
 						case ']':
 							// end of a rule or function call
@@ -412,10 +400,12 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 								selector = '';
 							}
 							// now pop the call or rule off the stack and restore the state
+							if(operator == ')' || operator == ']'){
+								target.args = [sequence];
+							}
 							if(operator == ')' && !assignmentOperator){
 								// call handler
 								// immediately call this, since it isn't a part of a property
-								target.args = [sequence];
 								try{
 									var result = stack[stack.length - 2].onArguments(target);
 								}catch(e){
@@ -431,12 +421,12 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							name = target.currentName;
 							assignmentOperator = target.assignmentOperator;
 							if(target.root && operator == '}'){
-								// CSS ASI
+								// CSS ASI between rules at the top level
 								if(assignmentOperator){
 									// may still need to do an assignment
 									try{
 										target[assignmentOperator == ':' ? 'setValue' : 'declareDefinition']
-											(name, sequence[1] || sequence, conditionalAssignment);
+											(name, sequence, conditionalAssignment);
 									}catch(e){
 										error(e);
 									}
@@ -451,6 +441,18 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 							return;
 						case ';':
 							// end of a property, end the sequence return to the beginning of propery mode
+							// need to do an assignment
+							if(target && name){
+								try{
+									var result = target[assignmentOperator == ':' ? 'setValue' : 'declareDefinition']
+										(name, sequence, conditionalAssignment);
+									if(result && result.then){
+										resumeOnComplete(result);
+									}
+								}catch(e){
+									error(e);
+								} name
+							}
 							sequence = null;
 							assignNextName = true;
 							browserUnderstoodRule = false;
@@ -461,8 +463,11 @@ define('xstyle/core/parser', ['xstyle/core/utils'], function(utils){
 				}
 			}
 			function error(e){
+				var lines = textToParse.slice(0, cssScan.lastIndex).split('\n');
+				var lastLine = lines[lines.length - 1];
+				// provide line and column details
 				var detail = (styleSheet.href || 'in-page stylesheet') + ':' +
-					textToParse.slice(0, cssScan.lastIndex).split('\n').length;
+					lines.length + ':' + lastLine.length + ' near:\n' + lastLine.slice(-40);
 				if(parseSheet.onerror){
 					parseSheet.onerror(e, detail);
 				}
