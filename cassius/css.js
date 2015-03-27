@@ -36,7 +36,7 @@ define(["require"], function(moduleRequire){
 					var xCss =cachedCss.xCss;
 					cachedCss = cachedCss.cssText;
 				}
-				moduleRequire(['./cassius/load-css'],function(load){
+				moduleRequire(['./core/load-css'],function(load){
 					checkForParser(load.insertCss(cachedCss));
 				});
 				if(xCss){

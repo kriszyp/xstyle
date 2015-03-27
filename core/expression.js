@@ -113,9 +113,8 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Variable'], 
 				forward = getOperatingFunction(forward);
 				reverseA = reverseA && getOperatingFunction(reverseA);
 				reverseB = reverseB && getOperatingFunction(reverseB);
-				operators[operator] = operatorReactive = new Variable();
 				forward.reverse = reverse;
-				operatorReactive.put(forward);
+				operators[operator] = operatorReactive = new Variable(forward);
 
 				addFlags(operatorReactive);
 				return operatorReactive.apply(instance, args);

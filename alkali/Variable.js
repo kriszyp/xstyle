@@ -5,35 +5,6 @@ define(['xstyle/core/utils', 'xstyle/core/lang'],
 	var WeakMap = lang.WeakMap;
 
 	var nextId = 1;
-	function contextualizeElement(variable, object, key){
-		if(object && object.forElement){
-			return {
-				forElement: function(element){
-					element = object.selectElement ? object.selectElement(element) : element;
-					// TODO: use weakmap
-					var cacheProperty = ['_cache_' + variable.id];
-					if(cacheProperty in element){
-						var cacheObserver = element[cacheProperty + 'observe'];
-						if(cacheObserver.addKey){
-							cacheObserver.addKey(key);
-						}
-						return element[cacheProperty][key];
-					}
-					var result = element[cacheProperty] = object.forElement(element);
-					var observer = element[cacheProperty + 'observe'] = setupObserve(variable, result, key, {
-						elements: [element]
-					});
-					element.xcleanup = function(destroy){
-						if(destroy){
-							lang.unobserve(result, observer);
-						}
-					};
-					return result[key];
-				}
-			};
-		}
-		// else
-	}
 	function setupObserve(variable, object, key, invalidated){
 		var properties = variable._properties;
 		var observer;
@@ -55,18 +26,131 @@ define(['xstyle/core/utils', 'xstyle/core/lang'],
 		}
 		return observer;
 	}
-	function Variable(computeValue, setValue){
-		if(computeValue){
-			this.computeValue = computeValue;
+	function Variable(value){
+		this.value = value;
+	}
+	Variable.prototype = {
+		valueOf: function(){
+			return this.value;
+		},
+		property: function(key){
+			var properties = this._properties || (this._properties = {});
+			var propertyVariable = properties[key];
+			if(!propertyVariable){
+				// create the property variable
+				propertyVariable = properties[key] = new Property(this, key);
+			}
+			return propertyVariable;
+		},
+		apply: function(instance, args){
+			return new Call(this, args);
+		},
+		init: function(){
+		},
+		cleanup: function(){
+			var handles = this.handles;
+			if(handles){
+				for(var i = 0; i < handles.length; i++){
+					handles[i].remove();
+				}
+			}
+			this.handles = null;
+		},
+		own: function(handle){
+			(this.handles || (this.handles = [])).push(handle);
+		},
+		dependsOn: function(target){
+			this.own(target.dependencyOf(this));
+		},
+
+		invalidate: function(context){
+			// TODO: there might actually be a collection of observers
+			var observer = this.cacheObserve;
+			if(observer){
+				lang.unobserve(this.cache, observer);
+				this.cacheObserve = null;
+			}
+			// clear the cache
+			if(context){
+				// just based on the context
+				var cache = this.getCache(context);
+				delete cache.value;
+			}else{
+				// delete our whole cache if it is an unconstrained invalidation
+				this.cache = {};
+			}
+
+			var i, l, properties = this._properties;
+			for( i in properties){
+				properties[i].invalidate(context);
+			}
+			var dependents = this.dependents || 0;
+			for(i = 0, l = dependents.length; i < l; i++){
+				try{
+					dependents[i].invalidate(context);
+				}catch(e){
+					console.error(e, 'invalidating a variable');
+				}
+			}
+		},
+		dependencyOf: function(dependent){
+			var dependents = this.dependents;
+			if(!dependents){
+				this.init();
+				this.dependents = dependents = [];
+			}
+			var variable = this;
+			dependents.push(dependent);
+			return {
+				remove: function(){
+					for(var i = 0; i < dependents.length; i++){
+						if(dependents[i] === dependent){
+							dependents.splice(i--, 1);
+						}
+					}
+					if(dependents.length === 0){
+						// clear the dependents so it will be reinitialized if it has
+						// dependents again
+						variable.dependents = dependents = false;
+						variable.cleanup();
+					}
+				}
+			};
+		},
+		put: function(value, context){
+			this.setValue(value);
+			this.invalidate(context);
+		},
+		setValue: function(value){
+			this.value = value;
+		},
+		observe: function(listener, context){
+			// shorthand for setting up a real invalidation scheme
+			if(this.getValue){
+				listener(this.valueOf(context));
+			}
+			var variable = this;
+			return this.dependencyOf({
+				invalidate: function(){
+					listener(variable.valueOf());
+				}
+			});
+		},
+		newElement: function(){
+			return utils.when(this.valueOf(), function(value){
+				return value && value.newElement && value.newElement();
+			});
+		}
+	};
+
+	var Caching = Variable.Caching = utils.compose(Variable, function(getValue, setValue){
+		if(getValue){
+			this.getValue = getValue;
 		}
 		if(setValue){
 			this.setValue = setValue;
 		}
-	}
-	Variable.prototype = {
-		// TODO: make ids have a little better names
-		id: 'x-variable-' + nextId++,
-		cache: noCacheEntry,
+	}, {
 		getCache: function(context){
 			var cache = this.cache || (this.cache = new WeakMap());
 			while(cache.getNextKey){
@@ -117,95 +201,14 @@ define(['xstyle/core/utils', 'xstyle/core/lang'],
 					return keyValue;
 				}
 			};
-			var computedValue = this.computeValue(watchedContext);
+			var computedValue = this.getValue(watchedContext);
 			cache.value = computedValue;
 			return computedValue;
 		},
-		property: function(key){
-			var properties = this._properties || (this._properties = {});
-			var propertyVariable = properties[key];
-			if(!propertyVariable){
-				// create the property variable
-				propertyVariable = properties[key] = new Property(this, key);
-			}
-			return propertyVariable;
-		},
-		apply: function(instance, args){
-			return new Call(this, args);
-		},
-
-		invalidate: function(context){
-			// TODO: there might actually be a collection of observers
-			var observer = this.cacheObserve;
-			if(observer){
-				lang.unobserve(this.cache, observer);
-				this.cacheObserve = null;
-			}
-			// clear the cache
-			if(context){
-				// just based on the context
-				var cache = this.getCache(context);
-				delete cache.value;
-			}else{
-				// delete our whole cache if it is an unconstrained invalidation
-				this.cache = {};
-			}
-
-			var i, l, properties = this._properties;
-			for( i in properties){
-				properties[i].invalidate(context);
-			}
-			var dependents = this.dependents || 0;
-			for(i = 0, l = dependents.length; i < l; i++){
-				try{
-					dependents[i].invalidate(context);
-				}catch(e){
-					console.error(e, 'invalidating a variable');
-				}
-			}
-		},
-		dependencyOf: function(dependent){
-			var dependents = (this.dependents || (this.dependents = []));
-			dependents.push(dependent);
-			return {
-				remove: function(){
-					for(var i = 0; i < dependents.length; i++){
-						if(dependents[i] === dependent){
-							dependents.splice(i--, 1);
-						}
-					}
-				}
-			};
-		},
-		put: function(value, context){
-			this.setValue(value);
-			this.invalidate(context);
-		},
-		setValue: function(value){
-			this.value = value;
-		},
-		computeValue: function(){
+		getValue: function(){
 			return this.value;
-		},
-		observe: function(listener, context){
-			// shorthand for setting up a real invalidation scheme
-			if(this.computeValue){
-				listener(this.valueOf(context));
-			}
-			var variable = this;
-			return this.dependencyOf({
-				invalidate: function(){
-					listener(variable.valueOf());
-				}
-			});
-		},
-		newElement: function(){
-			return utils.when(this.valueOf(), function(value){
-				return value && value.newElement && value.newElement();
-			});
 		}
-	};
-
+	});
 
 	var Property = utils.compose(Variable, function Property(parent, key){
 		this.parent = parent;
@@ -213,9 +216,9 @@ define(['xstyle/core/utils', 'xstyle/core/lang'],
 	},
 	{
 		init: function(){
-			this.parent.dependencyOf(this);
+			this.dependsOn(this.parent);
 		},
-		computeValue: function(context){
+		getValue: function(context){
 			var key = this.key;
 			var parent = this.parent;
 			return utils.when(parent.valueOf(context), function(object){
@@ -240,21 +243,23 @@ define(['xstyle/core/utils', 'xstyle/core/lang'],
 	});
 
 	// a call variable is the result of a call
-	var Call = utils.compose(function Call(functionVariable, args){
+	var Call = utils.compose(Caching, function Call(functionVariable, args){
 		this.functionVariable = functionVariable;
 		this.args = args;
 	}, {
 		init: function(){
 			// depend on the function itself
-			this.functionVariable.dependencyOf(this);
+			this.dependsOn(this.functionVariable);
 			// depend on the args
 			var args = this.args;
 			for(var i = 0, l = args.length; i < l; i++){
 				var arg = args[i];
-				arg.dependencyOf && arg.dependencyOf(this);
+				if(arg.dependencyOf){
+					this.dependsOn(arg);
+				}
 			}
 		},
-		computeValue: function(context){
+		getValue: function(context){
 			var call = this;
 			return utils.when(this.functionVariable.valueOf(context), function(functionValue){
 				return call.invoke(functionValue, call.args, context);

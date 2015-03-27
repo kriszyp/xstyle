@@ -9,6 +9,7 @@ define('xstyle/core/base', [
 	'xstyle/core/lang'
 ], function(elemental, expression, Variable, Context, utils, put, Rule, lang){
 	// this module defines the base variables intrisincally available in xstyle stylesheets
+	var CachingVariable = Variable.Caching;
 	var testDiv = put('div');
 	var ua = navigator.userAgent;
 	var vendorPrefix = ua.indexOf('WebKit') > -1 ? '-webkit-' :
@@ -21,7 +22,7 @@ define('xstyle/core/base', [
 	root.root = true;
 	function elementProperty(property, rule, options){
 		// variable bound to an element's property
-		var variable = new Variable(function(context){
+		var variable = new CachingVariable(function(context){
 			if(options.content){
 				var value = getVariableProperty(property).valueOf(context);
 				if (value) {
@@ -154,10 +155,9 @@ define('xstyle/core/base', [
 	function getVariableProperty(name){
 		var variableProperty = variableProperties[name];
 		if(!variableProperty){
-			variableProperty = variableProperties[name] = new Variable(function(context){
+			variableProperty = variableProperties[name] = new CachingVariable(function(context){
 				return getVariablePropertyValue(context.get('rule'), name);
-			});
-			variableProperty.put = function(value, context, name){
+			}, function(value, context, name){
 				// assignment to a var
 				var rule = context.get('rule');
 				(rule.variableProperties || (rule.variableProperties = {}))[name] = value;
@@ -172,8 +172,8 @@ define('xstyle/core/base', [
 					addDerivatives(rule);
 					rule = rule.parent;
 				}
-				variableProperty.invalidate({rules: affectedRules});
-			};
+				
+			});
 		}
 		return variableProperty;
 	}
@@ -235,7 +235,7 @@ define('xstyle/core/base', [
 				}
 			}
 		}),
-		element: lang.copy(new Variable(function(context){
+		element: lang.copy(new CachingVariable(function(context){
 			return context.get('element');
 		}), {
 			// variable to reference the actual element
@@ -351,8 +351,11 @@ define('xstyle/core/base', [
 				});
 			}
 		},
-		title: new Variable(null, {
-			put: function(value){
+		title: lang.copy(new Variable(), {
+			valueOf: function(){
+				return document.title;
+			},
+			setValue: function(value){
 				document.title = value;
 			}
 		}),

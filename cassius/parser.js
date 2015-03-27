@@ -1,4 +1,4 @@
-define('xstyle/core/parser', [], function(){
+define([], function(){
 	// regular expressions used to parse CSS
 	var singleQuoteScan = /((?:\\.|[^'])*)'/g;
 	var doubleQuoteScan = /((?:\\.|[^"])*)"/g;
