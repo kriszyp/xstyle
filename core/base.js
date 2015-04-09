@@ -1,14 +1,16 @@
 define('xstyle/core/base', [
 	'xstyle/core/elemental',
+	'xstyle/alkali/dom',
+	'xstyle/alkali/observe',
 	'xstyle/core/expression',
-	'xstyle/core/Variable',
+	'xstyle/alkali/Variable',
 	'xstyle/core/Context',
 	'xstyle/core/utils',
 	'put-selector/put',
 	'xstyle/core/Rule',
-	'xstyle/core/lang'
-], function(elemental, expression, Variable, Context, utils, put, Rule, lang){
-	// this module defines the base variables intrisincally available in xstyle stylesheets
+	'xstyle/alkali/lang'
+], function(elemental, dom, observe, expression, Variable, Context, utils, put, Rule, lang){
+	// this module defines the base definitions intrisincally available in xstyle stylesheets
 	var CachingVariable = Variable.Caching;
 	var testDiv = put('div');
 	var ua = navigator.userAgent;
@@ -178,7 +180,7 @@ define('xstyle/core/base', [
 		return variableProperty;
 	}
 	// the root has it's own intrinsic variableProperties that provide important base and bootstrapping functionality 
-	root.variables = {
+	root.definitions = {
 		// useful globals to import
 		Math: Math,
 		window: window,
@@ -196,6 +198,7 @@ define('xstyle/core/base', [
 				valueOf: function(){
 					return new lang.Promise(function(resolve){
 						require([mid], function(module){
+							observe(module);
 							resolve(module);
 						});						
 					});
@@ -330,7 +333,7 @@ define('xstyle/core/base', [
 			put: function(value, context, name){
 				// add listener
 				var rule = context.get('rule');
-				elemental.on(document, name.charAt(2).toLowerCase() + name.slice(3), rule,
+				dom.on(document, name.charAt(2).toLowerCase() + name.slice(3), rule,
 						function(event){
 					root.event.put(event);
 					// execute the event listener by calling valueOf

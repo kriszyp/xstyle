@@ -1,6 +1,6 @@
 define("xstyle/main", [
 		"require",
-		"xstyle/core/parser",
+		"xstyle/cassius/parser",
 		"xstyle/core/base",
 		"xstyle/core/elemental",
 		"xstyle/core/generate"], // eventually we might split generate.js, to just load the actual string parsing segment
@@ -38,7 +38,7 @@ define("xstyle/main", [
 		}
 		function checkForInlinedExtensions(sheet){
 			var cssRules = sheet.cssRules;
-			for(var i = 0; i < cssRules.length; i++){								
+			for(var i = 0; i < cssRules.length; i++){
 				var rule = cssRules[i];
 				if(rule.selectorText && rule.selectorText.substring(0,2) == "x-"){
 					// an extension is used, needs to be parsed

@@ -1,4 +1,4 @@
-define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Variable'], function(utils, Variable){
+define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/alkali/Variable'], function(utils, Variable){
 	// handles the creation of reactive expressions
 	function get(target, path){
 		var name = path[0];
@@ -10,8 +10,8 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Variable'], 
 	}
 	var convertCssNameToJs = utils.convertCssNameToJs;
 	var someHasProperty = utils.someHasProperty;
-	function selfResolving(func){
-		func.selfResolving = true;
+	function handlesReferences(func){
+		func.handlesReferences = true;
 		return func;
 	}
 
@@ -215,7 +215,7 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Variable'], 
 				var propertyParts = part.split(/\s*\.\s*/);
 				var firstReference = propertyParts[0];
 				if(firstReference){
-					var target = rule.getVariable(firstReference);
+					var target = rule.getDefinition(firstReference);
 					if(typeof target == 'string' || target instanceof Array){
 						target = evaluateExpression(rule, target);
 					}else if(target === undefined){
@@ -259,6 +259,6 @@ define('xstyle/core/expression', ['xstyle/core/utils', 'xstyle/core/Variable'], 
 	return {
 		react: react,
 		evaluate: evaluateExpression,
-		selfResolving: selfResolving
+		handlesReferences: handlesReferences
 	};
 });

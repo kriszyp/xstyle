@@ -1,27 +1,14 @@
 define('xstyle/core/generate', [
 	'xstyle/core/elemental',
-	'xstyle/core/Context',
+	'xstyle/alkali/binding',
 	'put-selector/put',
+	'xstyle/alkali/lang',
 	'xstyle/core/utils',
 	'xstyle/core/expression',
 	'xstyle/core/base'
-], function(elemental, Context, put, utils, expressionModule, root){
+], function(elemental, binding, put, lang, utils, expressionModule, root){
 	// this module is responsible for generating elements with xstyle's element generation
 	// syntax and handling data bindings
-	// selection of default children for given elements
-	var childTagForParent = {
-		TABLE: 'tr td',
-		TBODY: 'tr td',
-		TR: 'td',
-		UL: 'li',
-		OL: 'li',
-		SELECT: 'option'
-	};
-	var inputs = {
-		INPUT: 1,
-		TEXTAREA: 1,
-		SELECT: 1
-	};
 	var doc = document;
 	var nextId = 1;
 	function forSelector(generatingSelector, rule){
@@ -74,9 +61,17 @@ define('xstyle/core/generate', [
 						if(part.args && !part.generator){
 							if(part.operator == '('){ // a call (or at least parans), for now we are assuming it is a binding
 								var nextPart = generatingSelector[i+1];
-								bind(part, nextPart, lastElement, function(element, nextPart, expressionResult){
-									renderContents(element, nextPart, expressionResult, rule);
-								});
+								if(nextPart && nextPart.eachProperty){
+									// apply the class for the next part so we can reference it properly
+									put(lastElement, bindingSelector = nextPart.selector);
+									bindingRule = nextPart;
+								}else{
+									put(lastElement, bindingSelector = part.selector ||
+										(part.selector = '.-xbind-' + nextId++));
+									bindingRule = part;
+								}
+								nextPart.binding = nextPart.binding || new RuleIteraterableBinding(nextPart).to(nextPart.getArgs()[0]);
+								nextPart.binding.render(lastElement);
 							}else{// brackets, set an attribute
 								var attribute = part.args[0];
 								if(typeof attribute === 'string'){
@@ -92,9 +87,9 @@ define('xstyle/core/generate', [
 									var value = attribute[1];
 									if(value.operator == '('){
 										// a call/binding
-										bind(attribute[1], name, lastElement, function(element, name, expressionResult){
-											renderAttribute(element, name, expressionResult, rule);
-										});
+										var attributeBindingName = name + 'AttributeBinding';
+										nextPart[attributeBindingName] = nextPart[attributeBindingName] || new binding.RuleAttributeBinding(nextPart, name).to(nextPart.getArgs()[0]);
+										nextPart[attributeBindingName].render(lastElement);
 									}else{
 										// a string literal
 										lastElement.setAttribute(name, value.value);
@@ -181,7 +176,7 @@ define('xstyle/core/generate', [
 										nextElement = (function(nextElement, beforeElement, value, tagName){
 											var newElement, placeHolder;
 											// this may be executed async, we need to be ready with a place holder
-											utils.when(target && target.newElement && target.newElement(), function(targetNewElement){
+											lang.when(target && target.newElement && target.newElement(), function(targetNewElement){
 												newElement = targetNewElement;
 												if(newElement){
 													// apply the rest of the selector
@@ -262,168 +257,66 @@ define('xstyle/core/generate', [
 
 	}
 
-	function bind(part, nextPart, lastElement, render){
-		var bindingSelector, bindingRule;
-		if(nextPart && nextPart.eachProperty){
-			// apply the class for the next part so we can reference it properly
-			put(lastElement, bindingSelector = nextPart.selector);
-			bindingRule = nextPart;
-		}else{
-			put(lastElement, bindingSelector = part.selector ||
-				(part.selector = '.-xbind-' + nextId++));
-			bindingRule = part;
-		}
-		var expression = part.getArgs()[0];
-		var expressionResult = part.expressionResult;
-		var expressionDefinition = part.expressionDefinition;
-		// make sure we only do this only once
-
-		if(!expressionDefinition){
-			expressionDefinition = part.expressionDefinition =
-				expressionModule.evaluate(part.parent, expression);
-			expressionResult = expressionDefinition.valueOf();
-			elemental.addInputConnector(bindingRule, expressionDefinition);
-			(function(nextPart, bindingSelector, expressionDefinition){
-				part.expressionResult = expressionResult;
-				// setup an invalidation object, to rerender when data changes
-				// TODO: fix this
-				expressionDefinition.dependencyOf && expressionDefinition.dependencyOf({
-					invalidate: function(invalidated){
-						// TODO: should we use elemental's renderer?
-						// TODO: do we need to closure the scope of any of these variables
-						// TODO: might consider queueing or calling Object.deliverChangeRecords() or
-						// polyfill equivalent here, to ensure all changes are delivered before 
-						// rendering again
-						var elementsToRerender;
-						if(invalidated){
-							if(elemental.matchesRule(invalidated.elements[0], bindingRule)){
-								elementsToRerender = invalidated.elements;
-							}else{
-								elementsToRerender = invalidated.elements[0].querySelectorAll(bindingSelector);
-							}
-						}else{
-							elementsToRerender = document.querySelectorAll(bindingSelector);
-						}
-						for(var i = 0, l = elementsToRerender.length;i < l; i++){
-							render(elementsToRerender[i], nextPart, 
-								expressionDefinition.valueOf());
-						}
-					}
-				});
-			})(nextPart, bindingSelector, expressionDefinition);
-		}
-		render(lastElement, nextPart, expressionResult);
-	}
-
-	function renderAttribute(element, name, expressionResult, rule){
-		utils.when(expressionResult.valueOf(new Context(rule, element)), function(value){
-			element.setAttribute(name, value);
-		});
-	}
-
-	function renderContents(element, nextPart, expressionResult, rule){
-		if(!element._generatedChildren &&
-				expressionResult && expressionResult.then && element.tagName !== 'INPUT'){
-			try{
-				element.appendChild(doc.createTextNode('Loading'));
-			}catch(e){
-				// IE can fail on appending text for some elements,
-				// TODO: we might want to only try/catch for IE, for performance
-			}
-		}
-		utils.when(expressionResult.valueOf(new Context(rule, element)), function(value){
-			if(element._generatedChildren){
-				element.content = value;
-				root.definitions.content.invalidate({elements: [element]});
+	// RuleVariable with array handling
+	var RuleIteraterableBinding = lang.compose(binding.RuleBinding, function(){
+	},{
+		renderArray: function(value, element){
+			if(value.isSequence){
+				forSelector(value, rule)(element);
 			}else{
-				cleanup(element);
-				if(element.childNodes.length){
-					// clear out any existing content
-					element.innerHTML = '';
-				}
-				if(value && value.sort){
-					if(value.isSequence){
-						forSelector(value, rule)(element);
-					}else{
-						// if it is an array, we do iterative rendering
-						var eachHandler = nextPart && nextPart.definitions &&
-							nextPart.definitions.each;
-						// we create a rule for the item elements
-						var eachRule = rule.newRule();
-						// if 'each' is defined, we will use it render each item 
-						if(eachHandler){
-							eachHandler = forSelector(eachHandler, eachRule);
-						}else{
-							eachHandler = function(element, value, beforeElement){
-								// if there no each handler, we use the default
-								// tag name for the parent 
-								return put(beforeElement || element, (beforeElement ? '-' : '') +
-									(childTagForParent[element.tagName] || 'span'), '' + value);
-							};
-						}
-						var rows = [];
-						var handle;
-						if(value.track){
-							value = value.track();
-							// TODO: cleanup routine
-							handle = value.tracking;
-						}
-						value.forEach(function(value){
-							// TODO: do this inside generate
-							rows.push(eachHandler(element, value, null));
-						});
-						if(value.on){
-							var onHandle = value.on('add,delete,update', function(event){
-								var object = event.target;
-								var previousIndex = event.previousIndex;
-								var newIndex = event.index;
-								if(previousIndex > -1){
-									var oldElement = rows[previousIndex];
-									cleanup(oldElement, true);
-									oldElement.parentNode.removeChild(oldElement);
-									rows.splice(previousIndex, 1);
-								}
-								if(newIndex > -1){
-									rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
-								}
-							});
-						}
-						handle = handle || onHandle;
-						if(handle){
-							element.xcleanup = function(){
-								handle.remove();
-							};
-						}
-					}
-				}else if(value && value.nodeType){
-					element.appendChild(value);
+				// if it is an array, we do iterative rendering
+				var eachHandler = nextPart && nextPart.definitions &&
+					nextPart.definitions.each;
+				// we create a rule for the item elements
+				var eachRule = rule.newRule();
+				// if 'each' is defined, we will use it render each item 
+				if(eachHandler){
+					eachHandler = forSelector(eachHandler, eachRule);
 				}else{
-					value = value === undefined ? '' : value;
-					if(element.tagName in inputs){
-						// set the text
-						if(element.type === 'checkbox'){
-							element.checked = value;
-						}else{
-							element.value = value;
+					eachHandler = function(element, value, beforeElement){
+						// if there no each handler, we use the default
+						// tag name for the parent 
+						return put(beforeElement || element, (beforeElement ? '-' : '') +
+							(childTagForParent[element.tagName] || 'span'), '' + value);
+					};
+				}
+				var rows = [];
+				var handle;
+				if(value.track){
+					value = value.track();
+					// TODO: cleanup routine
+					handle = value.tracking;
+				}
+				value.forEach(function(value){
+					// TODO: do this inside generate
+					rows.push(eachHandler(element, value, null));
+				});
+				if(value.on){
+					var onHandle = value.on('add,delete,update', function(event){
+						var object = event.target;
+						var previousIndex = event.previousIndex;
+						var newIndex = event.index;
+						if(previousIndex > -1){
+							var oldElement = rows[previousIndex];
+							cleanup(oldElement, true);
+							oldElement.parentNode.removeChild(oldElement);
+							rows.splice(previousIndex, 1);
 						}
-					}else{
-						// render plain text
-						element.appendChild(doc.createTextNode(value));							
-					}
+						if(newIndex > -1){
+							rows.splice(newIndex, 0, eachHandler(element, object, rows[newIndex] || null));
+						}
+					});
+				}
+				handle = handle || onHandle;
+				if(handle){
+					element.xcleanup = function(){
+						handle.remove();
+					};
 				}
 			}
-		});
-	}
-	function cleanup(element, destroy){
-		if(element.xcleanup){
-			element.xcleanup(destroy);
 		}
-		var descendants = element.getElementsByTagName('*');
-		for(var i = 0, l = descendants.length; i < l; i++){
-			var descendant = descendants[i];
-			descendant.xcleanup && descendant.xcleanup(true);
-		}
-	}
+	});
+
 	function generate(parentElement, selector){
 		return forSelector(selector, root)(parentElement);
 	}

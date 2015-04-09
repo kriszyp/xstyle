@@ -1,10 +1,11 @@
 define('xstyle/core/Rule', [
 	'xstyle/core/expression',
-	'xstyle/core/Variable',
+	'xstyle/alkali/Variable',
+	'xstyle/alkali/Context',
 	'put-selector/put',
-	'xstyle/core/lang',
+	'xstyle/alkali/lang',
 	'xstyle/core/utils'
-], function(expression, Definition, put, lang, utils){
+], function(expression, Variable, Context, put, lang, utils){
 
 	// define the Rule class, our abstraction of a CSS rule		
 	var create = Object.create || function(base){
@@ -131,9 +132,9 @@ define('xstyle/core/Rule', [
 				elemental.addRenderer(rule, rendererForSelector);
 			});
 		},
-		declareVariable: function(name, value, conditional){
+		createDefinition: function(name, value, conditional){
 			name = name && convertCssNameToJs(name);
-			// called by the parser when a variable assignment is encountered
+			// called by the parser when a variable definition is encountered
 			// this creates a new definition in the current rule
 			if(this.disabled){
 				return;
@@ -147,7 +148,7 @@ define('xstyle/core/Rule', [
 					}
 				}else{
 					// add it to the definitions for this rule
-					var propertyExists = name in testStyle || this.getVariable(name);
+					var propertyExists = name in testStyle || this.getDefinition(name);
 					if(!conditional || !propertyExists){
 						var definitions = (this.definitions || (this.definitions = {}));
 						var first = value[0];
@@ -216,7 +217,7 @@ define('xstyle/core/Rule', [
 				var rule = this;
 				do{
 					// check for the handler
-					var target = (scopeRule || this).getVariable(name);
+					var target = (scopeRule || this).getDefinition(name);
 					if(target !== undefined){
 						if(this.cssRule && !(target && target.keepCSSValue)){
 							// delete the property if it one that the browser actually uses
@@ -225,7 +226,7 @@ define('xstyle/core/Rule', [
 								setStyle(thisStyle, jsName, '');
 							}
 						}
-						contextualizeResultForRule(rule, target.put(value, rule, jsName));
+						target.put(value, new Context(rule), jsName);
 					}
 					// we progressively go through parent property names. For example if the 
 					// property name is foo-bar-baz, it first checks for foo-bar-baz, then 
@@ -258,9 +259,15 @@ define('xstyle/core/Rule', [
 				var rule = this;
 				var expression = value.expression = evaluateText(value, this, propertyName, true);
 				if(expression){
-					var result = value.expression && value.expression.valueOf();
-
 					var applyToRule = function(rule, invalidated){
+						var context = new Context(rule);
+						context.get = function(name, select){
+							if(name === 'element'){
+								context.elementNeeded = true;
+							}
+							return Context.prototype.get.apply(this, arguments);
+						};
+						var result = value.expression && value.expression.valueOf();
 						var value = result && result.forRule ? result.forRule(rule, true) : result;
 						if(value && value.forElement){
 							var elements = invalidated && invalidated.elements;
@@ -454,7 +461,7 @@ define('xstyle/core/Rule', [
 				derivative.defineGenerator(generator);
 			}
 		},
-		getVariable: function(name, extraScope){
+		getDefinition: function(name, extraScope){
 			name = convertCssNameToJs(name);
 			// lookup a definition by name, which used for handling properties and other things
 			var parentRule = this;
@@ -530,7 +537,7 @@ define('xstyle/core/Rule', [
 		this.args = [];
 	}
 	var CallPrototype = Call.prototype = new Rule();
-	CallPrototype.declareVariable = CallPrototype.setValue = function(name, value){
+	CallPrototype.createDefinition = CallPrototype.setValue = function(name, value){
 		// handle these both as addition of arguments
 		this.args.push(value);
 	};

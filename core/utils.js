@@ -14,47 +14,6 @@ define('xstyle/core/utils', [], function(){
 		return letter.toUpperCase();
 	}
 	return {
-		when: function(value, callback, errorHandler){
-			return value && value.then ?
-				(value.then(callback, errorHandler) || value) : callback(value);
-		},
-		whenAll: function(inputs, callback){
-			if(someHasProperty(inputs, 'then')){
-				// we have asynch inputs, do lazy loading
-				return {
-					then: function(onResolve, onError){
-						var remaining = 1;
-						var readyInputs = [];
-						for(var i = 0; i < inputs.length; i++){
-							var input = inputs[i];
-							remaining++;
-							if(input && input.then){
-								(function(i){
-									input.then(function(value){
-										readyInputs[i] = value;
-										onEach();
-									}, onError);
-								})(i);
-							}else{
-								readyInputs[i] = input;
-								onEach();
-							}
-						}
-						onEach();
-						function onEach(){
-							remaining--;
-							if(!remaining){
-								onResolve(callback(readyInputs));
-							}
-						}
-					},
-					inputs: inputs
-				};
-			}
-			// just sync inputs
-			return callback(inputs);
-
-		},
 		convertCssNameToJs: function(name){
 			return name.replace(/-(\w)/g, upperLetter);
 		},
@@ -74,13 +33,6 @@ define('xstyle/core/utils', [], function(){
 				supported = (element.tagName == tag.toUpperCase());
 			}
 			return (supportedTags[tag] = supported);
-		},
-		compose: function(Base, constructor, properties){
-			var prototype = constructor.prototype = new Base();
-			for(var i in properties){
-				prototype[i] = properties[i];
-			}
-			return constructor;
 		},
 		extend: function(target, base){
 			// takes the target and applies to the base, resolving the base
