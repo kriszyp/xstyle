@@ -13,7 +13,7 @@ define(["require"], function(moduleRequire){
 		var docElement = document.documentElement;
 		var testDiv = docElement.insertBefore(document.createElement(tag), docElement.firstChild);
 		testDiv.id = id;
-		var styleValue = (testDiv.currentStyle || getComputedStyle(testDiv, null))[property];
+		var styleValue = (testDiv.currentStyle || getComputedStyle(testDiv, null) || {})[property];
 		docElement.removeChild(testDiv);
  		return styleValue;
  	} 
