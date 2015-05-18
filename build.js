@@ -43,7 +43,7 @@ if(typeof define == 'undefined'){
 	define = pseudoDefine;
 	require('./core/parser');
 }else{
-	define(['build/fs', './build/base64'], function(fsModule, base64){
+	define(['build/fs', 'build/fileUtils', './build/base64'], function(fsModule, fileUtils, base64){
 		fs = fsModule;
 		base64Module = base64;
 		// must create our own path module for Rhino :/
@@ -76,9 +76,7 @@ if(typeof define == 'undefined'){
 				return parts.join('/');
 			},
 			join: function(base, target){
-				return ((base[base.length - 1]  == '/' ? base : (base + '/'))+ target)
-						.replace(/\/[^\/]*\/\.\./g, '')
-						.replace(/\/\./g,'');
+				return fileUtils.compactPath((base[base.length - 1] == '/' ? base : (base + '/')) + target);
 			}
 		};
 		return function(xstyleText){
