@@ -256,6 +256,9 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 		// compute the relative path from where we are to the base path where the stylesheet will go
 		var relativePath = pathModule.relative(basePath, path);
 		return cssText.replace(/url\s*\(\s*['"]?([^'"\)]*)['"]?\s*\)/g, function(t, url){
+			if(url.match(/^data:/)){
+				return url;
+			}
 			if(inlineAllResources || /#inline$/.test(url)){
 				// we can inline the resource
 				suffix = url.match(/\.(\w+)(#|\?|$)/);
