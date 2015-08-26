@@ -138,7 +138,7 @@ define(['dojo/json', 'build/fs', 'build/fileUtils', 'build/transforms/writeAmd',
 				var text = module.originalCss || module.getText ? module.getText() : module.text;
 				if(text===undefined){
 					// the module likely did not go through the read transform; therefore, just read it manually
-					text= fs.readFileSync(this.module.src, "utf8");
+					text= fs.readFileSync(module.src, "utf8");
 				}
 				try{
 					var processed = xstyleProcess(text, bc.currentTargetStylesheetUrl || module.src, module.src, inlineAllResource);
