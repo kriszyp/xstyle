@@ -49,12 +49,7 @@ if(typeof define == 'undefined'){
 		// must create our own path module for Rhino :/
 		pathModule = {
 			resolve: function(base, target){
-				target = (base.replace(/[^\/]+$/, '') + target);
-				var newTarget = target.replace(/\/[^\/]*\/\.\./g, '');
-				while(target !== (newTarget = target.replace(/\/[^\/]*\/\.\./g, ''))){
-					target = newTarget;
-				}
-				return target.replace(/\/\.\//g,'/');
+				return fileUtils.compactPath(base.replace(/[^\/]+$/, '') + target);
 			},
 			dirname: function(path){
 				return path.replace(/[\/\\][^\/\\]*$/, '');
