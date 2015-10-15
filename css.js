@@ -36,9 +36,15 @@ define(["require"], function(moduleRequire){
 					var xCss =cachedCss.xCss;
 					cachedCss = cachedCss.cssText;
 				}
-				moduleRequire(['./core/load-css'],function(load){
-					checkForParser(load.insertCss(cachedCss));
-				});
+				// cachedCss might be {}, indicating this CSS was part of a built stylesheet. Assume the built
+				// stylesheet is already loaded, so no need to inject this CSS again.
+				if (typeof cachedCss == 'string') {
+					moduleRequire(['./core/load-css'],function(load){
+						checkForParser(load.insertCss(cachedCss));
+					});
+				} else {
+					checkForParser();
+				}
 				if(xCss){
 					//require([parsed], callback);
 				}
