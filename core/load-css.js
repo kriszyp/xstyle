@@ -16,7 +16,7 @@ define([], function(){
 			styleSheet = doc.createElement("style");
 			styleSheet.setAttribute("type", "text/css");
 			styleSheet.appendChild(doc.createTextNode(css));
-			head.insertBefore(styleSheet, head.firstChild);
+			head.appendChild(styleSheet);
 			return styleSheet;
 		}
 		else{
