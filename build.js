@@ -124,7 +124,8 @@ var mimeTypes = {
 	gif: "image/gif",
 	jpg: "image/jpeg",
 	jpeg: "image/jpeg",
-	png: "image/png"	
+	png: "image/png",
+	svg:"image/svg+xml"
 }
 function processCss(cssText, basePath, cssPath, inlineAllResources){
 	function XRule(){
