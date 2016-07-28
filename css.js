@@ -29,7 +29,7 @@ define(["require"], function(moduleRequire){
 				url = url.slice(0, -1);
 			}
 			var cachedCss = require.cache && require.cache['url:' + url];
-			if(cachedCss){
+			if(cachedCss != null){
 				// we have CSS cached inline in the build
 				if(cachedCss.xCss){
 					var parser = cachedCss.parser;
