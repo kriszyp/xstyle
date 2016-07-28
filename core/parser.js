@@ -406,7 +406,7 @@ define('xstyle/core/parser', [], function(){
 								// call handler
 								// immediately call this, since it isn't a part of a property
 								try{
-									var result = stack[stack.length - 2].onArguments(target);
+									var result = stack[stack.length - 2].onArguments && stack[stack.length - 2].onArguments(target);
 								}catch(e){
 									error(e);
 								}
