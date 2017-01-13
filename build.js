@@ -255,6 +255,9 @@ function processCss(cssText, basePath, cssPath, inlineAllResources){
 			if(url.match(/^data:/)){
 				return url;
 			}
+			if(/^#/.test(url)){ //do not replace urls which have only fragment (e.g. VML behavior property: "behavior: url(#default#VML);"")
+				return url;
+			}
 			if(inlineAllResources || /#inline$/.test(url)){
 				// we can inline the resource
 				suffix = url.match(/\.(\w+)(#|\?|$)/);
