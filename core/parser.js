@@ -205,7 +205,7 @@ define('xstyle/core/parser', [], function(){
 								if(assignmentOperator == ':' && assignment){
 									first += assignment;
 								}
-								selector = trim((selector + first).replace(/\s+/g, ' '));
+								selector = trim((selector + (whitespace || '') + first).replace(/\s+/g, ' '));
 								// check to see if it is a correlator rule, from the build process
 								// add this new rule to the current parent rule
 								addInSequence(newTarget = target.newRule(selector));
